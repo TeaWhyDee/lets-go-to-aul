@@ -18,7 +18,7 @@ parlist ::= namelist [`,´ `...´] | `...´
 
 function ::= function funcbody
 // funcbody ::= `(´ [parlist] `)´ block end
-funcbody ::= `(´ [varlist] `)´ block end
+funcbody ::= `(´ [varlist] `)´ `->` Type block end
 funcname ::= Name {`.´ Name} [`:´ Name]
 functioncall ::=  prefixexp args | prefixexp `:´ Name args 
 args ::=  `(´ [explist] `)´ | tableconstructor | String 
