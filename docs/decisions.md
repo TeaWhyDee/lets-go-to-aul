@@ -23,7 +23,10 @@ b = int(from_stdin())
 if a > b
   c = 1
 else
-  c = "1"
+  c = "1" -- err: cannot assign `str` to `int`
 
-c -- type: num | str
+if a > b
+  local c = 1
+else
+  local c = '1' -- everything is OK
 ```
