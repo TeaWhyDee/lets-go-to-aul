@@ -5,11 +5,8 @@ x = 5 -- type: num
 y = "abcd" -- type: str
 z = x + y -- Error: cannot find `__add(a: num, b: str)`
 
-
 x = 5
 x = "abcd" -- Error: cannot assign `str` to `int`
-
-
 ```
 
 ```lua
