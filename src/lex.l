@@ -3,28 +3,46 @@
 #include <string>
 int enter_dblquotes = 0;
 std::string str;
+std::string str_init = std::string();
+int str_bracketlen = 0;
 #define NEW_STR str = std::string();
 #define ADD_STR str += yytext;
-void yyerror (char const *s) {
-   /* fprintf (stderr, "%s\n", s); */
-   printf("%s\n", s);
-}
+#define PROCESS_QUOTE if (yytext == str_init){std::cout << "STRING_LITERAL[" << str << "] "; BEGIN(INITIAL);}\
+                            else {str += yytext;}
+#define PROCESS_BRACKETS if (std::string(yytext).length() == str_bracketlen) {\
+                            std::cout << "STRING_LITERAL[" << str << "] "; BEGIN(INITIAL);}\
+                            else { str += yytext; }
+
+void yyerror (char const *s) { fprintf (stderr, "%s\n", s); }
 %}
 
-%x SINGLE_STRING
+%x STRING
+%x STRING_NOESCAPE
 
 %%
 [ \t]+
-\"                          { NEW_STR; BEGIN(SINGLE_STRING); }
-<SINGLE_STRING>{
-  \\\n              {str += "\n";}
+[\"\']              { NEW_STR; str_init=yytext; BEGIN(STRING); }
+<STRING>{
+  "\\\n"            {str += "\n";}
+  "\\n"             {str += "\n";}
+  "\\\""            {str += '"';}
+  "\\'"             {str += "'";}
   /* escape other characters */
   \n                yyerror("the string misses \" to termiate before newline");
   <<EOF>>           yyerror("the string misses \" to terminate before EOF");
-  ([^\\\"\n]|\\.)*  {ADD_STR;}
-  \"                {std::cout << "STRING_LITERAL[" << str << "] "; BEGIN(INITIAL);}
-  .                 ;
+  [\"\']            PROCESS_QUOTE
+  ([^\\\""\n])*     {ADD_STR}
+  .                 {ADD_STR};
 }
+
+\[=*\[              { NEW_STR; str_bracketlen = std::string(yytext).length(); BEGIN(STRING_NOESCAPE); }
+<STRING_NOESCAPE>{
+  "\n"              {str += "\n";}
+  \]=*\]            PROCESS_BRACKETS
+  ([^\n\]\[=])*     {ADD_STR}
+  .                 {ADD_STR}
+}
+
 [0-9]+[.]?[0-9]*   {printf("NUMBER_LITERAL ");}
 [+]          {printf("OP_PLUS ");}
 [-]          {printf("OP_MINUS ");}
