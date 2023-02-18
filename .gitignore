@@ -2,3 +2,7 @@
 flex/lex.yy.c
 flex/a.out
 *.out
+src/lex.cpp
+src/lex.yy.c
+src/parser.cpp
+src/parser.hpp
