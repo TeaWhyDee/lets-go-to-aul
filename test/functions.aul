@@ -1,0 +1,11 @@
+function f1 (n: num, s: str): str
+
+function f3 (n1: num, s: str): str
+    n1: num = 5
+end
+
+function f2 ( tup: table[num, str] )
+    return { 1: "returned" }
+    table: table[num, str]
+    table[1] = "string"
+end
