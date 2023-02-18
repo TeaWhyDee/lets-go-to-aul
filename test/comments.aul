@@ -1,0 +1,21 @@
+code -- line comment (already implemented)
+
+--[[
+    im comment
+--  still comment ]]
+
+--[==[
+    im comment
+    --]]
+]==] code
+     code
+-- ]]
+
+code
+
+--[[
+    im comment
+]]
+
+--[[
+code

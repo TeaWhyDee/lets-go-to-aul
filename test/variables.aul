@@ -1,0 +1,19 @@
+string: str = "hi"
+d: str = a + s
+a: num = 5
+b: num = 10
+c: num = a + b
+
+i1: num = 10
+i1: num = a + b
+i3: num = a + b
+i3: num = i1 + b
+
+-- Error
+d: str = a + s
+
+n4 = 55
+
+n2: num = 105
+n2: num = 10.05
+n2: num = 10.5
