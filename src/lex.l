@@ -39,7 +39,6 @@ void yyerror (char const *s) { fprintf (stderr, "%s\n", s); }
   "\\t"             {str += "\t";}
   "\\v"             {str += "\v";}
   \\[0-9]{1,3}      STR_NUM_ESCAPE
-  /* escape num sequences */
   \n                yyerror("the string misses \" to termiate before newline");
   <<EOF>>           yyerror("the string misses \" to terminate before EOF");
   [\"\']            PROCESS_QUOTE
@@ -80,34 +79,33 @@ void yyerror (char const *s) { fprintf (stderr, "%s\n", s); }
 [:]          {printf("OP_COLON ");}
 [,]          {printf("OP_COMMA ");}
 [.]          {printf("OP_DOT ");}
-[a-zA-z][a-zA-z0-9_]*\(\)  {printf("FUNCTION_CALL ");}
-num        {printf("KW_NUM ");}
-str        {printf("KW_STR ");}
-table      {printf("KW_TABLE ");}
-nil        {printf("KW_NIL ");}
-and        {printf("KW_AND ");}
-break      {printf("KW_BREAK ");}
-do         {printf("KW_DO ");}
-else       {printf("KW_ELSE ");}
-elseif     {printf("KW_ELSEIF ");}
-end        {printf("KW_END ");}
-false      {printf("KW_FALSE ");}
-for        {printf("KW_FOR ");}
-function   {printf("KW_FUNCTION ");}
-if         {printf("KW_IF ");}
-in         {printf("KW_IN ");}
-local      {printf("KW_LOCAL ");}
-not        {printf("KW_NOT ");}
-or         {printf("KW_OR ");}
-repeat     {printf("KW_REPEAT ");}
-return     {printf("KW_RETURN ");}
-then       {printf("KW_THEN ");}
-true       {printf("KW_TRUE ");}
-until      {printf("KW_UNTIL ");}
-while      {printf("KW_WHILE ");}
+num          {printf("KW_NUM ");}
+str          {printf("KW_STR ");}
+table        {printf("KW_TABLE ");}
+nil          {printf("KW_NIL ");}
+and          {printf("KW_AND ");}
+break        {printf("KW_BREAK ");}
+do           {printf("KW_DO ");}
+else         {printf("KW_ELSE ");}
+elseif       {printf("KW_ELSEIF ");}
+end          {printf("KW_END ");}
+false        {printf("KW_FALSE ");}
+for          {printf("KW_FOR ");}
+function     {printf("KW_FUNCTION ");}
+if           {printf("KW_IF ");}
+in           {printf("KW_IN ");}
+local        {printf("KW_LOCAL ");}
+not          {printf("KW_NOT ");}
+or           {printf("KW_OR ");}
+repeat       {printf("KW_REPEAT ");}
+return       {printf("KW_RETURN ");}
+then         {printf("KW_THEN ");}
+true         {printf("KW_TRUE ");}
+until        {printf("KW_UNTIL ");}
+while        {printf("KW_WHILE ");}
 [a-zA-Z0-9_]*  {printf("ID[%s] ", yytext);}
---.+       {printf("COMMENT");}
-.          {printf(yytext);}
+--.+         {printf("COMMENT");}
+.            {printf(yytext);}
 %%
   
 int yywrap(){}
