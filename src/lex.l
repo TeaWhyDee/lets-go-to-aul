@@ -69,6 +69,7 @@ void yyerror (char const *s) { fprintf (stderr, "ERROR: %s\n", s); }
 }
 
 [0-9]+[.]?[0-9]*   {printf("NUMBER_LITERAL ");}
+[-][>]       {printf("-> ");}
 [+]          {printf("+ ");}
 [-]          {printf("- ");}
 [*]          {printf("* ");}
