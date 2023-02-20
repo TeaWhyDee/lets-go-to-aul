@@ -1,6 +1,6 @@
-function f1 (n: num, s: str): str
+function f1 (n: num, s: str) -> str
 
-function f3 (n1: num, s: str): str
+function f3 (n1: num, s: str) -> str
     n1: num = 5
 end
 
