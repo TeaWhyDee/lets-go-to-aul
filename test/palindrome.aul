@@ -1,4 +1,4 @@
-function is_palindrome(word: str): bool 
+function is_palindrome(word: str) -> bool 
     if #word <= 1 then
         return true
     elseif word:sub(1,1) == word:sub(-1,-1) then
