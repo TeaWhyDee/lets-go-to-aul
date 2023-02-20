@@ -1,0 +1,12 @@
+function is_palindrome(word: str): bool 
+    if #word <= 1 then
+        return true
+    elseif word:sub(1,1) == word:sub(-1,-1) then
+        return is_palindrome(word:sub(2,-2))
+    else
+        return false
+    end
+end
+
+print(is_palindrome("salas"))    -- prints "true"
+print(is_palindrome("salasqa"))  -- prints "false"

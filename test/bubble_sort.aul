@@ -1,0 +1,17 @@
+function bubble_sort(list: table[num, num])
+    local length = #list
+    for i=1, length, 1 do
+        for j=1, length-i, 1 do
+           if list[j] > list[j+1] then
+                list[j], list[j+1] = list[j+1], list[j] 
+            end
+        end
+    end
+end
+
+list = {5, 10, 4, 99, 34, 5, 8}
+bubble_sort(list)
+for i=1, #list, 1 do
+   io.write(list[i])
+   io.write(" ")
+end -- printed 4 5 5 8 10 34 99 
