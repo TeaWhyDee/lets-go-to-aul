@@ -1,0 +1,49 @@
+-- comment
+
+--[[
+    multiline
+    comment
+--]]
+
+-- Valid variables: ("if" would be invalid)
+If: num = 123 -- comment at the end of a string
+local a1: num = 234
+a2: str = "1234"
+a3 = "12345"
+a4 = a2
+
+if 1==2 and 2~=3 or 4<=5 then
+  var3 = 123
+end
+
+str = 'text\''
+str = "text\'"
+str = [[
+i am a string
+]]
+str = [=====[
+me too ]]
+]=====]
+
+-- numbers (wait for how statics work?)
+num = 3
+num = 3.0
+num = 3.1416
+num = 314.16e-2
+num = 0.31416E1
+num = 0xff
+num = 0X56
+num = 0b01
+num = 0B101
+
+c = a + b
+
+
+function a()
+    local a: num = 1
+    local b: str = "1"
+end
+
+b = function()
+    local c = nil
+end
