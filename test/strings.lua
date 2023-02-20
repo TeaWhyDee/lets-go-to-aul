@@ -2,7 +2,9 @@
 string = "newline:\
 another newline:\ntab:\tbackslash:\\"
 
-string2 = "opening curly: \123"
+print(string)
+
+string2 = "opening curly: \123"; other = "sd"
 
 -- These all are same string
 a = 'alo\n123"'
@@ -13,3 +15,14 @@ a = [[alo
 a = [==[
 alo
 123"]==]
+
+-- no escape sequences in this one
+b = [[
+\ me when \n
+]]
+
+if (a>5) then
+  print()
+end
+
+print(b)

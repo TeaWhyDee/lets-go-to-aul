@@ -1,15 +1,22 @@
-ID COMMENT
+ID[code] COMMENT
 
+COMMENT
+ID[im] ID[comment] 
 COMMENT
 
 COMMENT
-
-COMMENT ID
-ID
+ID[im] ID[comment] 
+COMMENT
+ID[code] 
+ID[code] 
 COMMENT
 
-ID
+ID[code] 
 
 COMMENT
+ID[im] ID[comment] 
 
-ERROR
+
+COMMENT
+ID[code] 
+ 

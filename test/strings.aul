@@ -13,3 +13,5 @@ also multiline
 [=[still string ]]]=]
 
 [====["string [ ] = [==[ ]===]"]====]
+
+"\b\b\b\b\b \f \r \t \v \\ \097\0\1015"
