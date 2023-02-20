@@ -16,10 +16,16 @@ int str_bracketlen = 0;
             std::cout << "STRING_LITERAL[" << str << "] "; BEGIN(INITIAL);}\
             else { str += yytext; }
 
-void yyerror (char const *s) { fprintf (stderr, "%s\n", s); }
+int comment_bracklen = 0;
+#define NEW_COMMENT { comment_bracklen = std::string(yytext).length() - 2; }
+#define PROCESS_COMMENT_BRACKETS if (std::string(yytext).length() == comment_bracklen) {\
+            std::cout << "COMMENT "; BEGIN(INITIAL);}
+
+void yyerror (char const *s) { fprintf (stderr, "ERROR: %s\n", s); }
 %}
 
 %x STRING
+%x COMMENT
 %x STRING_NOESCAPE
 
 %%
@@ -52,6 +58,14 @@ void yyerror (char const *s) { fprintf (stderr, "%s\n", s); }
   \]=*\]            PROCESS_BRACKETS
   ([^\n\]\[=])*     {ADD_STR}
   .                 {ADD_STR}
+}
+
+\-\-\[=*\[     { NEW_COMMENT; BEGIN(COMMENT); }
+<COMMENT>{
+    <<EOF>>        { yyerror("the comment doesn't close"); BEGIN(INITIAL); }
+    \]=*\]         PROCESS_COMMENT_BRACKETS
+    ([^\]])*       {ADD_STR}
+    .              {ADD_STR}
 }
 
 [0-9]+[.]?[0-9]*   {printf("NUMBER_LITERAL ");}
