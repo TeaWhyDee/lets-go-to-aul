@@ -22,6 +22,15 @@ int comment_bracklen = 0;
             std::cout << "COMMENT "; BEGIN(INITIAL);}
 
 void yyerror (char const *s) { fprintf (stderr, "ERROR: %s\n", s); }
+
+struct span {
+    unsigned int lineno;
+    unsigned int pos;
+};
+
+struct declaration {
+    struct span *sp;
+};
 %}
 
 %x STRING
@@ -68,13 +77,15 @@ void yyerror (char const *s) { fprintf (stderr, "ERROR: %s\n", s); }
     .              {ADD_STR}
 }
 
-[0-9]+[.]?[0-9]*   {printf("NUMBER_LITERAL ");}
+0(x|X)[0-9a-fA-f]+ {printf("HEX_LITERAL[%s] ", yytext);}
+0(b|B)[0-1]+ {printf("BIN_LITERAL[%s] ", yytext);}
+[0-9]+[.]?[0-9]*   {printf("NUMBER_LITERAL[%s] ", yytext);}
 [-][>]       {printf("-> ");}
 [+]          {printf("+ ");}
 [-]          {printf("- ");}
 [*]          {printf("* ");}
 [/]          {printf("/ ");}
-[\%]         {printf("% ");}
+[\%]         {printf("%% ");}
 [#]          {printf("# ");}
 [=][=]       {printf("== ");}
 [~][=]       {printf("~= ");}
@@ -103,6 +114,7 @@ break        {printf("KW_BREAK ");}
 do           {printf("KW_DO ");}
 else         {printf("KW_ELSE ");}
 elseif       {printf("KW_ELSEIF ");}
+bool         {printf("KW_BOOL");}
 end          {printf("KW_END ");}
 false        {printf("KW_FALSE ");}
 for          {printf("KW_FOR ");}
@@ -120,13 +132,11 @@ until        {printf("KW_UNTIL ");}
 while        {printf("KW_WHILE ");}
 [a-zA-Z0-9_]*  {printf("ID[%s] ", yytext);}
 --.+         {printf("COMMENT");}
-.            {printf(yytext);}
+.            {printf("%s", yytext);}
 %%
   
-int yywrap(){}
+int yywrap(){return 1;}
 int main(){
     yylex();
-    printf(" ");
-    
     return 0;
 }

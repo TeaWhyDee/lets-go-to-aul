@@ -4,7 +4,7 @@ clean:
 	$(RM) -rf lex.cpp lex.hpp parser
 
 test: flex
-	cat ../test/*.aul | ./parser
+	cat ../test/syntax.lua | ./parser
 
 
 flex: lex.cpp
