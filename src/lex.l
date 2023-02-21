@@ -10,16 +10,25 @@ int str_bracketlen = 0;
 #define STR_NUM_ESCAPE {std::string s = std::string(yytext); s.erase(0, 1); \
             int n = stoi(s); if (n > 255){yyerror("decimal escape too large");}\
             else {char c = stoi(s); str += c;} }
-#define PROCESS_QUOTE if (yytext == str_init){std::cout << "STRING_LITERAL[" << str << "] "; BEGIN(INITIAL);}\
+#define PROCESS_QUOTE if (yytext == str_init){std::cout << C_YELLOW << "STRING_LITERAL[" << str << "] " << C_NONE; BEGIN(INITIAL);}\
             else {str += yytext;}
 #define PROCESS_BRACKETS if (std::string(yytext).length() == str_bracketlen) {\
-            std::cout << "STRING_LITERAL[" << str << "] "; BEGIN(INITIAL);}\
+            std::cout << C_YELLOW << "STRING_LITERAL[" << str << "] " << C_NONE; BEGIN(INITIAL);}\
             else { str += yytext; }
 
 int comment_bracklen = 0;
 #define NEW_COMMENT { comment_bracklen = std::string(yytext).length() - 2; }
 #define PROCESS_COMMENT_BRACKETS if (std::string(yytext).length() == comment_bracklen) {\
-            std::cout << "COMMENT "; BEGIN(INITIAL);}
+            std::cout << C_GREY << "COMMENT " << C_NONE; BEGIN(INITIAL);}
+
+#define C_MAGENTA "\033[38;2;255;36;100m"
+#define C_NONE "\033[0m"
+#define C_PURPLE "\033[38;2;190;139;249m"
+#define C_YELLOW "\033[38;2;236;212;108m"
+#define C_GREEN "\033[38;2;150;204;68m"
+#define C_CYAN "\033[38;2;58;220;238m"
+#define C_ORANGE "\033[38;2;255;146;51m"
+#define C_GREY "\033[38;2;150;150;150m"
 
 void yyerror (char const *s) { fprintf (stderr, "ERROR: %s\n", s); }
 
@@ -79,59 +88,59 @@ struct declaration {
 
 0(x|X)[0-9a-fA-f]+ {printf("HEX_LITERAL[%s] ", yytext);}
 0(b|B)[0-1]+ {printf("BIN_LITERAL[%s] ", yytext);}
-[0-9]+[.]?[0-9]*   {printf("NUMBER_LITERAL[%s] ", yytext);}
-[-][>]       {printf("-> ");}
-[+]          {printf("+ ");}
-[-]          {printf("- ");}
-[*]          {printf("* ");}
-[/]          {printf("/ ");}
-[\%]         {printf("%% ");}
-[#]          {printf("# ");}
-[=][=]       {printf("== ");}
-[~][=]       {printf("~= ");}
-[~]          {printf("~ ");}
-[<][=]       {printf("<= ");}
-[>][=]       {printf(">= ");}
-[<]          {printf("< ");}
-[>]          {printf("> ");}
-[=]          {printf("= ");}
+[0-9]+[.]?[0-9]*   {printf("\033[38;2;190;139;249mNUMBER_LITERAL[%s]\033[0m ", yytext);}
+[-][>]       {printf("%s%s%s", C_MAGENTA, "-> ", C_NONE);}
+[+]          {printf("%s%s%s", C_MAGENTA, "+ ", C_NONE);}
+[-]          {printf("%s%s%s", C_MAGENTA, "- ", C_NONE);}
+[*]          {printf("%s%s%s", C_MAGENTA, "* ", C_NONE);}
+[/]          {printf("%s%s%s", C_MAGENTA, "/ ", C_NONE);}
+[\%]         {printf("%s%s%s", C_MAGENTA, "%% ", C_NONE);}
+[#]          {printf("%s%s%s", C_MAGENTA, "# ", C_NONE);}
+[=][=]       {printf("%s%s%s", C_MAGENTA, "== ", C_NONE);}
+[~][=]       {printf("%s%s%s", C_MAGENTA, "~= ", C_NONE);}
+[~]          {printf("%s%s%s", C_MAGENTA, "~ ", C_NONE);}
+[<][=]       {printf("%s%s%s", C_MAGENTA, "<= ", C_NONE);}
+[>][=]       {printf("%s%s%s", C_MAGENTA, ">= ", C_NONE);}
+[<]          {printf("%s%s%s", C_MAGENTA, "< ", C_NONE);}
+[>]          {printf("%s%s%s", C_MAGENTA, "> ", C_NONE);}
+[=]          {printf("%s%s%s", C_MAGENTA, "= ", C_NONE);}
 \(           {printf("( ");}
 \)           {printf(") ");}
 [{]          {printf("{ ");}
 [}]          {printf("} ");}
 \[           {printf("[ ");}
 \]           {printf("] ");}
-[;]          {printf("OP_SEMICOLON ");}
-[:]          {printf("OP_COLON ");}
-[,]          {printf("OP_COMMA ");}
-[.]          {printf("OP_DOT ");}
-num          {printf("KW_NUM ");}
-str          {printf("KW_STR ");}
-table        {printf("KW_TABLE ");}
-nil          {printf("KW_NIL ");}
+[;]          {printf("; ");}
+[:]          {printf(": ");}
+[,]          {printf(", ");}
+[.]          {printf(". ");}
+num          {printf("%s%s%s", C_ORANGE, "KW_NUM ", C_NONE);}
+str          {printf("%s%s%s", C_ORANGE, "KW_STR ", C_NONE);}
+table        {printf("%s%s%s", C_ORANGE, "KW_TABLE ", C_NONE);}
+nil          {printf("%s%s%s", C_ORANGE, "KW_NIL ", C_NONE);}
 and          {printf("KW_AND ");}
 break        {printf("KW_BREAK ");}
 do           {printf("KW_DO ");}
 else         {printf("KW_ELSE ");}
 elseif       {printf("KW_ELSEIF ");}
 bool         {printf("KW_BOOL");}
-end          {printf("KW_END ");}
-false        {printf("KW_FALSE ");}
+end          {printf("%s%s%s", C_MAGENTA, "KW_END ", C_NONE);}
+false        {printf("%s%s%s", C_PURPLE, "KW_FALSE ", C_NONE);}
 for          {printf("KW_FOR ");}
-function     {printf("KW_FUNCTION ");}
+function     {printf("%s%s%s", C_CYAN, "KW_FUNCTION ", C_NONE);}
 if           {printf("KW_IF ");}
 in           {printf("KW_IN ");}
 local        {printf("KW_LOCAL ");}
 not          {printf("KW_NOT ");}
 or           {printf("KW_OR ");}
 repeat       {printf("KW_REPEAT ");}
-return       {printf("KW_RETURN ");}
-then         {printf("KW_THEN ");}
-true         {printf("KW_TRUE ");}
+return       {printf("%s%s%s", C_MAGENTA, "KW_RETURN ", C_NONE);}
+then         {printf("%s%s%s", C_MAGENTA, "KW_THEN ", C_NONE);}
+true         {printf("%s%s%s", C_PURPLE, "KW_TRUE ", C_NONE);}
 until        {printf("KW_UNTIL ");}
 while        {printf("KW_WHILE ");}
-[a-zA-Z0-9_]*  {printf("ID[%s] ", yytext);}
---.+         {printf("COMMENT");}
+[a-zA-Z0-9_]*  {printf("%s%s%s%s%s", C_GREEN, "ID[", yytext, "] ", C_NONE);}
+--.+         {printf("%s%s%s", C_GREY, "COMMENT", C_NONE);}
 .            {printf("%s", yytext);}
 %%
   
