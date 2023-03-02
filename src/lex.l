@@ -139,9 +139,9 @@ then         {printf("%s%s%s", C_MAGENTA, "KW_THEN ", C_NONE);}
 true         {printf("%s%s%s", C_PURPLE, "KW_TRUE ", C_NONE);}
 until        {printf("KW_UNTIL ");}
 while        {printf("KW_WHILE ");}
-[a-zA-Z0-9_]*  {printf("%s%s%s%s%s", C_GREEN, "ID[", yytext, "] ", C_NONE);}
+[a-zA-Z_][a-zA-Z0-9_]*  {printf("%s%s%s%s%s", C_GREEN, "ID[", yytext, "] ", C_NONE);}
 --.+         {printf("%s%s%s", C_GREY, "COMMENT", C_NONE);}
-.            {printf("%s", yytext);}
+.            {printf("%s", "UNKNOWN_TOKEN");}
 %%
   
 int yywrap(){return 1;}

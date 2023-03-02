@@ -11,3 +11,5 @@ function f2(tup: table[num, str])
     tab: table[num, str]
     tab[1] = "string"
 end
+
+true
