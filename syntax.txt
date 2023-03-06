@@ -1,0 +1,74 @@
+chunk ::= block
+
+block ::= {stat} [retstat]
+
+// removed goto
+stat ::=  ‘;’ | 
+        varlist ‘=’ explist | 
+        functioncall | 
+        break | 
+        do block end | 
+        while exp do block end | 
+        repeat block until exp | 
+        if exp then block {elseif exp then block} [else block] end | 
+        for Name ‘=’ exp ‘,’ exp [‘,’ exp] do block end | 
+        for namelist in explist do block end | 
+        function funcname funcbody | 
+        struct Name structbody | 
+
+retstat ::= return [explist] [‘;’]
+
+// removed labels (no goto)
+
+funcname ::= Name {‘.’ Name} [‘:’ Name]
+
+varlist ::= var {‘,’ var}
+
+var ::= const Name | Name | const Name ':' Type | Name ':' Type
+        prefixexp ‘[’ exp ‘]’ | prefixexp ‘.’ Name 
+
+namelist ::= Name {‘,’ Name}
+
+explist ::= exp {‘,’ exp}
+
+exp ::=  nil | false | true | Numeral | LiteralString | functiondef | 
+        prefixexp | tableconstructor | exp binop exp | unop exp 
+
+prefixexp ::= var | functioncall | ‘(’ exp ‘)’
+
+functioncall ::=  prefixexp args | prefixexp ‘:’ Name args 
+
+args ::=  ‘(’ [explist] ‘)’ | tableconstructor | LiteralString 
+
+functiondef ::= function funcbody
+
+funcbody ::= ‘(’ [parlist] ‘)’ `->` Type block end
+
+Type ::= num | str | Table | function | 
+
+Table ::= TODO
+
+structbody ::= def
+
+def ::=  ‘;’ | 
+        varlist ‘=’ explist | 
+        function funcname funcbody | 
+
+// removed ...
+parlist ::= namelist
+
+tableconstructor ::= ‘{’ [fieldlist] ‘}’
+
+fieldlist ::= field {fieldsep field} [fieldsep]
+
+field ::= ‘[’ exp ‘]’ ‘=’ exp | Name ‘=’ exp | exp
+
+fieldsep ::= ‘,’ | ‘;’
+
+// removed bitwise ops
+binop ::=  ‘+’ | ‘-’ | ‘*’ | ‘/’ | ‘//’ | ‘^’ | ‘%’ | ‘..’ | 
+        ‘<’ | ‘<=’ | ‘>’ | ‘>=’ | ‘==’ | ‘~=’ | 
+        and | or
+
+// removed tilde again
+unop ::= ‘-’ | not | ‘#’
