@@ -10,10 +10,10 @@ int str_bracketlen = 0;
 #define STR_NUM_ESCAPE {std::string s = std::string(yytext); s.erase(0, 1); \
             int n = stoi(s); if (n > 255){yyerror("decimal escape too large");}\
             else {char c = stoi(s); str += c;} }
-#define PROCESS_QUOTE if (yytext == str_init){std::cout << "STRING_LITERAL[" << str << "] "; BEGIN(INITIAL);}\
+#define PROCESS_QUOTE if (yytext == str_init){std::cout << "L_STRING" << str << "] "; BEGIN(INITIAL);}\
             else {str += yytext;}
 #define PROCESS_BRACKETS if (std::string(yytext).length() == str_bracketlen) {\
-            std::cout << "STRING_LITERAL[" << str << "] "; BEGIN(INITIAL);}\
+            std::cout << "L_STIRNG[" << str << "] "; BEGIN(INITIAL);}\
             else { str += yytext; }
 
 int comment_bracklen = 0;
@@ -68,17 +68,17 @@ void yyerror (char const *s) { fprintf (stderr, "ERROR: %s\n", s); }
     .              {ADD_STR}
 }
 
-[0-9]+[.]?[0-9]*   {printf("NUMBER_LITERAL ");}
-[-][>]         {printf("OP_ARROW ");}
+[0-9]+[.]?[0-9]*   {printf("L_NUM ");}
+[-][>]       {printf("OP_ARROW ");}
 [+]          {printf("OP_PLUS ");}
 [-]          {printf("OP_MINUS ");}
 [*]          {printf("OP_STAR ");}
+[/][/]       {printf("OP_SLASHSLASH ");}
 [/]          {printf("OP_SLASH ");}
 [\%]         {printf("OP_PERCENT ");}
 [#]          {printf("OP_HASH ");}
 [=][=]       {printf("OP_EQUALEQUAL ");}
 [~][=]       {printf("OP_NOTEQUAL ");}
-[~]          {printf("OP_TILDE ");}
 [<][=]       {printf("OP_LESSTHAN ");}
 [>][=]       {printf("OP_LARGERTHAN ");}
 [<]          {printf("OP_LESS ");}
@@ -93,7 +93,10 @@ void yyerror (char const *s) { fprintf (stderr, "ERROR: %s\n", s); }
 [;]          {printf("OP_SEMICOLON ");}
 [:]          {printf("OP_COLON ");}
 [,]          {printf("OP_COMMA ");}
+[.][.]       {printf("OP_DOTDOT ");}
 [.]          {printf("OP_DOT ");}
+struct       {printf("KW_STRUCT ");}
+const        {printf("KW_CONST ");}
 num          {printf("KW_NUM ");}
 str          {printf("KW_STR ");}
 table        {printf("KW_TABLE ");}
