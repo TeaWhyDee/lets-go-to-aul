@@ -46,7 +46,7 @@ funcbody ::= ‘(’ [parlist] ‘)’ `->` Type block end
 
 Type ::= num | str | Table | function | Name
 
-Table ::= TODO
+Table ::= table `[` Type `,` Type `]`
 
 structbody ::= def
 
