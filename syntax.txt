@@ -44,7 +44,7 @@ functiondef ::= function funcbody
 
 funcbody ::= ‘(’ [parlist] ‘)’ `->` Type block end
 
-Type ::= num | str | Table | function | Name
+Type ::= num | str | bool | Table | function | Name
 
 Table ::= table `[` Type `,` Type `]`
 
