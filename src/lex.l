@@ -95,10 +95,11 @@ void yyerror (char const *s) { fprintf (stderr, "ERROR: %s\n", s); }
 [,]          {printf("OP_COMMA ");}
 [.][.]       {printf("OP_DOTDOT ");}
 [.]          {printf("OP_DOT ");}
-struct       {printf("KW_STRUCT ");}
 const        {printf("KW_CONST ");}
+struct       {printf("KW_STRUCT ");}
 num          {printf("KW_NUM ");}
 str          {printf("KW_STR ");}
+bool         {printf("KW_BOOL ");}
 table        {printf("KW_TABLE ");}
 nil          {printf("KW_NIL ");}
 and          {printf("KW_AND ");}
