@@ -3,6 +3,26 @@
 # Aul Specification
 Aul is a modified subset of the Lua 5.4 programming language. It is a statically typed language.
 
+## Summary
+**Removed features:**  
+- Dynamic features of Lua.
+- Table based classes.  
+- Global variables.
+- Operations with nil.
+
+The following features are not necessary for the proof-of-concept version that we are making.
+- Multi-threading
+- Coroutines
+- Goto-labels
+
+**Additions:**
+- Types (Type inference). [#typing](#typing)
+- Structs (struct, static, self keywords).  [#structs](#structs)
+
+**Modifications:**
+- Function return values unpacking. [#functions](#functions)
+
+
 ## Typing
 We take existing Lua types and make them static and
 introduce structs.
@@ -16,10 +36,10 @@ introduce structs.
     pairs of the specified types. They can be used to
     represent lists or arrays.
 - **function** -
-    Functions are represented as variables and can be changed during runtime. [#functions](#functions)  
+    Functions are represented as variables and can be changed during runtime.
 - **struct** -
     Structs replace Lua's table based class implementation.
-    Structs allow the user to create custom types. [#structs](#structs)
+    Structs allow the user to create custom types.
 
 Variables of any type can be specified as constant using the `const` keyword,
 replacing Lua's `<const>` attribute.
@@ -78,10 +98,12 @@ struct S
     end
 end
 ```
-Static methods can be defined using the `static` keyword.
+Static methods and members can be defined using the `static` keyword.
 ```lua
+    static amount_instances = 0
     static function new(x: num) -> S
         self.num = x
+        amount_instances = amount_instances + 1
     end
 ```
 
