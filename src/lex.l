@@ -96,6 +96,8 @@ void yyerror (char const *s) { fprintf (stderr, "ERROR: %s\n", s); }
 [.][.]       {printf("OP_DOTDOT ");}
 [.]          {printf("OP_DOT ");}
 const        {printf("KW_CONST ");}
+self         {printf("KW_SELF ");}
+static       {printf("KW_STATIC ");}
 struct       {printf("KW_STRUCT ");}
 num          {printf("KW_NUM ");}
 str          {printf("KW_STR ");}
