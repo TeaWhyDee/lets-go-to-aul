@@ -13,19 +13,17 @@ stat ::=  ‘;’ |
         if exp then block {elseif exp then block} [else block] end | 
         for Name ‘=’ exp ‘,’ exp [‘,’ exp] do block end | 
         for namelist in explist do block end | 
-        function funcname funcbody | 
+        function Name funcbody | 
         struct Name structbody | 
 
 retstat ::= return [explist] [‘;’]
 
 // removed labels (no goto)
 
-funcname ::= Name {‘.’ Name} [‘:’ Name]
-
 varlist ::= var {‘,’ var}
 
-var ::= const Name | Name | const Name ':' Type | Name ':' Type
-        prefixexp ‘[’ exp ‘]’ | prefixexp ‘.’ Name 
+var ::= const name | name | const name ':' type | name ':' type
+        prefixexp ‘[’ exp ‘]’ | prefixexp ‘.’ name 
 
 namelist ::= Name {‘,’ Name}
 
@@ -42,7 +40,8 @@ args ::=  ‘(’ [explist] ‘)’ | tableconstructor | LiteralString
 
 functiondef ::= function funcbody
 
-funcbody ::= ‘(’ [parlist] ‘)’ `->` Type block end
+funcbody ::= ‘(’ [parlist] ‘)’ `->` Type block end |
+        ‘(’ [parlist] ‘)’ block end
 
 Type ::= num | str | bool | Table | function | Name
 
@@ -51,8 +50,14 @@ Table ::= table `[` Type `,` Type `]`
 structbody ::= def
 
 def ::=  ‘;’ | 
-        varlist ‘=’ explist | 
-        function funcname funcbody | 
+        structvarlist ‘=’ explist | 
+        function Name funcbody | static function Name funcbody | 
+        `new` funcbody
+
+structvarlist ::= structvar {‘,’ structvar}
+
+structvar ::= const Name | Name | const Name ':' type | Name ':' type
+        static const Name | static Name | static const Name ':' type | static Name ':' type
 
 // removed ...
 parlist ::= namelist
