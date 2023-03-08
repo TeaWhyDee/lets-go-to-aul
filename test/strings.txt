@@ -1,0 +1,17 @@
+STRING_LITERAL[im text"']
+
+STRING_LITERAL[im
+text
+multiline] STRING_LITERAL[another string]
+
+STRING_LITERAL[more text"']
+
+STRING_LITERAL[
+literal slash n: \n
+also multiline
+]
+
+STRING_LITERAL[still string ]]]
+
+STRING_LITERAL["string [ ] = [==[ ]===]"]
+
