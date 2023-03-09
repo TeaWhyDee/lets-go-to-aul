@@ -44,15 +44,15 @@
    calling an (NIdentifier*). It makes the compiler happy.
  */
 %type <block> program stmts
-%type <stmt> stmt
+%type <stmt> stmt var_decl
 %type <expr> numeric expr 
+%type <ident> ident
+/* %type <stmt> stmt var_decl func_decl */
 /* %type <token> comparison */
-/* %type <ident> ident */
 /* %type <expr> numeric expr  */
 /* %type <varvec> func_decl_args */
 /* %type <exprvec> call_args */
 /* %type <block> program stmts block */
-/* %type <stmt> stmt var_decl func_decl */
 
 %token <token> OP_ARROW OP_PLUS OP_MINUS OP_STAR OP_SLASHSLASH OP_SLASH
 /* Operator precedence for mathematical operators */
@@ -69,7 +69,8 @@ stmts : stmt { $$ = new NBlock(); $$->statements.push_back($<stmt>1); }
       | stmts stmt { $1->statements.push_back($<stmt>2); }
       ;
 
-stmt : expr { $$ = new NExpressionStatement(*$1); }
+stmt : var_decl
+     | expr { $$ = new NExpressionStatement(*$1); }
      ;
 
 expr : numeric
@@ -77,6 +78,12 @@ expr : numeric
 
 numeric : L_NUM { $$ = new NDouble(atof($1->c_str())); delete $1; }
         ;
+
+var_decl : ident ident OP_EQUAL expr { $$ = new NVariableDeclaration(*$1, *$2, $4); }
+         ;
+
+ident : ID { $$ = new NIdentifier(*$1); delete $1; }
+      ;
 %%
 
 /*

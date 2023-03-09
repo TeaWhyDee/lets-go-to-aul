@@ -13,13 +13,17 @@ std::string str_init = std::string();
 int str_bracketlen = 0;
 #define NEW_STR str = std::string();
 #define ADD_STR str += yytext;
-#define STR_NUM_ESCAPE {std::string s = std::string(yytext); s.erase(0, 1); \
-            int n = stoi(s); if (n > 255){yyerror("decimal escape too large");}\
+#define STR_NUM_ESCAPE SAVE_TOKEN;\
+            {std::string s = std::string(yytext); s.erase(0, 1); \
+                int n = stoi(s); if (n > 255){yyerror("decimal escape too large");}\
             else {char c = stoi(s); str += c;} }
-#define PROCESS_QUOTE if (yytext == str_init){std::cout << "L_STRING" << str << "] "; BEGIN(INITIAL);}\
+#define PROCESS_QUOTE SAVE_TOKEN;\
+            if (yytext == str_init)\
+                {std::cout << "L_STRING" << str << "] "; BEGIN(INITIAL);}\
             else {str += yytext;}
-#define PROCESS_BRACKETS if (std::string(yytext).length() == str_bracketlen) {\
-            std::cout << "L_STIRNG[" << str << "] "; BEGIN(INITIAL);}\
+#define PROCESS_BRACKETS SAVE_TOKEN;\
+            if (std::string(yytext).length() == str_bracketlen) {\
+                std::cout << "L_STIRNG[" << str << "] "; BEGIN(INITIAL);}\
             else { str += yytext; }
 
 int comment_bracklen = 0;
@@ -76,63 +80,63 @@ void yyerror (char const *s);
 }
 
 [0-9]+[.]?[0-9]*   {SAVE_TOKEN; return L_NUM ;}
-[-][>]       {printf("OP_ARROW ");}
-[+]          {printf("OP_PLUS ");}
-[-]          {printf("OP_MINUS ");}
-[*]          {printf("OP_STAR ");}
-[/][/]       {printf("OP_SLASHSLASH ");}
-[/]          {printf("OP_SLASH ");}
-[\%]         {printf("OP_PERCENT ");}
-[#]          {printf("OP_HASH ");}
-[=][=]       {printf("OP_EQUALEQUAL ");}
-[~][=]       {printf("OP_NOTEQUAL ");}
-[<][=]       {printf("OP_LESSTHAN ");}
-[>][=]       {printf("OP_LARGERTHAN ");}
-[<]          {printf("OP_LESS ");}
-[>]          {printf("OP_MORE ");}
-[=]          {printf("OP_EQUAL ");}
-\(           {printf("OP_LBRACE ");}
-\)           {printf("OP_RBRACE ");}
-[{]          {printf("OP_LCURLY_BRACE ");}
-\[           {printf("OP_LSQUARE_BRACE ");}
-\]           {printf("OP_RSQUARE_BRACE ");}
-[}]          {printf("OP_RCURLY_BRACE ");}
-[;]          {printf("OP_SEMICOLON ");}
-[:]          {printf("OP_COLON ");}
-[,]          {printf("OP_COMMA ");}
-[.][.]       {printf("OP_DOTDOT ");}
-[.]          {printf("OP_DOT ");}
-const        {printf("KW_CONST ");}
-self         {printf("KW_SELF ");}
-static       {printf("KW_STATIC ");}
-struct       {printf("KW_STRUCT ");}
-num          {printf("KW_NUM ");}
-str          {printf("KW_STR ");}
-bool         {printf("KW_BOOL ");}
-table        {printf("KW_TABLE ");}
-nil          {printf("KW_NIL ");}
-and          {printf("KW_AND ");}
-break        {printf("KW_BREAK ");}
-do           {printf("KW_DO ");}
-else         {printf("KW_ELSE ");}
-elseif       {printf("KW_ELSEIF ");}
-end          {printf("KW_END ");}
-false        {printf("KW_FALSE ");}
-for          {printf("KW_FOR ");}
-function     {printf("KW_FUNCTION ");}
-if           {printf("KW_IF ");}
-in           {printf("KW_IN ");}
-local        {printf("KW_LOCAL ");}
-not          {printf("KW_NOT ");}
-or           {printf("KW_OR ");}
-repeat       {printf("KW_REPEAT ");}
-return       {printf("KW_RETURN ");}
-then         {printf("KW_THEN ");}
-true         {printf("KW_TRUE ");}
-until        {printf("KW_UNTIL ");}
-while        {printf("KW_WHILE ");}
-[a-zA-Z0-9_]*  {printf("ID[%s] ", yytext);}
---.+         {printf("COMMENT");}
+[-][>]       {return OP_ARROW ;}
+[+]          {return OP_PLUS ;}
+[-]          {return OP_MINUS ;}
+[*]          {return OP_STAR ;}
+[/][/]       {return OP_SLASHSLASH ;}
+[/]          {return OP_SLASH ;}
+[\%]         {return OP_PERCENT ;}
+[#]          {return OP_HASH ;}
+[=][=]       {return OP_EQUALEQUAL ;}
+[~][=]       {return OP_NOTEQUAL ;}
+[<][=]       {return OP_LESSTHAN ;}
+[>][=]       {return OP_LARGERTHAN ;}
+[<]          {return OP_LESS ;}
+[>]          {return OP_MORE ;}
+[=]          {return OP_EQUAL ;}
+\(           {return OP_LBRACE ;}
+\)           {return OP_RBRACE ;}
+[{]          {return OP_LCURLY_BRACE ;}
+\[           {return OP_LSQUARE_BRACE ;}
+\]           {return OP_RSQUARE_BRACE ;}
+[}]          {return OP_RCURLY_BRACE ;}
+[;]          {return OP_SEMICOLON ;}
+[:]          {return OP_COLON ;}
+[,]          {return OP_COMMA ;}
+[.][.]       {return OP_DOTDOT ;}
+[.]          {return OP_DOT ;}
+const        {return KW_CONST ;}
+self         {return KW_SELF ;}
+static       {return KW_STATIC ;}
+struct       {return KW_STRUCT ;}
+num          {return KW_NUM ;}
+str          {return KW_STR ;}
+bool         {return KW_BOOL ;}
+table        {return KW_TABLE ;}
+nil          {return KW_NIL ;}
+and          {return KW_AND ;}
+break        {return KW_BREAK ;}
+do           {return KW_DO ;}
+else         {return KW_ELSE ;}
+elseif       {return KW_ELSEIF ;}
+end          {return KW_END ;}
+false        {return KW_FALSE ;}
+for          {return KW_FOR ;}
+function     {return KW_FUNCTION ;}
+if           {return KW_IF ;}
+in           {return KW_IN ;}
+local        {return KW_LOCAL ;}
+not          {return KW_NOT ;}
+or           {return KW_OR ;}
+repeat       {return KW_REPEAT ;}
+return       {return KW_RETURN ;}
+then         {return KW_THEN ;}
+true         {return KW_TRUE ;}
+until        {return KW_UNTIL ;}
+while        {return KW_WHILE ;}
+[a-zA-Z0-9_]*  {SAVE_TOKEN; return ID;}
+--.+         {return COMMENT;}
 .            {printf(yytext);}
 %%
   
