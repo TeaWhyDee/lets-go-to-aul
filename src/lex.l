@@ -1,4 +1,10 @@
 %{
+#include "node.h"
+#include "parser.hpp"
+#define SAVE_TOKEN yylval.string = new std::string(yytext, yyleng)
+#define TOKEN(t) (yylval.token = t)
+extern "C" int yywrap() { }
+
 #include <iostream>
 #include <string>
 int enter_dblquotes = 0;
@@ -21,7 +27,8 @@ int comment_bracklen = 0;
 #define PROCESS_COMMENT_BRACKETS if (std::string(yytext).length() == comment_bracklen) {\
             std::cout << "COMMENT "; BEGIN(INITIAL);}
 
-void yyerror (char const *s) { fprintf (stderr, "ERROR: %s\n", s); }
+/* void yyerror (char const *s) { fprintf (stderr, "ERROR: %s\n", s); } */
+void yyerror (char const *s);
 %}
 
 %x STRING
@@ -68,7 +75,7 @@ void yyerror (char const *s) { fprintf (stderr, "ERROR: %s\n", s); }
     .              {ADD_STR}
 }
 
-[0-9]+[.]?[0-9]*   {printf("L_NUM ");}
+[0-9]+[.]?[0-9]*   {SAVE_TOKEN; return L_NUM ;}
 [-][>]       {printf("OP_ARROW ");}
 [+]          {printf("OP_PLUS ");}
 [-]          {printf("OP_MINUS ");}
@@ -129,10 +136,10 @@ while        {printf("KW_WHILE ");}
 .            {printf(yytext);}
 %%
   
-int yywrap(){}
-int main(){
-    yylex();
-    printf(" ");
-    
-    return 0;
-}
+/* int yywrap(){} */
+/* int main(){ */
+/*     yylex(); */
+/*     printf(" "); */
+/*      */
+/*     return 0; */
+/* } */

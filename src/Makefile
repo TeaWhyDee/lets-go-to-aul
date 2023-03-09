@@ -1,4 +1,7 @@
-all: flex
+all: lex.cpp bison parser
+
+parser:
+	g++ -o bison parser.cpp lex.cpp main.cpp
 
 clean:
 	$(RM) -rf lex.cpp lex.hpp parser
@@ -6,6 +9,8 @@ clean:
 test: flex
 	cat ../test/*.aul | ./parser
 
+bison:
+	bison -d -o parser.cpp parser.y;
 
 flex: lex.cpp
 	g++ $^ -o parser
