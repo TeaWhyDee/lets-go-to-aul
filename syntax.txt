@@ -14,7 +14,7 @@ stat ::=  ‘;’ |
         for Name ‘=’ exp ‘,’ exp [‘,’ exp] do block end | 
         for namelist in explist do block end | 
         function Name funcbody | 
-        struct Name structbody | 
+        struct Name structbody 
 
 retstat ::= return [explist] [‘;’]
 
@@ -22,8 +22,8 @@ retstat ::= return [explist] [‘;’]
 
 varlist ::= var {‘,’ var}
 
-var ::= const name | name | const name ':' type | name ':' type
-        prefixexp ‘[’ exp ‘]’ | prefixexp ‘.’ name 
+var ::= const Name | Name | const Name ':' type | Name ':' type
+        prefixexp ‘[’ exp ‘]’ | prefixexp ‘.’ Name 
 
 namelist ::= Name {‘,’ Name}
 
@@ -34,9 +34,7 @@ exp ::=  nil | false | true | Numeral | LiteralString | functiondef |
 
 prefixexp ::= var | functioncall | ‘(’ exp ‘)’
 
-functioncall ::=  prefixexp args | prefixexp ‘:’ Name args 
-
-args ::=  ‘(’ [explist] ‘)’ | tableconstructor | LiteralString 
+functioncall ::=  prefixexp ‘(’ [explist] ‘)’ 
 
 functiondef ::= function funcbody
 
