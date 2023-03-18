@@ -45,7 +45,9 @@ parlist ::= par {, par}
 
 par = Name : Type
 
-Type ::= num | str | bool | Table | function | Name
+Type ::= num | str | bool | Table | Name | Function
+
+Function ::= function ‘[’ '[' {typelist} ‘]’, {typelist} ‘]’
 
 typelist = Type {, Type}
 
