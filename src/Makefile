@@ -1,7 +1,7 @@
-all: lex.cpp bison parser
+all: clean lex.cpp bison parser
 
 parser:
-	g++ -o bison parser.cpp lex.cpp main.cpp
+	g++ -o parser parser.cpp lex.cpp main.cpp
 
 clean:
 	$(RM) -rf lex.cpp lex.hpp parser

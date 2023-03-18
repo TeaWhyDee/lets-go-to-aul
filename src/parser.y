@@ -1,10 +1,11 @@
 %{
     #include "node.h"
+    #define YYERROR_VERBOSE 1
     NBlock *programBlock; /* the top level root node of our final AST */
 
     extern int yylex();
-    void yyerror(const char *s) { printf("ERROR: %sn", s); }
-    /* void yyerror(const char *s); */
+    extern int yylineno;
+    void yyerror(const char *s) { printf("%s\n", s); }
 %}
 
 /* Represents the many different ways we can access our data */
@@ -79,7 +80,7 @@ expr : numeric
 numeric : L_NUM { $$ = new NDouble(atof($1->c_str())); delete $1; }
         ;
 
-var_decl : ident ident OP_EQUAL expr { $$ = new NVariableDeclaration(*$1, *$2, $4); }
+var_decl : ident OP_EQUAL expr { $$ = new NVariableDeclaration(*$1, *$3); }
          ;
 
 ident : ID { $$ = new NIdentifier(*$1); delete $1; }

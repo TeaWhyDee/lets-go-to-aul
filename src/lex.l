@@ -34,6 +34,7 @@ int comment_bracklen = 0;
 /* void yyerror (char const *s) { fprintf (stderr, "ERROR: %s\n", s); } */
 void yyerror (char const *s);
 %}
+%option yylineno
 
 %x STRING
 %x COMMENT
@@ -97,10 +98,6 @@ void yyerror (char const *s);
 [=]          {return OP_EQUAL ;}
 \(           {return OP_LBRACE ;}
 \)           {return OP_RBRACE ;}
-[{]          {return OP_LCURLY_BRACE ;}
-\[           {return OP_LSQUARE_BRACE ;}
-\]           {return OP_RSQUARE_BRACE ;}
-[}]          {return OP_RCURLY_BRACE ;}
 [;]          {return OP_SEMICOLON ;}
 [:]          {return OP_COLON ;}
 [,]          {return OP_COMMA ;}
