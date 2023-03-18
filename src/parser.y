@@ -14,11 +14,10 @@
     NBlock *block;
     NExpression *expr;
     NStatement *stmt;
+    std::vector<NStatement*> *statlist;
+    std::vector<NExpression*> *exprlist;
     NIdentifier *ident;
     std::vector<NIdentifier*> *varlist;
-    NVariableDeclaration *var_decl;
-    std::vector<NVariableDeclaration*> *varvec;
-    std::vector<NExpression*> *explist;
     std::string *string;
     int token;
 }
@@ -71,21 +70,26 @@ stmts : stmt { $$ = new NBlock(); $$->statements.push_back($<stmt>1); }
       | stmts stmt { $1->statements.push_back($<stmt>2); }
       ;
 
-stmt : var_decl;
-//      | expr { $$ = new NExpressionStatement(*$1); }
+stmt : var_decl
 
-expr : numeric
-     ;
 
-numeric : L_NUM { $$ = new NDouble(atof($1->c_str())); delete $1; }
-        ;
-
-var_decl : ident OP_EQUAL expr { $$ = new NDeclaration(*$1, *$3); }
-         ;
-
-ident : ID { $$ = new NIdentifier(*$1); delete $1; }
-      ;
 %%
+
+// stmt : var_decl;
+// //      | expr { $$ = new NExpressionStatement(*$1); }
+
+// expr : numeric
+//      ;
+
+// numeric : L_NUM { $$ = new NDouble(atof($1->c_str())); delete $1; }
+//         ;
+
+// var_decl : ident OP_EQUAL expr { $$ = new NDeclaration(*$1, *$3); }
+//          ;
+
+// ident : ID { $$ = new NIdentifier(*$1); delete $1; }
+//       ;
+// %%
 
 /*
 comparison : OP_EQUALEQUAL | OP_NOTEQUAL | OP_LESSTHAN | OP_LARGERTHAN 
