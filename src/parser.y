@@ -15,9 +15,10 @@
     NExpression *expr;
     NStatement *stmt;
     NIdentifier *ident;
+    std::vector<NIdentifier*> *varlist;
     NVariableDeclaration *var_decl;
     std::vector<NVariableDeclaration*> *varvec;
-    std::vector<NExpression*> *exprvec;
+    std::vector<NExpression*> *explist;
     std::string *string;
     int token;
 }
@@ -70,9 +71,8 @@ stmts : stmt { $$ = new NBlock(); $$->statements.push_back($<stmt>1); }
       | stmts stmt { $1->statements.push_back($<stmt>2); }
       ;
 
-stmt : var_decl
-     | expr { $$ = new NExpressionStatement(*$1); }
-     ;
+stmt : var_decl;
+//      | expr { $$ = new NExpressionStatement(*$1); }
 
 expr : numeric
      ;
@@ -80,7 +80,7 @@ expr : numeric
 numeric : L_NUM { $$ = new NDouble(atof($1->c_str())); delete $1; }
         ;
 
-var_decl : ident OP_EQUAL expr { $$ = new NVariableDeclaration(*$1, *$3); }
+var_decl : ident OP_EQUAL expr { $$ = new NDeclaration(*$1, *$3); }
          ;
 
 ident : ID { $$ = new NIdentifier(*$1); delete $1; }

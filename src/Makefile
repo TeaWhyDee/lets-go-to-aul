@@ -4,7 +4,7 @@ parser:
 	g++ -o parser parser.cpp lex.cpp main.cpp
 
 clean:
-	$(RM) -rf lex.cpp lex.hpp parser
+	$(RM) -rf lex.cpp bison parser.cpp parser.hpp lex.hpp parser
 
 test: flex
 	cat ../test/*.aul | ./parser
