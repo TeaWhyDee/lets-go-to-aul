@@ -32,7 +32,7 @@ explist ::= exp {‘,’ exp}
 exp ::=  nil | false | true | Numeral | LiteralString | functiondef | 
         prefixexp | tableconstructor | exp binop exp | unop exp 
 
-prefixexp ::= var | functioncall | ‘(’ exp ‘)’
+prefixexp ::= var | functioncall
 
 functioncall ::=  prefixexp ‘(’ [explist] ‘)’ 
 
