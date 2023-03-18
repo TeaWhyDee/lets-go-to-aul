@@ -22,7 +22,7 @@ retstat ::= return [explist] [‘;’]
 
 varlist ::= var {‘,’ var}
 
-var ::= const Name | Name | const Name ':' type | Name ':' type
+var ::= const Name | Name | const Name ':' Type | Name ':' Type
         prefixexp ‘[’ exp ‘]’ | prefixexp ‘.’ Name 
 
 namelist ::= Name {‘,’ Name}
@@ -38,10 +38,16 @@ functioncall ::=  prefixexp ‘(’ [explist] ‘)’
 
 functiondef ::= function funcbody
 
-funcbody ::= ‘(’ [parlist] ‘)’ `->` Type block end |
-        ‘(’ [parlist] ‘)’ block end
+funcbody ::= ‘(’ [parlist] ‘)’ `->` typelist block end
+
+// removed ...
+parlist ::= par {, par}
+
+par = Name : Type
 
 Type ::= num | str | bool | Table | function | Name
+
+typelist = Type {, Type}
 
 Table ::= table `[` Type `,` Type `]`
 
@@ -54,19 +60,15 @@ def ::=  ‘;’ |
 
 structvarlist ::= structvar {‘,’ structvar}
 
-structvar ::= const Name | Name | const Name ':' type | Name ':' type
-        static const Name | static Name | static const Name ':' type | static Name ':' type
+structvar ::= const Name | Name | const Name ':' Type | Name ':' Type
+        static const Name | static Name | static const Name ':' Type | static Name ':' Type
 
-// removed ...
-parlist ::= namelist
 
 tableconstructor ::= ‘{’ [fieldlist] ‘}’
 
-fieldlist ::= field {fieldsep field} [fieldsep]
+fieldlist ::= f {, field} [,]
 
 field ::= ‘[’ exp ‘]’ ‘=’ exp | Name ‘=’ exp | exp
-
-fieldsep ::= ‘,’ | ‘;’
 
 // removed bitwise ops
 binop ::=  ‘+’ | ‘-’ | ‘*’ | ‘/’ | ‘//’ | ‘^’ | ‘%’ | ‘..’ | 
