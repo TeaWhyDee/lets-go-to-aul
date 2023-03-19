@@ -1,11 +1,35 @@
 #include <iostream>
 #include <vector>
+#include <format>
+#include <string>
+#include <sstream>
+
 // #include <llvm/IR/Value.h>
 
 class CodeGenContext;
 class NStatement;
 class NExpression;
 class NVariableDeclaration;
+class Node;
+class NExpression;
+class NStatement;
+class NBlock;
+class NNum;
+class NNill;
+class NBool;
+class NString;
+class NIdentifier;
+class NBinaryOperatorExpression;
+class NUnaryOperatorExpression;
+class NTableField;
+class NTableConstructor;
+class NWhileStatement;
+class NRepeatUntilStatement;
+class NIfStatement;
+class NNumericForStatement;
+class NGenericForStatement;
+class NDeclarationStatement;
+class NTypeIdent;
 
 typedef std::vector<NStatement*> StatementList;
 typedef std::vector<NExpression*> ExpressionList;
@@ -17,39 +41,72 @@ class Node {
 public:
     virtual ~Node() {}
     // virtual llvm::Value* codeGen(CodeGenContext& context) { }
+    virtual std::string repr() = 0;
 };
 
 class NExpression : public Node {
+public:
+    // virtual std::string repr() {
+    //     std::stringstream oss;
+    //     oss << "NExpression(nothing)";
+    //     return oss.str();
+    // }
 };
 
 class NStatement : public Node {
 };
 
-class NBlock : public NExpression {
+class NBlock : public Node {
 public:
     StatementList statements;
     // also possible expression for return statement
-    Expression *returnExpr;
-    NBlock(StatementList statements, Expression *returnExpr) :
+    NExpression *returnExpr;
+
+    NBlock() :
+        statements({}), returnExpr(nullptr) {}
+
+    NBlock(StatementList statements, NExpression *returnExpr) :
         statements(statements), returnExpr(returnExpr) { }
     
     NBlock(StatementList statements) :
         statements(statements) { }
+
     // virtual llvm::Value* codeGen(CodeGenContext& context);
+    virtual std::string repr() {
+        std::stringstream oss;
+        oss << "NBlock(\n  statements=[" << std::endl;
+        for (auto stmt: statements) {
+            oss << "    " << stmt->repr() << std::endl;
+        }
+
+        oss << "  ]\n)";
+
+        return oss.str();
+    }
 };
 
 
 class NNum : public NExpression {
 public:
     long double value;
-    NInteger(long double value) : value(value) { }
+    NNum(long double value) : value(value) { }
     // virtual llvm::Value* codeGen(CodeGenContext& context);
+    virtual std::string repr() {
+        std::stringstream oss;
+        oss << "NNum(value=" << this->value << ")";
+        return oss.str();
+    }
 };
 
 class NNill : public NExpression {
 public:
     NNill() { }
     // virtual llvm::Value* codeGen(CodeGenContext& context);
+    virtual std::string repr() {
+        std::stringstream oss;
+        oss << "NNill()";
+        return oss.str();
+    }
 };
 
 class NBool : public NExpression {
@@ -57,13 +114,23 @@ public:
     bool value;
     NBool(bool value) : value(value) { }
     // virtual llvm::Value* codeGen(CodeGenContext& context);
+    virtual std::string repr() {
+        std::stringstream oss;
+        oss << "NBool(value=" << this->value << ")";
+        return oss.str();
+    }
 };
 
 class NString : public NExpression {
 public:
-    std::string value;
-    NString(std::string value) : value(value) { }
+    std::string *value;
+    NString(std::string *value) : value(value) { }
     // virtual llvm::Value* codeGen(CodeGenContext& context);
+    virtual std::string repr() {
+        std::ostringstream oss;
+        oss << "NString(value=" << this->value->c_str() << ")";
+        return oss.str();
+    }
 };
 
 class NIdentifier : public NExpression {
@@ -71,15 +138,28 @@ public:
     std::string name;
     NIdentifier(const std::string& name) : name(name) { }
     // virtual llvm::Value* codeGen(CodeGenContext& context);
+    virtual std::string repr() {
+        std::ostringstream oss;
+        oss << "NIdentifier(name=" << this->name << ")";
+        return oss.str();
+    }
 };
 
 class NBinaryOperatorExpression : public NExpression {
 public:
-    int op;
     NExpression& lhs;
+    int op;
     NExpression& rhs;
     NBinaryOperatorExpression(NExpression& lhs, int op, NExpression& rhs) :
-        lhs(lhs), rhs(rhs), op(op) { }
+        lhs(lhs), op(op), rhs(rhs) { }
+    virtual std::string repr() {
+        std::ostringstream oss;
+        oss << "NBinaryOperatorExpression";
+        oss << "(lhs=" << this->lhs.repr();
+        oss << ", op=" << this->op;
+        oss << ", rhs=" << this->rhs.repr() << ")";
+        return oss.str();
+    }
     // virtual llvm::Value* codeGen(CodeGenContext& context);
 };
 
@@ -88,22 +168,29 @@ public:
     int op;
     NExpression& rhs;
     NUnaryOperatorExpression(int op, NExpression& rhs) :
-        rhs(rhs), op(op) { }
+         op(op), rhs(rhs) { }
     // virtual llvm::Value* codeGen(CodeGenContext& context);
+    virtual std::string repr() {
+        std::ostringstream oss;
+        oss << "NUnaryOperatorExpression(op=" << this->op << ", rhs=" << this->rhs.repr() << ")";
+        return oss.str();
+    }
 };
 
-class TableField : public Node {
+class NTableField : public Node {
 public:
     NExpression& key;
     NExpression& value;
     NIdentifier& id;
-    TableField(NExpression& key, NExpression& value) :
-        key(key), value(value) { }
-    TableField(NIdentifier& id, NExpression& value) :
-        id(id), value(value) { }
-    // virtual llvm::Value* codeGen(CodeGenContext& context);
+    NTableField(NExpression& key, NExpression& value, NIdentifier& id) :
+        key(key), value(value), id(id) { }
+    virtual std::string repr() {
+        std::ostringstream oss;
+        oss << "NTableField(id=" << this->id.repr();
+        oss << ", key=" << this->key.repr() << ", value=" << this->value.repr() << ")";
+        return oss.str();
+    }
 };
-
 
 
 class NTableConstructor : public NExpression {
@@ -111,6 +198,11 @@ public:
     IdentifierList fieldlist;
     NTableConstructor() { }
     // virtual llvm::Value* codeGen(CodeGenContext& context);
+    virtual std::string repr() {
+        std::ostringstream oss;
+        oss << "NTableConstructor(fixme)";
+        return oss.str();
+    }
 };
 
 class NWhileStatement : public NStatement {
@@ -120,6 +212,11 @@ public:
     NWhileStatement(NExpression& condition, NBlock& block) :
         condition(condition), block(block) { }
     // virtual llvm::Value* codeGen(CodeGenContext& context);
+    virtual std::string repr() {
+        std::ostringstream oss;
+        oss << "NWhileStatement(fixme)";
+        return oss.str();
+    }
 };
 
 class NRepeatUntilStatement : public NStatement {
@@ -129,15 +226,25 @@ public:
     NRepeatUntilStatement(NExpression& condition, NBlock& block) :
         condition(condition), block(block) { }
     // virtual llvm::Value* codeGen(CodeGenContext& context);
+    virtual std::string repr() {
+        std::ostringstream oss;
+        oss << "NRepeatUntil(fixme)";
+        return oss.str();
+    }
 };
 
 class NIfStatement : public NStatement {
 public:
-    std::vector<conditionBlock> conditionBlockList;
+    std::vector<conditionBlock *> conditionBlockList;
     NBlock& elseBlock;
-    NIfStatement(std::vector<conditionBlock> conditionBlockList, NBlock& elseBlock) :
+    NIfStatement(std::vector<conditionBlock *> conditionBlockList, NBlock& elseBlock) :
         conditionBlockList(conditionBlockList), elseBlock(elseBlock) { }
     // virtual llvm::Value* codeGen(CodeGenContext& context);
+    virtual std::string repr() {
+        std::ostringstream oss;
+        oss << "NIf(fixme)";
+        return oss.str();
+    }
 };
 
 class NNumericForStatement : public NStatement {
@@ -150,25 +257,66 @@ public:
     NNumericForStatement(NIdentifier& id, NExpression& start, NExpression& end, NExpression& step, NBlock& block) :
         id(id), start(start), end(end), step(step), block(block) { }
     // virtual llvm::Value* codeGen(CodeGenContext& context);
+    virtual std::string repr() {
+        std::ostringstream oss;
+        oss << "NNumericFor(fixme)";
+        return oss.str();
+    }
 };
 
 class NGenericForStatement : public NStatement {
 public:
-    IdentifierList idList;
-    ExpressionList exprList;
+    IdentifierList identifiers;
+    ExpressionList expressions;
     NBlock& block;
-    NGenericForStatement(std::vector<NIdentifier> idList, std::vector<NExpression> exprList, NBlock& block) :
-        idList(idList), exprList(exprList), block(block) { }
+    NGenericForStatement(IdentifierList identifiers, ExpressionList expressions, NBlock& block) :
+        identifiers(identifiers), expressions(expressions), block(block) { }
     // virtual llvm::Value* codeGen(CodeGenContext& context);
+    virtual std::string repr() {
+        std::ostringstream oss;
+        oss << "NGenericFor(fixme)";
+        return oss.str();
+    }
 };
 
 
 class NDeclarationStatement : public NStatement {
 public:
-    StatementList statlist;
-    ExpressionList exprList;
-    NDeclarationStatement(StatementList statements, ExpressionList exprList) :
-        statements(statements), exprList(exprList) { }
+    NIdentifier *ident;
+    NIdentifier *type;
+    NExpression *expression;
+    NDeclarationStatement(NIdentifier *ident, NExpression *expression) :
+        ident(ident), type(nullptr), expression(expression) { }
+
+    NDeclarationStatement(NIdentifier *ident, NIdentifier *type, NExpression *expression) :
+        ident(ident), type(type), expression(expression) { }
+
+    virtual std::string repr() {
+        std::ostringstream oss;
+
+        // oss << "NDeclarationStatement(statements=[\n";
+        // for (auto stmt: this->statements) {
+        //     oss << stmt->repr() <<", ";
+        // }
+
+        // oss << "],\nexpressions=[";
+        // for (auto expr: this->expressions) {
+        //     oss << expr->repr() <<", ";
+        // }
+
+        // oss << "])";
+
+        oss << "NDeclarationStatement(ident=" << this->ident->repr();
+        std::string type = "`To be deduced`";
+        if (this->type != nullptr) {
+            type = this->type->repr();
+        }
+        oss << ", type=" << type;
+        oss << ", expr=" << this->expression->repr();
+
+        return oss.str();
+    }
+};
 
 
 // class NFuncStatement : public NStatement {
