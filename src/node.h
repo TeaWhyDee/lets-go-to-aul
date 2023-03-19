@@ -30,12 +30,15 @@ class NNumericForStatement;
 class NGenericForStatement;
 class NDeclarationStatement;
 class NTypeIdent;
+class NFunctionDeclaration;
+class NFunctionArgument;
 
 typedef std::vector<NStatement*> StatementList;
 typedef std::vector<NExpression*> ExpressionList;
 typedef std::vector<NIdentifier*> IdentifierList;
 typedef std::vector<NVariableDeclaration*> VariableList;
 typedef std::pair<NExpression, NBlock> conditionBlock;
+typedef std::vector<NFunctionArgument> functionArguments;
 
 class Node {
 public:
@@ -46,11 +49,11 @@ public:
 
 class NExpression : public Node {
 public:
-    // virtual std::string repr() {
-    //     std::stringstream oss;
-    //     oss << "NExpression(nothing)";
-    //     return oss.str();
-    // }
+    virtual std::string repr() {
+        std::stringstream oss;
+        oss << "NExpression(nothing)";
+        return oss.str();
+    }
 };
 
 class NStatement : public Node {
@@ -318,6 +321,47 @@ public:
     }
 };
 
+class NFunctionArgument: public NStatement {
+public:
+    NIdentifier *id;
+    NIdentifier *type;
+
+    NFunctionArgument(NIdentifier *id, NIdentifier *type) :
+        id(id), type(type) { }
+
+    // virtual llvm::Value* codeGen(CodeGenContext& context);
+
+    virtual std::string repr() {
+        std::ostringstream oss;
+        oss << "NFunctionArgument(id=" << this->id->repr();
+        oss << ", type=" << this->type->repr();
+        oss << ")";
+        return oss.str();
+    }
+
+};
+
+class NFunctionDeclaration : public NStatement {
+public:
+    NIdentifier *return_type;
+    NIdentifier *id;
+    functionArguments *arguments;
+    NBlock *block;
+
+    NFunctionDeclaration(NIdentifier *return_type, NIdentifier *id, 
+            functionArguments *arguments, NBlock *block) :
+        return_type(return_type), id(id), arguments(arguments), block(block) { }
+
+    // virtual llvm::Value* codeGen(CodeGenContext& context);
+
+    virtual std::string repr() {
+        std::ostringstream oss;
+        oss << "NFunctionDeclaration(id=" << this->id->repr();
+        oss << ", return_type=" << this->return_type->repr();
+        oss << ", block=" << this->block->repr();
+        return oss.str();
+    }
+};
 
 // class NFuncStatement : public NStatement {
 // public:
@@ -399,14 +443,3 @@ public:
 //     // virtual llvm::Value* codeGen(CodeGenContext& context);
 // };
 
-// // class NFunctionDeclaration : public NStatement {
-// // public:
-// //     const NIdentifier& type;
-// //     const NIdentifier& id;
-// //     VariableList arguments;
-// //     NBlock& block;
-// //     NFunctionDeclaration(const NIdentifier& type, const NIdentifier& id, 
-// //             const VariableList& arguments, NBlock& block) :
-// //         type(type), id(id), arguments(arguments), block(block) { }
-// //     // virtual llvm::Value* codeGen(CodeGenContext& context);
-// // };

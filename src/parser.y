@@ -22,6 +22,7 @@
     std::vector<NExpression*> *exprlist;
     NIdentifier *ident;
     NIdentifier *type_ident;
+    NFunctionDeclaration *function_decl;
     std::vector<NIdentifier*> *varlist;
     std::string *string;
 
@@ -52,8 +53,8 @@
    we call an ident (defined by union type ident) we are really
    calling an (NIdentifier*). It makes the compiler happy.
  */
-%type <block> program stmts
-%type <stmt> stmt var_decl
+%type <block> program block
+%type <stmt> stmt var_decl function_decl
 %type <expr> expr term
 %type <ident> ident
 %type <type_ident> type_ident
@@ -74,15 +75,16 @@
 %start program
 
 %%
-program : stmts { programBlock = $1; }
+program : block { programBlock = $1; }
     ;
 
-stmts : stmt { $$ = new NBlock(); $$->statements.push_back($<stmt>1); }
-      | stmts stmt { $1->statements.push_back($<stmt>2); }
+block : stmt { $$ = new NBlock(); $$->statements.push_back($<stmt>1); }
+      | block stmt { $1->statements.push_back($<stmt>2); }
     ;
 
 
 stmt : var_decl
+     | function_decl
     ;
       /* | expr { $$ = new NExpressionStatement(*$1); } */
 
@@ -106,9 +108,12 @@ binop : OP_PLUS
 
 unop : OP_MINUS
     ;
+
 var_decl : ident OP_EQUAL expr { $$ = new NDeclarationStatement($1, $3); }
          | ident OP_COLON type_ident OP_EQUAL expr { $$ = new NDeclarationStatement($1, $3, $5); }
     ;
+
+function_decl : KW_FUNCTION ident OP_LBRACE /*Add params here*/ OP_RBRACE OP_ARROW type_ident block KW_END { $$ = new NFunctionDeclaration($6, $2, {}, $7);};
 
 type_ident: KW_STR { $$ = new NIdentifier(* new std::string("str")); }
     | KW_BOOL { $$ = new NIdentifier(* new std::string("bool")); }
