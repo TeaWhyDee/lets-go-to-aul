@@ -1,0 +1,126 @@
+# The grammar is based on the Lua 5.4 grammar with chages. The original grammar is:
+# http://www.lua.org/manual/5.4/manual.html#8
+chunk ::= block
+
+block ::= {stat} [retstat]
+
+# removed:
+#       label   (there is no goto)
+#               label ::= '::' Name '::'
+#       goto Name
+#       local function Name funcbody
+#       local attnamelist ['=' explist]
+#               attnamelist ::=  Name attrib {',' Name attrib}
+#               attrib ::= ['<' Name '>']
+#               funcname ::= Name {'.' Name} [':' Name]
+# changed:
+#       function funcname funcbody -> function Name funcbody (funcname -> Name)
+# added:
+#       struct Name structbody
+stat ::=  ';' | 
+        varlist '=' explist | 
+        functioncall | 
+        break |
+        do block end | 
+        while exp do block end | 
+        repeat block until exp | 
+        if exp then block {elseif exp then block} [else block] end | 
+        for Name '=' exp ',' exp [',' exp] do block end | 
+        for namelist in explist do block end | 
+        function Name funcbody |
+        struct Name structbody          
+
+retstat ::= return [explist] [';']
+
+varlist ::= var {',' var}
+
+# added: 
+#       const Name | const Name ':' Type | Name ':' Type
+var ::= Name | prefixexp '[' exp ']' | prefixexp '.' Name
+        const Name | const Name ':' Type | Name ':' Type 
+
+namelist ::= Name {',' Name}
+
+explist ::= exp {',' exp}
+
+# removed:
+#       '...'
+exp ::=  nil | false | true | Numeral | LiteralString | functiondef | 
+        prefixexp | tableconstructor | exp binop exp | unop exp 
+
+# removed:
+#       '(' exp ')'     (removed fucntionality of taking the 1st element of a function)
+prefixexp ::= var | functioncall
+
+# removed:
+#       prefixexp ':' Name args     (no static functions)
+#               args ::=  '(' [explist] ')' | tableconstructor | LiteralString
+# changed:
+#       prefixexp args -> prefixexp '(' [explist] ')'
+functioncall ::=  prefixexp '(' [explist] ')' 
+
+functiondef ::= function funcbody
+
+# added:
+#       '->' typelist    
+funcbody ::= '(' [parlist] ')' '->' typelist block end
+
+# removed:
+#       [',' '...'] | '...'  (removed varargs, original: parlist ::= namelist [',' '...'] | '...')
+# changed: 
+#       namelist -> parlist
+#               Name {',' Name} -> par {',' par}
+#               par ::= Name ':' Type
+parlist ::= par {, par} 
+
+# added:
+par = Name ':' Type
+
+# added:
+Type ::= num | str | bool | TableType | Name | FunctionType
+
+# added:
+FunctionType ::= function '[' '[' {typelist} ']', {typelist} ']'
+
+# added:
+typelist = Type {, Type}
+
+# added:
+TableType ::= table `[` Type `,` Type `]`
+
+
+tableconstructor ::= '{' [fieldlist] '}'
+
+# changed:
+#       fieldsep ::= ‘,’ | ‘;’ -> ','
+fieldlist ::= field {, field} [,]
+
+field ::= '[' exp ']' '=' exp | Name '=' exp | exp
+
+# removed:
+#        ‘&’ | ‘~’ | ‘|’ | ‘>>’ | ‘<<’ 
+binop ::=  '+' | '-' | '*' | '/' | '//' | '^' | '%' | '..' | 
+        '<' | '<=' | '>' | '>=' | '==' | '~=' | 
+        and | or
+
+# removed:
+#       ‘~’
+unop ::= '-' | not | '#'
+
+# added:
+structbody ::= def
+
+# added:
+def ::=  ';' | 
+        structvarlist '=' explist | 
+        function Name funcbody | static function Name funcbody | 
+        `new` funcbody
+
+# added:
+structvarlist ::= structvar {',' structvar}
+
+# added:
+structvar ::= const Name | Name | const Name ':' Type | Name ':' Type
+        static const Name | static Name | static const Name ':' Type | static Name ':' Type
+
+

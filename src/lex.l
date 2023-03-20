@@ -3,7 +3,7 @@
 #include "parser.hpp"
 #define SAVE_TOKEN yylval.string = new std::string(yytext, yyleng)
 #define TOKEN(t) (yylval.token = t)
-extern "C" int yywrap() { }
+extern "C" int yywrap() {}
 
 #include <iostream>
 #include <string>
@@ -19,11 +19,11 @@ int str_bracketlen = 0;
             else {char c = stoi(s); str += c;} }
 #define PROCESS_QUOTE SAVE_TOKEN;\
             if (yytext == str_init)\
-                {std::cout << "L_STRING" << str << "] "; BEGIN(INITIAL);}\
+                {yylval.string = new std::string(str); BEGIN(INITIAL); printf("%s", yylval.string->c_str()); return L_STRING;}\
             else {str += yytext;}
 #define PROCESS_BRACKETS SAVE_TOKEN;\
             if (std::string(yytext).length() == str_bracketlen) {\
-                std::cout << "L_STIRNG[" << str << "] "; BEGIN(INITIAL);}\
+                std::cout << "L_STIRNG[" << str << "] "; BEGIN(INITIAL); return L_STRING;}\
             else { str += yytext; }
 
 int comment_bracklen = 0;
@@ -34,15 +34,13 @@ int comment_bracklen = 0;
 /* void yyerror (char const *s) { fprintf (stderr, "ERROR: %s\n", s); } */
 void yyerror (char const *s);
 %}
+%option yylineno
 
 %x STRING
 %x COMMENT
 %x STRING_NOESCAPE
 
 %%
-[ \t]+
-[\"\']              { NEW_STR; str_init=yytext; BEGIN(STRING); }
-\]=*\]              { yyerror("right square bracket before left square bracket"); }
 <STRING>{
   "\\\n"            {str += "\n";}
   "\\\""            {str += '"';}
@@ -79,6 +77,9 @@ void yyerror (char const *s);
     .              {ADD_STR}
 }
 
+[ \t]+
+[\"\']              { NEW_STR; str_init=yytext; BEGIN(STRING); }
+\]=*\]              { yyerror("right square bracket before left square bracket"); }
 [0-9]+[.]?[0-9]*   {SAVE_TOKEN; return L_NUM ;}
 [-][>]       {return OP_ARROW ;}
 [+]          {return OP_PLUS ;}
@@ -94,13 +95,9 @@ void yyerror (char const *s);
 [>][=]       {return OP_LARGERTHAN ;}
 [<]          {return OP_LESS ;}
 [>]          {return OP_MORE ;}
-[=]          {return OP_EQUAL ;}
+[=]          {printf("%s", "="); return OP_EQUAL ;}
 \(           {return OP_LBRACE ;}
 \)           {return OP_RBRACE ;}
-[{]          {return OP_LCURLY_BRACE ;}
-\[           {return OP_LSQUARE_BRACE ;}
-\]           {return OP_RSQUARE_BRACE ;}
-[}]          {return OP_RCURLY_BRACE ;}
 [;]          {return OP_SEMICOLON ;}
 [:]          {return OP_COLON ;}
 [,]          {return OP_COMMA ;}
@@ -132,12 +129,12 @@ or           {return KW_OR ;}
 repeat       {return KW_REPEAT ;}
 return       {return KW_RETURN ;}
 then         {return KW_THEN ;}
-true         {return KW_TRUE ;}
+true         {printf("%s", "true");; return KW_TRUE;}
 until        {return KW_UNTIL ;}
 while        {return KW_WHILE ;}
-[a-zA-Z0-9_]*  {SAVE_TOKEN; return ID;}
+[a-zA-Z0-9_]*  {SAVE_TOKEN; printf("%s", yylval.string->c_str()); return L_STRING;}
 --.+         {return COMMENT;}
-.            {printf(yytext);}
+.            {printf("%s", yytext);}
 %%
   
 /* int yywrap(){} */

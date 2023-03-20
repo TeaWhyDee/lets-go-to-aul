@@ -1,11 +1,16 @@
 %{
     #include "node.h"
+    #define YYERROR_VERBOSE 1
     NBlock *programBlock; /* the top level root node of our final AST */
 
     extern int yylex();
-    void yyerror(const char *s) { printf("ERROR: %sn", s); }
-    /* void yyerror(const char *s); */
+    extern int yylineno;
+    void yyerror(const char *s) { printf("YYERROR: %s\n", s); }
 %}
+
+%define parse.error verbose
+%define parse.trace
+%printer { fprintf (yyo, "%s ", yylval.string->c_str()); } <token>
 
 /* Represents the many different ways we can access our data */
 %union {
@@ -13,19 +18,24 @@
     NBlock *block;
     NExpression *expr;
     NStatement *stmt;
+    std::vector<NStatement*> *statlist;
+    std::vector<NExpression*> *exprlist;
     NIdentifier *ident;
-    NVariableDeclaration *var_decl;
-    std::vector<NVariableDeclaration*> *varvec;
-    std::vector<NExpression*> *exprvec;
+    NIdentifier *type_ident;
+    NFunctionDeclaration *function_decl;
+    std::vector<NIdentifier*> *varlist;
     std::string *string;
+
     int token;
+    int binop;
+    int unop;
 }
 
 /* Define our terminal symbols (tokens). This should
    match our tokens.l lex file. We also define the node type
    they represent.
  */
-%token <string> L_STRING L_NUM ID
+%token <string> L_STRING L_NUM
 %token <token> OP_PERCENT OP_HASH OP_EQUALEQUAL OP_NOTEQUAL
 %token <token> OP_LESSTHAN OP_LARGERTHAN OP_LESS OP_MORE OP_EQUAL
 %token <token> OP_LBRACE OP_RBRACE OP_LCURLY_BRACE OP_LSQUARE_BRACE
@@ -43,10 +53,13 @@
    we call an ident (defined by union type ident) we are really
    calling an (NIdentifier*). It makes the compiler happy.
  */
-%type <block> program stmts
-%type <stmt> stmt var_decl
-%type <expr> numeric expr 
+%type <block> program block
+%type <stmt> stmt var_decl function_decl
+%type <expr> expr term
 %type <ident> ident
+%type <type_ident> type_ident
+%type <binop> binop
+%type <unop> unop
 /* %type <stmt> stmt var_decl func_decl */
 /* %type <token> comparison */
 /* %type <expr> numeric expr  */
@@ -62,28 +75,57 @@
 %start program
 
 %%
-program : stmts { programBlock = $1; }
-        ;
+program : block { programBlock = $1; }
+    ;
 
-stmts : stmt { $$ = new NBlock(); $$->statements.push_back($<stmt>1); }
-      | stmts stmt { $1->statements.push_back($<stmt>2); }
-      ;
+block : stmt { $$ = new NBlock(); $$->statements.push_back($<stmt>1); }
+      | block stmt { $1->statements.push_back($<stmt>2); }
+    ;
+
 
 stmt : var_decl
-     | expr { $$ = new NExpressionStatement(*$1); }
-     ;
+     | function_decl
+    ;
+      /* | expr { $$ = new NExpressionStatement(*$1); } */
 
-expr : numeric
-     ;
+expr : term
+     | term binop expr {$$ = new NBinaryOperatorExpression(*$1, $2, *$3);}
+     | unop term {$$ = new NUnaryOperatorExpression($1, *$2);}
+    ;
 
-numeric : L_NUM { $$ = new NDouble(atof($1->c_str())); delete $1; }
-        ;
+term : L_NUM { $$ = new NNum(atof($1->c_str())); delete $1; }
+     | L_STRING { $$ = new NString($1);}
+    ;
 
-var_decl : ident ident OP_EQUAL expr { $$ = new NVariableDeclaration(*$1, *$2, $4); }
-         ;
+binop : OP_PLUS
+      | OP_MINUS
+      | OP_STAR
+      | OP_SLASHSLASH
+      | OP_SLASH
+      | OP_PERCENT
+      | OP_EQUALEQUAL
+    ;
 
-ident : ID { $$ = new NIdentifier(*$1); delete $1; }
-      ;
+unop : OP_MINUS
+    ;
+
+var_decl : ident OP_EQUAL expr { $$ = new NDeclarationStatement($1, $3); }
+         | ident OP_COLON type_ident OP_EQUAL expr { $$ = new NDeclarationStatement($1, $3, $5); }
+    ;
+
+function_decl : KW_FUNCTION ident OP_LBRACE /*Add params here*/ OP_RBRACE OP_ARROW type_ident block KW_END { $$ = new NFunctionDeclaration($6, $2, {}, $7);};
+
+type_ident: KW_STR { $$ = new NIdentifier(* new std::string("str")); }
+    | KW_BOOL { $$ = new NIdentifier(* new std::string("bool")); }
+    | KW_NUM { $$ = new NIdentifier(* new std::string("num")); }
+    | KW_TABLE { $$ = new NIdentifier(* new std::string("table")); }
+    | KW_NIL { $$ = new NIdentifier(* new std::string("nil")); }
+    | KW_FUNCTION { $$ = new NIdentifier(* new std::string("function")); }
+    | L_STRING { $$ = new NIdentifier(*yylval.string); }
+    ;
+
+ident : L_STRING { printf("%s", yylval.string->c_str()); $$ = new NIdentifier(*$1); delete $1; }
+    ;
 %%
 
 /*
