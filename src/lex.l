@@ -54,10 +54,10 @@ void yyerror (char const *s);
   "\\t"             {str += "\t";}
   "\\v"             {str += "\v";}
   \\[0-9]{1,3}      STR_NUM_ESCAPE
-  \n                {yyerror("the string misses a quote to termiate before newline"); return 0;}
-  <<EOF>>           {yyerror("the string misses a quote to terminate before EOF"); return 0;}
+  \n                {yyerror("the string misses closing quote to termiate before newline");}
+  <<EOF>>           {yyerror("the string misses closing quote to terminate before EOF");}
   [\"\']            PROCESS_QUOTE
-  ([^\\\""\n])*     {ADD_STR}
+  ([^\\\""\\'\n])*  {ADD_STR}
   .                 {ADD_STR};
 }
 
