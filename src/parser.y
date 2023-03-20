@@ -94,8 +94,21 @@ stmt : var_decl
      | function_call
      | function_decl
      | retstat
+     | KW_DO block KW_END
+     | KW_WHILE expr KW_DO block KW_END
+     | KW_REPEAT block KW_UNTIL expr
+     | if_stmt KW_END
     ;
-      /* | expr { $$ = new NExpressionStatement(*$1); } */
+
+if_stmt : KW_IF expr KW_THEN block elseif KW_ELSE block
+        | KW_IF expr KW_THEN block elseif
+        | KW_IF expr KW_THEN block KW_ELSE block
+        | KW_IF expr KW_THEN block
+    ;
+
+elseif : KW_ELSEIF expr KW_THEN block
+       | elseif KW_ELSEIF expr KW_THEN block
+    ;
 
 expr : term
      | expr binop expr {$$ = new NBinaryOperatorExpression($1, $2, $3);}
