@@ -74,12 +74,6 @@ public:
 
 class NExpression : public Node {
 public:
-    virtual std::string repr() {
-        std::stringstream oss;
-        oss << "NExpression(nothing)";
-        return oss.str();
-    }
-
     virtual void visit(Visitor* v) {
         v->visitNExpression(this);
     }
@@ -91,8 +85,8 @@ class NStatement : public Node {
 class NBlock : public Node {
 public:
     StatementList statements;
-    // also possible expression for return statement
-    NExpression *returnExpr;
+    // also pstd::coutible expression for return statement
+    NExpression *returnExpr=nullptr;
 
     NBlock() :
         statements({}), returnExpr(nullptr) {}
@@ -103,19 +97,6 @@ public:
     NBlock(StatementList statements) :
         statements(statements) { }
 
-    // virtual llvm::Value* codeGen(CodeGenContext* context);
-    virtual std::string repr() {
-        std::stringstream oss;
-        oss << "NBlock(\n  statements=[" << std::endl;
-        for (auto stmt: statements) {
-            oss << "    " << stmt->repr() << std::endl;
-        }
-
-        oss << "  ]\n)";
-
-        return oss.str();
-    }
-
     virtual void visit(Visitor* v) {
         v->visitNBlock(this);
     }
@@ -125,13 +106,7 @@ public:
 class NNum : public NExpression {
 public:
     long double value;
-    NNum(long double value) : value(value) { }
-    // virtual llvm::Value* codeGen(CodeGenContext* context);
-    virtual std::string repr() {
-        std::stringstream oss;
-        oss << "NNum(value=" << this->value << ")";
-        return oss.str();
-    }
+
     virtual void visit(Visitor* v) {
         v->visitNNum(this);
     }
@@ -140,12 +115,6 @@ public:
 class NNil : public NExpression {
 public:
     NNil() { }
-    // virtual llvm::Value* codeGen(CodeGenContext* context);
-    virtual std::string repr() {
-        std::stringstream oss;
-        oss << "NNil()";
-        return oss.str();
-    }
 
     virtual void visit(Visitor* v) {
         v->visitNNil(this);
@@ -156,12 +125,6 @@ class NBool : public NExpression {
 public:
     bool value;
     NBool(bool value) : value(value) { }
-    // virtual llvm::Value* codeGen(CodeGenContext* context);
-    virtual std::string repr() {
-        std::stringstream oss;
-        oss << "NBool(value=" << this->value << ")";
-        return oss.str();
-    }
 
     virtual void visit(Visitor* v) {
         v->visitNBool(this);
@@ -172,12 +135,6 @@ class NString : public NExpression {
 public:
     std::string *value;
     NString(std::string *value) : value(value) { }
-    // virtual llvm::Value* codeGen(CodeGenContext* context);
-    virtual std::string repr() {
-        std::ostringstream oss;
-        oss << "NString(value=" << this->value->c_str() << ")";
-        return oss.str();
-    }
 
     virtual void visit(Visitor* v) {
         v->visitNString(this);
@@ -188,12 +145,6 @@ class NIdentifier : public NExpression {
 public:
     std::string name;
     NIdentifier(const std::string* name) : name(*name) { }
-    // virtual llvm::Value* codeGen(CodeGenContext* context);
-    virtual std::string repr() {
-        std::ostringstream oss;
-        oss << "NIdentifier(name=" << this->name << ")";
-        return oss.str();
-    }
 
     virtual void visit(Visitor* v) {
         v->visitNIdentifier(this);
@@ -207,14 +158,6 @@ public:
     NExpression* rhs;
     NBinaryOperatorExpression(NExpression* lhs, int op, NExpression* rhs) :
         lhs(lhs), op(op), rhs(rhs) { }
-    virtual std::string repr() {
-        std::ostringstream oss;
-        oss << "NBinaryOperatorExpression";
-        oss << "(lhs=" << this->lhs->repr();
-        oss << ", op=" << this->op;
-        oss << ", rhs=" << this->rhs->repr() << ")";
-        return oss.str();
-    }
 
     virtual void visit(Visitor* v) {
         v->visitNBinaryOperatorExpression(this);
@@ -228,12 +171,6 @@ public:
     NExpression* rhs;
     NUnaryOperatorExpression(int op, NExpression* rhs) :
          op(op), rhs(rhs) { }
-    // virtual llvm::Value* codeGen(CodeGenContext* context);
-    virtual std::string repr() {
-        std::ostringstream oss;
-        oss << "NUnaryOperatorExpression(op=" << this->op << ", rhs=" << this->rhs->repr() << ")";
-        return oss.str();
-    }
 
     virtual void visit(Visitor* v) {
         v->visitNUnaryOperatorExpression(this);
@@ -247,12 +184,6 @@ public:
     NIdentifier* id;
     NTableField(NExpression* key, NExpression* value, NIdentifier* id) :
         key(key), value(value), id(id) { }
-    virtual std::string repr() {
-        std::ostringstream oss;
-        oss << "NTableField(id=" << this->id->repr();
-        oss << ", key=" << this->key->repr() << ", value=" << this->value->repr() << ")";
-        return oss.str();
-    }
     
     virtual void visit(Visitor* v) {
         v->visitNTableField(this);
@@ -264,12 +195,6 @@ class NTableConstructor : public NExpression {
 public:
     IdentifierList fieldlist;
     NTableConstructor() { }
-    // virtual llvm::Value* codeGen(CodeGenContext* context);
-    virtual std::string repr() {
-        std::ostringstream oss;
-        oss << "NTableConstructor(fixme)";
-        return oss.str();
-    }
 
     virtual void visit(Visitor* v) {
         v->visitNTableConstructor(this);
@@ -282,12 +207,6 @@ public:
     NBlock* block;
     NWhileStatement(NExpression* condition, NBlock* block) :
         condition(condition), block(block) { }
-    // virtual llvm::Value* codeGen(CodeGenContext* context);
-    virtual std::string repr() {
-        std::ostringstream oss;
-        oss << "NWhileStatement(fixme)";
-        return oss.str();
-    }
 
     virtual void visit(Visitor* v) {
         v->visitNWhileStatement(this);
@@ -300,12 +219,6 @@ public:
     NBlock* block;
     NRepeatUntilStatement(NExpression* condition, NBlock* block) :
         condition(condition), block(block) { }
-    // virtual llvm::Value* codeGen(CodeGenContext* context);
-    virtual std::string repr() {
-        std::ostringstream oss;
-        oss << "NRepeatUntil(fixme)";
-        return oss.str();
-    }
 
     virtual void visit(Visitor* v) {
         v->visitNRepeatStatement(this);
@@ -318,12 +231,6 @@ public:
     NBlock* elseBlock;
     NIfStatement(std::vector<conditionBlock *> conditionBlockList, NBlock* elseBlock) :
         conditionBlockList(conditionBlockList), elseBlock(elseBlock) { }
-    // virtual llvm::Value* codeGen(CodeGenContext* context);
-    virtual std::string repr() {
-        std::ostringstream oss;
-        oss << "NIf(fixme)";
-        return oss.str();
-    }
 
     virtual void visit(Visitor* v) {
         v->visitNIfStatement(this);
@@ -339,12 +246,6 @@ public:
     NBlock* block;
     NNumericForStatement(NIdentifier* id, NExpression* start, NExpression* end, NExpression* step, NBlock* block) :
         id(id), start(start), end(end), step(step), block(block) { }
-    // virtual llvm::Value* codeGen(CodeGenContext* context);
-    virtual std::string repr() {
-        std::ostringstream oss;
-        oss << "NNumericFor(fixme)";
-        return oss.str();
-    }
 
     virtual void visit(Visitor* v) {
         v->visitNNumericForStatement(this);
@@ -358,12 +259,6 @@ public:
     NBlock* block;
     NGenericForStatement(IdentifierList identifiers, ExpressionList expressions, NBlock* block) :
         identifiers(identifiers), expressions(expressions), block(block) { }
-    // virtual llvm::Value* codeGen(CodeGenContext* context);
-    virtual std::string repr() {
-        std::ostringstream oss;
-        oss << "NGenericFor(fixme)";
-        return oss.str();
-    }
 
     virtual void visit(Visitor* v) {
         v->visitNGenericForStatement(this);
@@ -382,32 +277,6 @@ public:
     NDeclarationStatement(NIdentifier *ident, NIdentifier *type, NExpression *expression) :
         ident(ident), type(type), expression(expression) { }
 
-    virtual std::string repr() {
-        std::ostringstream oss;
-
-        // oss << "NDeclarationStatement(statements=[\n";
-        // for (auto stmt: this->statements) {
-        //     oss << stmt->repr() <<", ";
-        // }
-
-        // oss << "],\nexpressions=[";
-        // for (auto expr: this->expressions) {
-        //     oss << expr->repr() <<", ";
-        // }
-
-        // oss << "])";
-
-        oss << "NDeclarationStatement(ident=" << this->ident->repr();
-        std::string type = "`To be deduced`";
-        if (this->type != nullptr) {
-            type = this->type->repr();
-        }
-        oss << ", type=" << type;
-        oss << ", expr=" << this->expression->repr();
-
-        return oss.str();
-    }
-
     virtual void visit(Visitor* v) {
         v->visitNDeclarationStatement(this);
     }
@@ -420,16 +289,6 @@ public:
 
     NFunctionArgument(NIdentifier *id, NIdentifier *type) :
         id(id), type(type) { }
-
-    // virtual llvm::Value* codeGen(CodeGenContext* context);
-
-    virtual std::string repr() {
-        std::ostringstream oss;
-        oss << "NFunctionArgument(id=" << this->id->repr();
-        oss << ", type=" << this->type->repr();
-        oss << ")";
-        return oss.str();
-    }
 
     virtual void visit(Visitor* v) {
         v->visitNFunctionArgument(this);
@@ -447,16 +306,6 @@ public:
             functionArguments *arguments, NBlock *block) :
         return_type(return_type), id(id), arguments(*arguments), block(block) { }
 
-    // virtual llvm::Value* codeGen(CodeGenContext* context);
-
-    virtual std::string repr() {
-        std::ostringstream oss;
-        oss << "NFunctionDeclaration(id=" << this->id->repr();
-        oss << ", return_type=" << this->return_type->repr();
-        oss << ", block=" << this->block->repr();
-        return oss.str();
-    }
-
     virtual void visit(Visitor* v) {
         v->visitNFunctionDeclaration(this);
     }
@@ -471,155 +320,175 @@ public:
     PrettyPrintVisitor() { }
 
     virtual void visitNNum(NNum* node) {
-        std::cout << node->value;
+        std::cout << "NNum(value=" << node->value << ")";
     }
 
     virtual void visitNNil(NNil* node) {
-        std::cout << "nil";
+        std::cout << "NNil()";
     }
 
     virtual void visitNBool(NBool* node) {
-        std::cout << node->value;
+        std::cout << "NBool(value=" << node->value << ")";
     }
 
     virtual void visitNString(NString* node) {
-        std::cout << "\"" << node->value << "\"";
+        std::cout << "NStr(value=" << node->value << ")";
     }
 
     virtual void visitNIdentifier(NIdentifier* node) {
-        std::cout << node->name;
+        std::cout << "NIdentifier(name=" << node->name << ")";
     }
 
     virtual void visitNBinaryOperatorExpression(NBinaryOperatorExpression* node) {
-        std::cout << "(";
+        std::cout << "NBinaryOperatorExpression";
+        std::cout << "(lhs=";
         node->lhs->visit(this);
-        std::cout << " " << node->op << " ";
+        std::cout << ", op=" << node->op << ", rhs=";
         node->rhs->visit(this);
         std::cout << ")";
     }
 
     virtual void visitNUnaryOperatorExpression(NUnaryOperatorExpression* node) {
-        std::cout << "(" << node->op;
+        std::cout << "NUnaryOperatorExpression(op=" << node->op << ", rhs=";
         node->rhs->visit(this);
         std::cout << ")";
     }
 
     virtual void visitNTableField(NTableField* node) {
-        std::cout << "[";
+        std::cout << "NTableField(id=";
+        node->id->visit(this);
+        std::cout << ", key=";
         node->key->visit(this);
-        std::cout << "] = ";
+        std::cout << ", value=";
         node->value->visit(this);
+        std::cout << ")";
     }
 
     virtual void visitNTableConstructor(NTableConstructor* node) {
-        std::cout << "{";
-        for (auto field: node->fieldlist) {
+        std::cout << "NTableConstructor(fields=[";
+         for (auto field: node->fieldlist) {
             field->visit(this);
             std::cout << ", ";
         }
-        std::cout << "}";
+        std::cout << "])";
     }
 
     virtual void visitNFunctionDeclaration(NFunctionDeclaration* node) {
-        std::cout << "function";
-        std::cout << node->id->name << "(";
-        for (auto arg: node->arguments) {
-            arg->visit(this);
-            std::cout << ", ";
-        }
-        std::cout << ") ";
-        std::cout << "-> " << node->return_type->name << " ";
+        std::cout << "NFunctionDeclaration(id=";
+        node->id->visit(this);
+        std::cout << ", return_type=";
+        node->return_type->visit(this);
+        std::cout << ", block=\n\t";
         node->block->visit(this);
-        std::cout << " end";
+        std::cout << ")";
     }
 
     virtual void visitNFunctionArgument(NFunctionArgument* node) {
-        std::cout << node->id->name << ": " << node->type->name;
+        std::cout << "NFunctionArgument(id="; 
+        node->id->visit(this);
+        std::cout << ", type=";
+        node->type->visit(this);
+        std::cout << ")";
     }
 
     virtual void visitNWhileStatement(NWhileStatement* node) {
-        std::cout << "while ";
+        std::cout << "NWhileStatement(condition=";
         node->condition->visit(this);
-        std::cout << " do ";
-        node->block->visit(this);
-        std::cout << " end";
+        std::cout << ", block=\n\t";
+        node->block->visit(this); 
+        std::cout << ")";
     }
 
     virtual void visitNRepeatStatement(NRepeatUntilStatement* node) {
-        std::cout << "repeat ";
-        node->block->visit(this);
-        std::cout << " until ";
+        std::cout << "NRepeatUntilStatement(condition=";
         node->condition->visit(this);
+        std::cout << ", block=\n\t";
+        node->block->visit(this);
+        std::cout << ")";
     }
 
     virtual void visitNIfStatement(NIfStatement* node) {
-        std::cout << "if ";
+        std::cout << "NIfStatement(conditions=[";
         for (auto clause: node->conditionBlockList) {
-            // clause.first is the condition
-            clause->first.visit(this);
-            std::cout << " then ";
-            clause->second.visit(this);
+            std::cout << "condition=";
+            clause->first->visit(this);
+            std::cout << "block=\n\t";
+            clause->second->visit(this);
             if (clause != node->conditionBlockList.back()) {
-                std::cout << " elseif ";
+                std::cout << ", ";
             }
         }
+        std::cout << "])";
         if (node->elseBlock != nullptr) {
-            std::cout << " else ";
+            std::cout << ", elseBlock=\n\t";
             node->elseBlock->visit(this);
         }
     }
     
     virtual void visitNNumericForStatement(NNumericForStatement* node) {
-        std::cout << "for " << node->id->name << " = ";
+        std::cout << "NNumericForStatement(id=";
+        node->id->visit(this);
+        std::cout << ", start=";
         node->start->visit(this);
-        std::cout << ", ";
+        std::cout << ", end=";
         node->end->visit(this);
-        std::cout << ", ";
+        std::cout << ", step=";
         node->step->visit(this);
-        std::cout << " do ";
+        std::cout << ", block=\n\t";
         node->block->visit(this);
-        std::cout << " end";
+        std::cout<< ")";
     }
 
-    virtual void visitNGenericForStatement(NGenericForStatement* node) {
-        std::cout << "for ";
+    virtual void visitNGenericreturnExprForStatement(NGenericForStatement* node) {
+        std::cout << "NGenericForStatement(identifiers=[";
         for (auto ident: node->identifiers) {
             ident->visit(this);
-            std::cout << ", ";
+            if (ident != node->identifiers.back()) {
+                std::cout << ", ";
+            }
         }
-        std::cout << " in ";
+        std::cout << "], expressions=[";
         for (auto expr: node->expressions) {
             expr->visit(this);
-            std::cout << ", ";
+            if (expr != node->expressions.back()) {
+                std::cout << ", ";
+            }
         }
-        std::cout << " do ";
+        std::cout << "], block=\n\t";
         node->block->visit(this);
-        std::cout << " end";
+        std::cout << ")";
     }
 
     virtual void visitNDeclarationStatement(NDeclarationStatement* node) {
+        std::cout << "NDeclarationStatement(ident=";
         node->ident->visit(this);
+        std::string type = "`To be deduced`";
         if (node->type != nullptr) {
-            std::cout << ": " << node->type->name;
+            std::cout << ", type=";
+            node->type->visit(this);
         }
-        std::cout << " = ";
+        std::cout << ", expr=";
         node->expression->visit(this);
+        std::cout << ")";
     }
 
     virtual void visitNBlock(NBlock* node) {
-        for (auto statement: node->statements) {
-            statement->visit(this);
-            for (auto statement: node->statements) {
-                statement->visit(this);
-            }
+        std::cout << "NBlock(\n  statements=[" << std::endl;
+        for (auto stmt: node->statements) {
+            std::cout << "    ";
+            stmt->visit(this);
+            std::cout<<std::endl;
         }
-        if (node->returnExpr) {
-            std::cout << "return ";
+
+        std::cout << "  ]";
+        if (node->returnExpr != nullptr) {
+            std::cout << ",\n  returnExpr=";
             node->returnExpr->visit(this);
         }
+        std::cout << "\n)";
     }
 
     virtual void visitNExpression(NExpression* node) {
-        std::cout << "NOT_IMPLEMENTED_EXPRESSION";
+        std::cout << "NExpression(nothing)";
     }
 };
