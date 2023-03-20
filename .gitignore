@@ -5,6 +5,7 @@ flex/a.out
 src/lex.cpp
 src/lex.yy.c
 src/parser.cpp
+src/parser
 src/parser.hpp
 src/bison
 .vscode

@@ -31,6 +31,7 @@ class NDeclarationStatement;
 class NTypeIdent;
 class NFunctionDeclaration;
 class NFunctionArgument;
+class NTypedVar;
 
 typedef std::vector<NStatement*> StatementList;
 typedef std::vector<NExpression*> ExpressionList;
@@ -282,6 +283,14 @@ public:
 };
 
 
+class NTypedVar: public NStatement {
+    NIdentifier *ident;
+    NIdentifier *type;
+
+    NTypedVar(NIdentifier *ident, NIdentifier *type) :
+        ident(ident), type(type) { }
+};
+
 class NDeclarationStatement : public NStatement {
 public:
     NIdentifier *ident;
@@ -344,20 +353,28 @@ class NFunctionDeclaration : public NStatement {
 public:
     NIdentifier *return_type;
     NIdentifier *id;
-    functionArguments *arguments;
+    std::vector<NDeclarationStatement *> *arguments;
     NBlock *block;
 
     NFunctionDeclaration(NIdentifier *return_type, NIdentifier *id, 
-            functionArguments *arguments, NBlock *block) :
+            std::vector<NDeclarationStatement *> *arguments, NBlock *block) :
         return_type(return_type), id(id), arguments(arguments), block(block) { }
 
     // virtual llvm::Value* codeGen(CodeGenContext& context);
 
     virtual std::string repr() {
         std::ostringstream oss;
-        oss << "NFunctionDeclaration(id=" << this->id->repr();
-        oss << ", return_type=" << this->return_type->repr();
-        oss << ", block=" << this->block->repr();
+        oss << "NFunctionDeclaration(id=" << this -> id -> repr();
+        oss << ", args=[" << std::endl;
+        for (auto x: *this -> arguments) {
+            oss << x -> repr() << ",\n";
+        }
+        oss << "]";
+        std::string return_type = "Nothing";
+        if (this->return_type != nullptr)
+            return_type = this -> return_type -> repr().c_str();
+        oss << ", return_type=" << return_type;
+        oss << ", block=" << this -> block -> repr();
         return oss.str();
     }
 };

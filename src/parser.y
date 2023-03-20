@@ -20,6 +20,8 @@
     NStatement *stmt;
     std::vector<NStatement*> *statlist;
     std::vector<NExpression*> *exprlist;
+    std::vector<NDeclarationStatement *> *typed_var_list;
+    NDeclarationStatement *typed_var;
     NIdentifier *ident;
     NIdentifier *type_ident;
     NFunctionDeclaration *function_decl;
@@ -54,12 +56,14 @@
    calling an (NIdentifier*). It makes the compiler happy.
  */
 %type <block> program block
-%type <stmt> stmt var_decl function_decl
+%type <stmt> stmt var_decl function_decl 
 %type <expr> expr term
 %type <ident> ident
 %type <type_ident> type_ident
 %type <binop> binop
 %type <unop> unop
+%type <typed_var> typed_var
+%type <typed_var_list> typed_var_list
 /* %type <stmt> stmt var_decl func_decl */
 /* %type <token> comparison */
 /* %type <expr> numeric expr  */
@@ -109,11 +113,20 @@ binop : OP_PLUS
 unop : OP_MINUS
     ;
 
+typed_var : ident OP_COLON type_ident {$$ = new NDeclarationStatement($1, $3, new NExpression());}
+    ;
+
+typed_var_list: typed_var { $$ = new std::vector<NDeclarationStatement *>(); $$->push_back($1);}
+        | typed_var_list OP_COMMA typed_var {$1 -> push_back($3);}
+    ;
+
 var_decl : ident OP_EQUAL expr { $$ = new NDeclarationStatement($1, $3); }
          | ident OP_COLON type_ident OP_EQUAL expr { $$ = new NDeclarationStatement($1, $3, $5); }
     ;
 
-function_decl : KW_FUNCTION ident OP_LBRACE /*Add params here*/ OP_RBRACE OP_ARROW type_ident block KW_END { $$ = new NFunctionDeclaration($6, $2, {}, $7);};
+function_decl : KW_FUNCTION ident OP_LBRACE typed_var_list OP_RBRACE OP_ARROW type_ident block KW_END { $$ = new NFunctionDeclaration($7, $2, $4, $8);}
+    |  KW_FUNCTION ident OP_LBRACE typed_var_list OP_RBRACE block KW_END { $$ = new NFunctionDeclaration(nullptr, $2, $4, $6);}
+    ;
 
 type_ident: KW_STR { $$ = new NIdentifier(* new std::string("str")); }
     | KW_BOOL { $$ = new NIdentifier(* new std::string("bool")); }
