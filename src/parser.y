@@ -56,7 +56,7 @@
    calling an (NIdentifier*). It makes the compiler happy.
  */
 %type <block> program block
-%type <stmt> stmt var_decl function_decl
+%type <stmt> stmt var_decl function_decl retstat
 %type <expr> expr term function_call
 %type <ident> ident
 %type <type_ident> type_ident
@@ -85,12 +85,15 @@ program : block { programBlock = $1; }
 
 block : stmt { $$ = new NBlock(); $$->statements.push_back($<stmt>1); }
       | block stmt { $1->statements.push_back($<stmt>2); }
+      /* | block retstat { $1->statements.push_back($<stmt>2); } */
     ;
 
+retstat : KW_RETURN expr
 
 stmt : var_decl
      | function_call
      | function_decl
+     | retstat
     ;
       /* | expr { $$ = new NExpressionStatement(*$1); } */
 
