@@ -68,7 +68,6 @@ class Node {
 public:
     virtual ~Node() {}
     // virtual llvm::Value* codeGen(CodeGenContext* context) { }
-    virtual std::string repr() = 0;
     virtual void visit(Visitor* v) = 0;
 };
 
@@ -106,6 +105,8 @@ public:
 class NNum : public NExpression {
 public:
     long double value;
+
+    NNum(long double value) : value(value) { }
 
     virtual void visit(Visitor* v) {
         v->visitNNum(this);
@@ -317,7 +318,11 @@ public:
 
 class PrettyPrintVisitor : public Visitor {
 public:
-    PrettyPrintVisitor() { }
+    int tabs;
+    PrettyPrintVisitor() : tabs(0) { }
+    const std::string indent() {
+        return std::string(4 * this->tabs, ' ');
+    }
 
     virtual void visitNNum(NNum* node) {
         std::cout << "NNum(value=" << node->value << ")";
@@ -411,9 +416,9 @@ public:
         std::cout << "NIfStatement(conditions=[";
         for (auto clause: node->conditionBlockList) {
             std::cout << "condition=";
-            clause->first->visit(this);
+            clause->first.visit(this);
             std::cout << "block=\n\t";
-            clause->second->visit(this);
+            clause->second.visit(this);
             if (clause != node->conditionBlockList.back()) {
                 std::cout << ", ";
             }
@@ -439,7 +444,7 @@ public:
         std::cout<< ")";
     }
 
-    virtual void visitNGenericreturnExprForStatement(NGenericForStatement* node) {
+    virtual void visitNGenericForStatement(NGenericForStatement* node) {
         std::cout << "NGenericForStatement(identifiers=[";
         for (auto ident: node->identifiers) {
             ident->visit(this);
