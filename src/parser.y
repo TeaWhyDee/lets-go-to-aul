@@ -122,17 +122,17 @@ for_numeric : KW_FOR ident OP_EQUAL expr OP_COMMA expr KW_DO block KW_END {
     ;
 
 if_stmt : expr KW_THEN block elseif KW_ELSE block { $$ = new NIfStatement(*$4, $6);
-                $$->conditionBlockList.insert($$->conditionBlockList.begin(), new std::pair<NExpression, NBlock>(*$1, *$3) );}
+                $$->conditionBlockList.insert($$->conditionBlockList.begin(), new std::pair<NExpression *, NBlock *>($1, $3) );}
         | expr KW_THEN block elseif { $$ = new NIfStatement(*$4, nullptr);
-                $$->conditionBlockList.insert($$->conditionBlockList.begin(), new std::pair<NExpression, NBlock>(*$1, *$3) );}
+                $$->conditionBlockList.insert($$->conditionBlockList.begin(), new std::pair<NExpression *, NBlock *>($1, $3) );}
         | expr KW_THEN block KW_ELSE block { $$ = new NIfStatement(std::vector<conditionBlock*>(), $5);
-                $$->conditionBlockList.push_back( new std::pair<NExpression, NBlock>(*$1, *$3) );}
+                $$->conditionBlockList.push_back( new std::pair<NExpression *, NBlock *>($1, $3) );}
         | expr KW_THEN block { $$ = new NIfStatement(std::vector<conditionBlock*>(), nullptr);
-                $$->conditionBlockList.push_back( new std::pair<NExpression, NBlock>(*$1, *$3) );}
+                $$->conditionBlockList.push_back( new std::pair<NExpression *, NBlock *>($1, $3) );}
 
 elseif : KW_ELSEIF expr KW_THEN block { $$ = new std::vector<conditionBlock*>();
-       $$->push_back( new std::pair<NExpression, NBlock>(*$2, *$4) );}
-       | elseif KW_ELSEIF expr KW_THEN block { $1->push_back( new std::pair<NExpression, NBlock>(*$3, *$5) );}
+       $$->push_back( new std::pair<NExpression *, NBlock *>($2, $4) );}
+       | elseif KW_ELSEIF expr KW_THEN block { $1->push_back( new std::pair<NExpression *, NBlock *>($3, $5) );}
 
 retstat : KW_RETURN expr { $$ = new NReturnStatement($2); }
     ;
