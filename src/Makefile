@@ -10,9 +10,11 @@ test: flex
 	cat ../test/*.aul | ./parser
 
 bison:
-	# bison --report all -Wcounterexamples -d -o parser.cpp parser.y;
 	# bison --graph -Wcounterexamples -d -o parser.cpp parser.y;
 	bison -Wcounterexamples -d -o parser.cpp parser.y;
+
+report:
+	bison --report all -Wcounterexamples -d -o parser.cpp parser.y;
 
 flex: lex.cpp
 	g++ -Wall -std=c++11 $^ -o parser

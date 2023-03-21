@@ -30,6 +30,7 @@ class NGenericForStatement;
 class NDeclarationStatement;
 class NTypeIdent;
 class NFunctionDeclaration;
+class NFunctionCall;
 class NFunctionArgument;
 class Visitor;
 class PrettyPrintVisitor;
@@ -54,6 +55,7 @@ public:
     virtual void visitNTableField(NTableField* node) = 0;
     virtual void visitNTableConstructor(NTableConstructor* node) = 0;
     virtual void visitNFunctionDeclaration(NFunctionDeclaration* node) = 0;
+    virtual void visitNFunctionCall(NFunctionCall* node) = 0;
     virtual void visitNFunctionArgument(NFunctionArgument* node) = 0;
     virtual void visitNWhileStatement(NWhileStatement* node) = 0;
     virtual void visitNRepeatStatement(NRepeatUntilStatement* node) = 0;
@@ -71,14 +73,15 @@ public:
     virtual void visit(Visitor* v) = 0;
 };
 
-class NExpression : public Node {
+
+class NStatement : public Node {
+};
+
+class NExpression : public NStatement {
 public:
     virtual void visit(Visitor* v) {
         v->visitNExpression(this);
     }
-};
-
-class NStatement : public Node {
 };
 
 class NBlock : public Node {
@@ -266,6 +269,7 @@ public:
 
 
 class NTypedVar: public NStatement {
+public:
     NIdentifier *ident;
     NIdentifier *type;
 
@@ -302,6 +306,20 @@ public:
     }
 };
 
+class NFunctionCall : public NExpression {
+public:
+    NExpression *expr;
+
+    ExpressionList exprlist;
+
+    NFunctionCall(NExpression *expr, ExpressionList exprlist):
+        expr(expr), exprlist(exprlist) {}
+
+    virtual void visit(Visitor* v) {
+        v->visitNFunctionCall(this);
+    }
+};
+
 class NFunctionDeclaration : public NStatement {
 public:
     NIdentifier *return_type;
@@ -327,7 +345,7 @@ public:
     }
 
     virtual void visitNNum(NNum* node) {
-        std::cout << "NNum(value=" << &(node->value) << ")";
+        std::cout << "NNum(value=" << node->value << ")";
     }
 
     virtual void visitNNil(NNil* node) {
@@ -335,11 +353,11 @@ public:
     }
 
     virtual void visitNBool(NBool* node) {
-        std::cout << "NBool(value=" << &(node->value) << ")";
+        std::cout << "NBool(value=" << node->value << ")";
     }
 
     virtual void visitNString(NString* node) {
-        std::cout << "NStr(value=" << (node->value) << ")";
+        std::cout << "NStr(value=" << node->value << ")";
     }
 
     virtual void visitNIdentifier(NIdentifier* node) {
@@ -388,6 +406,17 @@ public:
         std::cout << ", block=\n\t";
         node->block->visit(this);
         std::cout << ")";
+    }
+
+    virtual void visitNFunctionCall(NFunctionCall* node) {
+        std::cout << "NFunctionCall(expr=";
+        node->expr->visit(this);
+        std::cout << ", expr_list=[";
+        for(auto expr: node->exprlist) {
+            expr->visit(this);
+            std::cout << ", ";
+        }
+        std::cout << "])";
     }
 
     virtual void visitNFunctionArgument(NFunctionArgument* node) {
