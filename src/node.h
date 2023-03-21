@@ -398,14 +398,24 @@ public:
         std::cout << "])";
     }
 
+
     virtual void visitNFunctionDeclaration(NFunctionDeclaration* node) {
         std::cout << "NFunctionDeclaration(id=";
         node->id->visit(this);
         std::cout << ", return_type=";
-        node->return_type->visit(this);
-        std::cout << ", block=\n\t";
+        if (node->return_type != nullptr)
+            node->return_type->visit(this);
+        else
+            std::cout << "nothing";
+        std::cout << ", block=[\n\t";
         node->block->visit(this);
-        std::cout << ")";
+        std::cout << "], arguments=[";
+        for (auto arg: *node->arguments) {
+            arg->visit(this);
+            if (arg != node->arguments->back())
+                std::cout << ", ";
+        }
+        std::cout << "])";
     }
 
     virtual void visitNFunctionCall(NFunctionCall* node) {
