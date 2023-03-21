@@ -19,7 +19,10 @@
     NExpression *expr;
     NStatement *stmt;
     std::vector<NStatement*> *statlist;
+    NIfStatement *ifstmt;
+    std::vector<conditionBlock*> *elif;
     std::vector<NExpression*> *expr_list;
+    std::vector<NIdentifier*> *ident_list;
     std::vector<NDeclarationStatement *> *typed_var_list;
     NDeclarationStatement *typed_var;
     NIdentifier *ident;
@@ -56,7 +59,9 @@
    calling an (NIdentifier*). It makes the compiler happy.
  */
 %type <block> program block
-%type <stmt> stmt var_decl function_decl
+%type <stmt> stmt var_decl function_decl retstat
+%type <ifstmt> if_stmt
+%type <elif> elseif
 %type <expr> expr term function_call
 %type <ident> ident
 %type <type_ident> type_ident
@@ -65,6 +70,7 @@
 %type <typed_var> typed_var
 %type <typed_var_list> typed_var_list
 %type <expr_list> expr_list 
+%type <ident_list> ident_list 
 /* %type <stmt> stmt var_decl func_decl */
 /* %type <token> comparison */
 /* %type <expr> numeric expr  */
@@ -91,8 +97,38 @@ block : stmt { $$ = new NBlock(); $$->statements.push_back($<stmt>1); }
 stmt : var_decl
      | function_call
      | function_decl
+     | retstat
+     | KW_DO block KW_END { $$ = new NDoStatement($2); }
+     | KW_WHILE expr KW_DO block KW_END { $$ = new NWhileStatement($2, $4); }
+     | KW_REPEAT block KW_UNTIL expr { $$ = new NRepeatUntilStatement($4, $2); }
+     | KW_IF if_stmt KW_END { $$ = $2; }
+     | KW_FOR ident OP_EQUAL expr OP_COMMA expr KW_DO block KW_END { 
+            $$ = new NNumericForStatement($2, $4, $6, new NNum((double)1), $8); }
+     | KW_FOR ident OP_EQUAL expr OP_COMMA expr OP_COMMA expr KW_DO block KW_END { 
+            $$ = new NNumericForStatement($2, $4, $6, $8, $10); }
+     | KW_FOR ident_list KW_IN expr_list KW_DO block KW_END {
+            $$ = new NGenericForStatement(*$2, *$4, $6); }
     ;
-      /* | expr { $$ = new NExpressionStatement(*$1); } */
+
+if_stmt : expr KW_THEN block elseif KW_ELSE block { $$ = new NIfStatement(*$4, $6);
+                $$->conditionBlockList.push_back( new std::pair<NExpression, NBlock>(*$1, *$3) );}
+        | expr KW_THEN block elseif { $$ = new NIfStatement(*$4, nullptr);
+                $$->conditionBlockList.push_back( new std::pair<NExpression, NBlock>(*$1, *$3) );}
+        | expr KW_THEN block KW_ELSE block { $$ = new NIfStatement(std::vector<conditionBlock*>(), $5);
+                $$->conditionBlockList.push_back( new std::pair<NExpression, NBlock>(*$1, *$3) );}
+        | expr KW_THEN block { $$ = new NIfStatement(std::vector<conditionBlock*>(), nullptr);
+                $$->conditionBlockList.push_back( new std::pair<NExpression, NBlock>(*$1, *$3) );}
+
+elseif : KW_ELSEIF expr KW_THEN block { $$ = new std::vector<conditionBlock*>();
+       $$->push_back( new std::pair<NExpression, NBlock>(*$2, *$4) );}
+       | elseif KW_ELSEIF expr KW_THEN block { $1->push_back( new std::pair<NExpression, NBlock>(*$3, *$5) );}
+
+retstat : KW_RETURN expr { $$ = new NReturnStatement($2); }
+    ;
+
+ident_list : ident {$$ = new std::vector<NIdentifier *>(); $$ -> push_back($1);}
+         | ident_list OP_COMMA ident {$$ -> push_back($3);}
+    ;
 
 expr : term
      | expr binop expr {$$ = new NBinaryOperatorExpression($1, $2, $3);}
@@ -206,4 +242,5 @@ call_args : blank  { $$ = new ExpressionList(); }
           | call_args TCOMMA expr  { $1->push_back($3); }
           ;
 */
+
 
