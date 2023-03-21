@@ -27,6 +27,7 @@ class NIfStatement;
 class NNumericForStatement;
 class NGenericForStatement;
 class NDeclarationStatement;
+class NReturnStatement;
 class NTypeIdent;
 class NFunctionDeclaration;
 class NFunctionCall;
@@ -274,6 +275,15 @@ public:
 
     NTypedVar(NIdentifier *ident, NIdentifier *type) :
         ident(ident), type(type) { }
+};
+
+class NReturnStatement : public NStatement {
+public:
+    NIdentifier *ident;
+    NIdentifier *type;
+    NExpression *expression;
+    NReturnStatement(NExpression *expression) :
+        type(nullptr), expression(expression) { }
 };
 
 class NDeclarationStatement : public NStatement {
