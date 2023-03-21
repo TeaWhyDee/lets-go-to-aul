@@ -19,7 +19,7 @@ struct Square
         self.p1.y = y
     end
 
-    function set_points(p: Point)
+    function set_points(p: Point) -> Point
         if random() > 0.5 then
             self.p1 = p
         else
@@ -27,11 +27,11 @@ struct Square
         end
     end
 
-    function perimeter()
+    function perimeter() -> num
         return 2 * (self.p2.x - self.p1.x + self.p2.y - self.p1.y)
     end
 
-    function area()
+    function area() -> num
         return (self.p2.x - self.p1.x) * (self.p2.y - self.p1.y)
     end
 end
