@@ -174,6 +174,9 @@ binop : OP_PLUS
 unop : OP_MINUS
     ;
 
+var : ident | ident OP_DOT ident
+    ;
+
 typed_var : ident OP_COLON type_ident {$$ = new NDeclarationStatement($1, $3, new NExpression());}
     ;
 
@@ -212,7 +215,8 @@ type_ident: KW_STR { $$ = new NIdentifier(new std::string("str")); }
     | L_STRING { $$ = new NIdentifier(yylval.string); }
     ;
 
-ident : L_STRING { $$ = new NIdentifier($1); delete $1; }
+ident : L_STRING { $$ = new NIdentifier($1); }
+    | ident OP_DOT L_STRING { $$->name = $$->name + std::string(".") + *$3; }
 %%
 
 /*
