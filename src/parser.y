@@ -127,7 +127,7 @@ binop : OP_PLUS
 unop : OP_MINUS
     ;
 
-typed_var : ident OP_COLON type_ident {$$ = new NDeclarationStatement($1, $3, nullptr);}
+typed_var : ident OP_COLON type_ident {$$ = new NDeclarationStatement($1, $3, new NExpression());}
     ;
 
 typed_var_list: typed_var { $$ = new std::vector<NDeclarationStatement *>(); $$->push_back($1);}
