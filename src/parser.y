@@ -28,6 +28,8 @@
     NIdentifier *ident;
     NIdentifier *type_ident;
     NFunctionDeclaration *function_decl;
+    NStructDeclaration *struct_decl;
+    StructBody *struct_body;
     std::vector<NIdentifier*> *varlist;
     std::string *string;
 
@@ -46,7 +48,7 @@
 %token <token> OP_LBRACE OP_RBRACE OP_LCURLY_BRACE OP_LSQUARE_BRACE
 %token <token> OP_RSQUARE_BRACE OP_RCURLY_BRACE
 %token <token> OP_SEMICOLON OP_COLON OP_COMMA OP_DOTDOT OP_DOT
-%token <token> KW_CONST KW_SELF KW_STATIC KW_STRUCT KW_NUM
+%token <token> KW_CONST KW_SELF KW_STATIC KW_STRUCT KW_NUM KW_NEW
 %token <token> KW_STR KW_BOOL KW_TABLE KW_NIL
 %token <token> KW_AND KW_BREAK KW_DO KW_ELSE KW_ELSEIF KW_END
 %token <token> KW_FALSE KW_FOR KW_FUNCTION KW_IF KW_IN KW_LOCAL
@@ -59,9 +61,10 @@
    calling an (NIdentifier*). It makes the compiler happy.
  */
 %type <block> program block
-%type <stmt> stmt var_decl function_decl retstat for_numeric for_generic
+%type <stmt> stmt var_decl retstat for_numeric for_generic
 %type <ifstmt> if_stmt
 %type <elif> elseif
+%type <function_decl> function_decl
 %type <expr> expr term function_call
 %type <ident> ident
 %type <type_ident> type_ident
@@ -71,6 +74,8 @@
 %type <typed_var_list> typed_var_list
 %type <expr_list> expr_list 
 %type <ident_list> ident_list 
+%type <struct_decl> struct_decl
+%type <struct_body> struct_body
 /* %type <stmt> stmt var_decl func_decl */
 /* %type <token> comparison */
 /* %type <expr> numeric expr  */
@@ -98,6 +103,7 @@ stmt : var_decl
      | function_call
      | function_decl
      | retstat
+     | struct_decl
      | KW_DO block KW_END { $$ = new NDoStatement($2); }
      | KW_WHILE expr KW_DO block KW_END { $$ = new NWhileStatement($2, $4); }
      | KW_REPEAT block KW_UNTIL expr { $$ = new NRepeatUntilStatement($4, $2); }
@@ -181,8 +187,20 @@ var_decl : ident OP_EQUAL expr { $$ = new NDeclarationStatement($1, $3); }
 
 function_decl : KW_FUNCTION ident OP_LBRACE typed_var_list OP_RBRACE OP_ARROW type_ident block KW_END { $$ = new NFunctionDeclaration($7, $2, $4, $8);}
     |  KW_FUNCTION ident OP_LBRACE typed_var_list OP_RBRACE block KW_END { $$ = new NFunctionDeclaration(nullptr, $2, $4, $6);}
-    |  KW_FUNCTION ident OP_LBRACE OP_RBRACE OP_ARROW type_ident block KW_END { $$ = new NFunctionDeclaration($6, $2,new std::vector<NDeclarationStatement*>(), $7);}
+    |  KW_FUNCTION ident OP_LBRACE OP_RBRACE OP_ARROW type_ident block KW_END { $$ = new NFunctionDeclaration($6, $2, new std::vector<NDeclarationStatement*>(), $7);}
     |  KW_FUNCTION ident OP_LBRACE OP_RBRACE block KW_END { $$ = new NFunctionDeclaration(nullptr, $2, new std::vector<NDeclarationStatement*>(), $5);}
+    |  KW_NEW OP_LBRACE OP_RBRACE block KW_END { $$ = new NFunctionDeclaration(nullptr, new NIdentifier(new std::string("new")), new std::vector<NDeclarationStatement*>(), $4);}
+    |  KW_NEW OP_LBRACE typed_var_list OP_RBRACE block KW_END { $$ = new NFunctionDeclaration(nullptr, new NIdentifier(new std::string("new")), $3, $5);}
+    ;
+
+struct_decl : KW_STRUCT ident KW_END { $$ = new NStructDeclaration($2, new StructBody());}
+        |  KW_STRUCT ident struct_body KW_END { $$ = new NStructDeclaration($2, $3);}
+    ;
+
+struct_body : typed_var { $$ = new StructBody(); $$->fields.push_back($1);}
+        | function_decl { $$ = new StructBody(); $$->methods.push_back($1);}
+        | struct_body typed_var { $$->fields.push_back($2); }
+        | struct_body function_decl { $$->methods.push_back($2); };
     ;
 
 type_ident: KW_STR { $$ = new NIdentifier(new std::string("str")); }

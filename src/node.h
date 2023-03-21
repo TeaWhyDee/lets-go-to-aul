@@ -36,6 +36,8 @@ class NFunctionArgument;
 class Visitor;
 class PrettyPrintVisitor;
 class NTypedVar;
+class NStructDeclaration;
+class StructBody;
 
 typedef std::vector<NStatement*> StatementList;
 typedef std::vector<NExpression*> ExpressionList;
@@ -68,6 +70,7 @@ public:
     virtual void visitNReturnStatement(NReturnStatement* node) = 0;
     virtual void visitNBlock(NBlock* node) = 0;
     virtual void visitNExpression(NExpression* node) = 0;
+    virtual void visitNStructDeclaration(NStructDeclaration* node) = 0;
 };
 
 class Node {
@@ -355,6 +358,29 @@ public:
     }
 };
 
+class StructBody {
+public:
+    std::vector<NDeclarationStatement *> fields;
+    std::vector<NFunctionDeclaration *> methods;
+
+    StructBody() :
+        fields(std::vector<NDeclarationStatement *>()), methods(std::vector<NFunctionDeclaration *>()) { };
+};
+
+class NStructDeclaration : public NStatement {
+public:
+    NIdentifier *id;
+    std::vector<NDeclarationStatement *> fields;
+    std::vector<NFunctionDeclaration *> methods;
+
+    NStructDeclaration(NIdentifier *id, StructBody *body) :
+        id(id), fields(body->fields), methods(body->methods) { }
+
+    virtual void visit(Visitor* v) {
+        v->visitNStructDeclaration(this);
+    }
+};
+
 class PrettyPrintVisitor : public Visitor {
 public:
     int tabs;
@@ -563,5 +589,25 @@ public:
 
     virtual void visitNExpression(NExpression* node) {
         std::cout << "NExpression(nothing)";
+    }
+
+    virtual void visitNStructDeclaration(NStructDeclaration* node) {
+        std::cout << "NStructDeclaration(id=";
+        node->id->visit(this);
+        std::cout << ", fields=[";
+        for (auto field: node->fields) {
+            field->visit(this);
+            if (field != node->fields.back()) {
+                std::cout << ", ";
+            }
+        }
+        std::cout << "], methods=[";
+        for (auto field: node->methods) {
+            field->visit(this);
+            if (field != node->methods.back()) {
+                std::cout << ", ";
+            }
+        }
+        std::cout << "])";
     }
 };

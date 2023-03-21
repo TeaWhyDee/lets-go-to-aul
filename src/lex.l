@@ -104,6 +104,7 @@ void yyerror (char const *s);
 [.][.]       {return OP_DOTDOT ;}
 [.]          {return OP_DOT ;}
 const        {return KW_CONST ;}
+new          {return KW_NEW ;}
 self         {return KW_SELF ;}
 static       {return KW_STATIC ;}
 struct       {return KW_STRUCT ;}
