@@ -17,6 +17,20 @@ elseif c then
 end
 
 if a then
+  e=1
+elseif b then
+  f=2
+else 
+  c=3
+end
+
+if a then
+  e=1
+elseif b then
+  f=2
+end
+
+if a then
   h=1
 else
   i=4
