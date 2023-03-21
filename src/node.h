@@ -133,8 +133,8 @@ public:
 
 class NString : public NExpression {
 public:
-    std::string *value;
-    NString(std::string *value) : value(value) { }
+    std::string &value;
+    NString(std::string& value) : value(value) { }
 
     virtual void visit(Visitor* v) {
         v->visitNString(this);
@@ -327,7 +327,7 @@ public:
     }
 
     virtual void visitNNum(NNum* node) {
-        std::cout << "NNum(value=" << node->value << ")";
+        std::cout << "NNum(value=" << &(node->value) << ")";
     }
 
     virtual void visitNNil(NNil* node) {
@@ -335,11 +335,11 @@ public:
     }
 
     virtual void visitNBool(NBool* node) {
-        std::cout << "NBool(value=" << node->value << ")";
+        std::cout << "NBool(value=" << &(node->value) << ")";
     }
 
     virtual void visitNString(NString* node) {
-        std::cout << "NStr(value=" << node->value << ")";
+        std::cout << "NStr(value=" << (node->value) << ")";
     }
 
     virtual void visitNIdentifier(NIdentifier* node) {

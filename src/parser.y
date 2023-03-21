@@ -98,7 +98,7 @@ expr : term
     ;
 
 term : L_NUM { $$ = new NNum(atof($1->c_str())); delete $1; }
-     | L_STRING { $$ = new NString($1);}
+     | L_STRING { $$ = new NString(*$1);}
     ;
 
 binop : OP_PLUS
