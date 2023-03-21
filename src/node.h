@@ -254,7 +254,8 @@ public:
     NExpression* end;
     NExpression* step;
     NBlock* block;
-    NNumericForStatement(NIdentifier* id, NExpression* start, NExpression* end, NExpression* step, NBlock* block) :
+    NNumericForStatement(NIdentifier* id, NExpression* start, NExpression* end,
+                         NExpression* step, NBlock* block) :
         id(id), start(start), end(end), step(step), block(block) { }
 
     virtual void visit(Visitor* v) {
