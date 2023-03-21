@@ -108,7 +108,7 @@ exprlist : expr
          | exprlist OP_COMMA expr
     ;
 
-retstat : KW_RETURN expr
+retstat : KW_RETURN expr { $$ = new NReturnStatement($2); }
     ;
 
 if_stmt : expr KW_THEN block elseif KW_ELSE block

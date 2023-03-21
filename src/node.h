@@ -63,6 +63,7 @@ public:
     virtual void visitNNumericForStatement(NNumericForStatement* node) = 0;
     virtual void visitNGenericForStatement(NGenericForStatement* node) = 0;
     virtual void visitNDeclarationStatement(NDeclarationStatement* node) = 0;
+    virtual void visitNReturnStatement(NReturnStatement* node) = 0;
     virtual void visitNBlock(NBlock* node) = 0;
     virtual void visitNExpression(NExpression* node) = 0;
 };
@@ -279,11 +280,13 @@ public:
 
 class NReturnStatement : public NStatement {
 public:
-    NIdentifier *ident;
-    NIdentifier *type;
     NExpression *expression;
     NReturnStatement(NExpression *expression) :
-        type(nullptr), expression(expression) { }
+        expression(expression) { }
+
+    virtual void visit(Visitor* v) {
+        v->visitNReturnStatement(this);
+    }
 };
 
 class NDeclarationStatement : public NStatement {
@@ -523,6 +526,12 @@ public:
             node->type->visit(this);
         }
         std::cout << ", expr=";
+        node->expression->visit(this);
+        std::cout << ")";
+    }
+
+    virtual void visitNReturnStatement(NReturnStatement* node) {
+        std::cout << "NReturnStatement(expr=";
         node->expression->visit(this);
         std::cout << ")";
     }
