@@ -96,7 +96,6 @@ public:
 
     NBlock(StatementList statements) :
         statements(statements) { }
-    
     virtual void visit(Visitor* v) {
         v->visitNBlock(this);
     }
