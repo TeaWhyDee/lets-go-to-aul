@@ -10,7 +10,6 @@ class NStatement;
 class NExpression;
 class NVariableDeclaration;
 class Node;
-class NExpression;
 class NStatement;
 class NBlock;
 class NNum;
