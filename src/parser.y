@@ -19,7 +19,7 @@
     NExpression *expr;
     NStatement *stmt;
     std::vector<NStatement*> *statlist;
-    std::vector<NExpression*> *exprlist;
+    std::vector<NExpression*> *expr_list;
     std::vector<NDeclarationStatement *> *typed_var_list;
     NDeclarationStatement *typed_var;
     NIdentifier *ident;
@@ -56,14 +56,15 @@
    calling an (NIdentifier*). It makes the compiler happy.
  */
 %type <block> program block
-%type <stmt> stmt var_decl function_decl 
-%type <expr> expr term
+%type <stmt> stmt var_decl function_decl
+%type <expr> expr term function_call
 %type <ident> ident
 %type <type_ident> type_ident
 %type <binop> binop
 %type <unop> unop
 %type <typed_var> typed_var
 %type <typed_var_list> typed_var_list
+%type <expr_list> expr_list 
 /* %type <stmt> stmt var_decl func_decl */
 /* %type <token> comparison */
 /* %type <expr> numeric expr  */
@@ -88,13 +89,26 @@ block : stmt { $$ = new NBlock(); $$->statements.push_back($<stmt>1); }
 
 
 stmt : var_decl
+     | function_call
      | function_decl
     ;
       /* | expr { $$ = new NExpressionStatement(*$1); } */
 
 expr : term
-     | term binop expr {$$ = new NBinaryOperatorExpression($1, $2, $3);}
-     | unop term {$$ = new NUnaryOperatorExpression($1, $2);}
+     | expr binop expr {$$ = new NBinaryOperatorExpression(*$1, $2, *$3);}
+     | unop expr {$$ = new NUnaryOperatorExpression($1, *$2);}
+     | function_call
+    ;
+
+prefix_expr : term
+            | 
+
+function_call : ident OP_LBRACE OP_RBRACE {$$ = new NFunctionCall($1, std::vector<NExpression *>());}
+              | ident OP_LBRACE expr_list OP_RBRACE { $$ = new NFunctionCall($1, *$3); }
+    ;
+
+expr_list : expr {$$ = new std::vector<NExpression *>(); $$ -> push_back($1);}
+          | expr_list OP_COMMA expr {$$ -> push_back($3);}
     ;
 
 term : L_NUM { $$ = new NNum(atof($1->c_str())); delete $1; }
@@ -113,7 +127,7 @@ binop : OP_PLUS
 unop : OP_MINUS
     ;
 
-typed_var : ident OP_COLON type_ident {$$ = new NDeclarationStatement($1, $3, new NExpression());}
+typed_var : ident OP_COLON type_ident {$$ = new NDeclarationStatement($1, $3, nullptr);}
     ;
 
 typed_var_list: typed_var { $$ = new std::vector<NDeclarationStatement *>(); $$->push_back($1);}
@@ -137,7 +151,7 @@ type_ident: KW_STR { $$ = new NIdentifier(new std::string("str")); }
     | L_STRING { $$ = new NIdentifier(yylval.string); }
     ;
 
-ident : L_STRING { printf("%s", yylval.string->c_str()); $$ = new NIdentifier($1); delete $1; }
+ident : L_STRING { $$ = new NIdentifier(*$1); delete $1; }
     ;
 %%
 

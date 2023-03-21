@@ -71,14 +71,15 @@ public:
     virtual void visit(Visitor* v) = 0;
 };
 
-class NExpression : public Node {
+
+class NStatement : public Node {
+};
+
+class NExpression : public NStatement {
 public:
     virtual void visit(Visitor* v) {
         v->visitNExpression(this);
     }
-};
-
-class NStatement : public Node {
 };
 
 class NBlock : public Node {
@@ -266,6 +267,7 @@ public:
 
 
 class NTypedVar: public NStatement {
+public:
     NIdentifier *ident;
     NIdentifier *type;
 
@@ -300,6 +302,17 @@ public:
     virtual void visit(Visitor* v) {
         v->visitNFunctionArgument(this);
     }
+};
+
+class NFunctionCall : public NExpression {
+public:
+    NExpression *expr;
+
+    ExpressionList exprlist;
+
+    NFunctionCall(NExpression *expr, ExpressionList exprlist):
+        expr(expr), exprlist(exprlist) {}
+
 };
 
 class NFunctionDeclaration : public NStatement {
