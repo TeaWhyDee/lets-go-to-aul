@@ -95,8 +95,8 @@ stmt : var_decl
       /* | expr { $$ = new NExpressionStatement(*$1); } */
 
 expr : term
-     | expr binop expr {$$ = new NBinaryOperatorExpression(*$1, $2, *$3);}
-     | unop expr {$$ = new NUnaryOperatorExpression($1, *$2);}
+     | expr binop expr {$$ = new NBinaryOperatorExpression($1, $2, $3);}
+     | unop expr {$$ = new NUnaryOperatorExpression($1, $2);}
      | function_call
     ;
 
@@ -151,8 +151,7 @@ type_ident: KW_STR { $$ = new NIdentifier(new std::string("str")); }
     | L_STRING { $$ = new NIdentifier(yylval.string); }
     ;
 
-ident : L_STRING { $$ = new NIdentifier(*$1); delete $1; }
-    ;
+ident : L_STRING { $$ = new NIdentifier($1); delete $1; }
 %%
 
 /*
