@@ -144,7 +144,7 @@ public:
 class NIdentifier : public NExpression {
 public:
     std::string name;
-    NIdentifier(const std::string& name) : name(name) { }
+    NIdentifier(const std::string* name) : name(*name) { }
 
     virtual void visit(Visitor* v) {
         v->visitNIdentifier(this);
