@@ -18,6 +18,8 @@
     NBlock *block;
     NExpression *expr;
     NStatement *stmt;
+    NIfStatement *ifstmt;
+    std::vector<conditionBlock*> *elif;
     std::vector<NStatement*> *statlist;
     std::vector<NExpression*> *expr_list;
     std::vector<NDeclarationStatement *> *typed_var_list;
@@ -56,9 +58,11 @@
    calling an (NIdentifier*). It makes the compiler happy.
  */
 %type <block> program block
-%type <stmt> stmt var_decl function_decl retstat
-%type <expr> expr term function_call
+%type <stmt> stmt var_decl function_decl retstat 
+%type <ifstmt> if_stmt
+%type <expr> expr term
 %type <ident> ident
+%type <elif> elseif
 %type <type_ident> type_ident
 %type <binop> binop
 %type <unop> unop
@@ -94,7 +98,7 @@ stmt : var_decl
      | KW_DO block KW_END { $$ = new NDoStatement($2); }
      | KW_WHILE expr KW_DO block KW_END { $$ = new NWhileStatement($2, $4); }
      | KW_REPEAT block KW_UNTIL expr { $$ = new NRepeatUntilStatement($4, $2); }
-     | KW_IF if_stmt KW_END
+     | KW_IF if_stmt KW_END { $$ = $2; }
      | KW_FOR ident OP_EQUAL expr OP_COMMA expr KW_DO block KW_END
      | KW_FOR ident OP_EQUAL expr OP_COMMA expr OP_COMMA expr KW_DO block KW_END
      | KW_FOR ident_list KW_IN exprlist KW_DO block KW_END
@@ -111,16 +115,19 @@ exprlist : expr
 retstat : KW_RETURN expr { $$ = new NReturnStatement($2); }
     ;
 
-if_stmt : expr KW_THEN block elseif KW_ELSE block
-        | expr KW_THEN block elseif
-        | expr KW_THEN block KW_ELSE block
-        | expr KW_THEN block { $$ = new NIfStatement(
-                new std::vector<conditionBlock *>() , nullptr);
-                $$->}
+if_stmt : expr KW_THEN block elseif KW_ELSE block { $$ = new NIfStatement(*$4, $6);
+                $$->conditionBlockList.push_back( new std::pair<NExpression, NBlock>(*$1, *$3) );}
+        | expr KW_THEN block elseif { $$ = new NIfStatement(*$4, nullptr);
+                $$->conditionBlockList.push_back( new std::pair<NExpression, NBlock>(*$1, *$3) );}
+        | expr KW_THEN block KW_ELSE block { $$ = new NIfStatement(std::vector<conditionBlock*>(), $5);
+                $$->conditionBlockList.push_back( new std::pair<NExpression, NBlock>(*$1, *$3) );}
+        | expr KW_THEN block { $$ = new NIfStatement(std::vector<conditionBlock*>(), nullptr);
+                $$->conditionBlockList.push_back( new std::pair<NExpression, NBlock>(*$1, *$3) );}
     ;
 
-elseif : KW_ELSEIF expr KW_THEN block
-       | elseif KW_ELSEIF expr KW_THEN block
+elseif : KW_ELSEIF expr KW_THEN block { $$ = new std::vector<conditionBlock*>();
+       $$->push_back( new std::pair<NExpression, NBlock>(*$2, *$4) );}
+       | elseif KW_ELSEIF expr KW_THEN block { $1->push_back( new std::pair<NExpression, NBlock>(*$3, *$5) );}
     ;
 
 expr : term
