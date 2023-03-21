@@ -14,7 +14,7 @@ class NExpression;
 class NStatement;
 class NBlock;
 class NNum;
-class NNill;
+class NNil;
 class NBool;
 class NString;
 class NIdentifier;
@@ -31,6 +31,8 @@ class NDeclarationStatement;
 class NTypeIdent;
 class NFunctionDeclaration;
 class NFunctionArgument;
+class Visitor;
+class PrettyPrintVisitor;
 class NTypedVar;
 
 typedef std::vector<NStatement*> StatementList;
@@ -38,21 +40,41 @@ typedef std::vector<NExpression*> ExpressionList;
 typedef std::vector<NIdentifier*> IdentifierList;
 typedef std::vector<NVariableDeclaration*> VariableList;
 typedef std::pair<NExpression, NBlock> conditionBlock;
-typedef std::vector<NFunctionArgument> functionArguments;
+typedef std::vector<NFunctionArgument*> functionArguments;
+
+class Visitor {
+public:
+    virtual void visitNNum(NNum* node) = 0;
+    virtual void visitNNil(NNil* node) = 0;
+    virtual void visitNBool(NBool* node) = 0;
+    virtual void visitNString(NString* node) = 0;
+    virtual void visitNIdentifier(NIdentifier* node) = 0;
+    virtual void visitNBinaryOperatorExpression(NBinaryOperatorExpression* node) = 0;
+    virtual void visitNUnaryOperatorExpression(NUnaryOperatorExpression* node) = 0;
+    virtual void visitNTableField(NTableField* node) = 0;
+    virtual void visitNTableConstructor(NTableConstructor* node) = 0;
+    virtual void visitNFunctionDeclaration(NFunctionDeclaration* node) = 0;
+    virtual void visitNFunctionArgument(NFunctionArgument* node) = 0;
+    virtual void visitNWhileStatement(NWhileStatement* node) = 0;
+    virtual void visitNRepeatStatement(NRepeatUntilStatement* node) = 0;
+    virtual void visitNIfStatement(NIfStatement* node) = 0;
+    virtual void visitNNumericForStatement(NNumericForStatement* node) = 0;
+    virtual void visitNGenericForStatement(NGenericForStatement* node) = 0;
+    virtual void visitNDeclarationStatement(NDeclarationStatement* node) = 0;
+    virtual void visitNBlock(NBlock* node) = 0;
+    virtual void visitNExpression(NExpression* node) = 0;
+};
 
 class Node {
 public:
     virtual ~Node() {}
-    // virtual llvm::Value* codeGen(CodeGenContext& context) { }
-    virtual std::string repr() = 0;
+    virtual void visit(Visitor* v) = 0;
 };
 
 class NExpression : public Node {
 public:
-    virtual std::string repr() {
-        std::stringstream oss;
-        oss << "NExpression(nothing)";
-        return oss.str();
+    virtual void visit(Visitor* v) {
+        v->visitNExpression(this);
     }
 };
 
@@ -74,17 +96,8 @@ public:
     NBlock(StatementList statements) :
         statements(statements) { }
 
-    // virtual llvm::Value* codeGen(CodeGenContext& context);
-    virtual std::string repr() {
-        std::stringstream oss;
-        oss << "NBlock(\n  statements=[" << std::endl;
-        for (auto stmt: statements) {
-            oss << "    " << stmt->repr() << std::endl;
-        }
-
-        oss << "  ]\n)";
-
-        return oss.str();
+    virtual void visit(Visitor* v) {
+        v->visitNBlock(this);
     }
 };
 
@@ -93,22 +106,18 @@ class NNum : public NExpression {
 public:
     long double value;
     NNum(long double value) : value(value) { }
-    // virtual llvm::Value* codeGen(CodeGenContext& context);
-    virtual std::string repr() {
-        std::stringstream oss;
-        oss << "NNum(value=" << this->value << ")";
-        return oss.str();
+
+    virtual void visit(Visitor* v) {
+        v->visitNNum(this);
     }
 };
 
-class NNill : public NExpression {
+class NNil : public NExpression {
 public:
-    NNill() { }
-    // virtual llvm::Value* codeGen(CodeGenContext& context);
-    virtual std::string repr() {
-        std::stringstream oss;
-        oss << "NNill()";
-        return oss.str();
+    NNil() { }
+
+    virtual void visit(Visitor* v) {
+        v->visitNNil(this);
     }
 };
 
@@ -116,11 +125,9 @@ class NBool : public NExpression {
 public:
     bool value;
     NBool(bool value) : value(value) { }
-    // virtual llvm::Value* codeGen(CodeGenContext& context);
-    virtual std::string repr() {
-        std::stringstream oss;
-        oss << "NBool(value=" << this->value << ")";
-        return oss.str();
+
+    virtual void visit(Visitor* v) {
+        v->visitNBool(this);
     }
 };
 
@@ -128,11 +135,9 @@ class NString : public NExpression {
 public:
     std::string *value;
     NString(std::string *value) : value(value) { }
-    // virtual llvm::Value* codeGen(CodeGenContext& context);
-    virtual std::string repr() {
-        std::ostringstream oss;
-        oss << "NString(value=" << this->value->c_str() << ")";
-        return oss.str();
+
+    virtual void visit(Visitor* v) {
+        v->visitNString(this);
     }
 };
 
@@ -140,58 +145,47 @@ class NIdentifier : public NExpression {
 public:
     std::string name;
     NIdentifier(const std::string& name) : name(name) { }
-    // virtual llvm::Value* codeGen(CodeGenContext& context);
-    virtual std::string repr() {
-        std::ostringstream oss;
-        oss << "NIdentifier(name=" << this->name << ")";
-        return oss.str();
+
+    virtual void visit(Visitor* v) {
+        v->visitNIdentifier(this);
     }
 };
 
 class NBinaryOperatorExpression : public NExpression {
 public:
-    NExpression& lhs;
+    NExpression* lhs;
     int op;
-    NExpression& rhs;
-    NBinaryOperatorExpression(NExpression& lhs, int op, NExpression& rhs) :
+    NExpression* rhs;
+    NBinaryOperatorExpression(NExpression* lhs, int op, NExpression* rhs) :
         lhs(lhs), op(op), rhs(rhs) { }
-    virtual std::string repr() {
-        std::ostringstream oss;
-        oss << "NBinaryOperatorExpression";
-        oss << "(lhs=" << this->lhs.repr();
-        oss << ", op=" << this->op;
-        oss << ", rhs=" << this->rhs.repr() << ")";
-        return oss.str();
+
+    virtual void visit(Visitor* v) {
+        v->visitNBinaryOperatorExpression(this);
     }
-    // virtual llvm::Value* codeGen(CodeGenContext& context);
 };
 
 class NUnaryOperatorExpression : public NExpression {
 public:
     int op;
-    NExpression& rhs;
-    NUnaryOperatorExpression(int op, NExpression& rhs) :
+    NExpression* rhs;
+    NUnaryOperatorExpression(int op, NExpression* rhs) :
          op(op), rhs(rhs) { }
-    // virtual llvm::Value* codeGen(CodeGenContext& context);
-    virtual std::string repr() {
-        std::ostringstream oss;
-        oss << "NUnaryOperatorExpression(op=" << this->op << ", rhs=" << this->rhs.repr() << ")";
-        return oss.str();
+
+    virtual void visit(Visitor* v) {
+        v->visitNUnaryOperatorExpression(this);
     }
 };
 
 class NTableField : public Node {
 public:
-    NExpression& key;
-    NExpression& value;
-    NIdentifier& id;
-    NTableField(NExpression& key, NExpression& value, NIdentifier& id) :
+    NExpression* key;
+    NExpression* value;
+    NIdentifier* id;
+    NTableField(NExpression* key, NExpression* value, NIdentifier* id) :
         key(key), value(value), id(id) { }
-    virtual std::string repr() {
-        std::ostringstream oss;
-        oss << "NTableField(id=" << this->id.repr();
-        oss << ", key=" << this->key.repr() << ", value=" << this->value.repr() << ")";
-        return oss.str();
+
+    virtual void visit(Visitor* v) {
+        v->visitNTableField(this);
     }
 };
 
@@ -200,70 +194,60 @@ class NTableConstructor : public NExpression {
 public:
     IdentifierList fieldlist;
     NTableConstructor() { }
-    // virtual llvm::Value* codeGen(CodeGenContext& context);
-    virtual std::string repr() {
-        std::ostringstream oss;
-        oss << "NTableConstructor(fixme)";
-        return oss.str();
+
+    virtual void visit(Visitor* v) {
+        v->visitNTableConstructor(this);
     }
 };
 
 class NWhileStatement : public NStatement {
 public:
-    NExpression& condition;
-    NBlock& block;
-    NWhileStatement(NExpression& condition, NBlock& block) :
+    NExpression* condition;
+    NBlock* block;
+    NWhileStatement(NExpression* condition, NBlock* block) :
         condition(condition), block(block) { }
-    // virtual llvm::Value* codeGen(CodeGenContext& context);
-    virtual std::string repr() {
-        std::ostringstream oss;
-        oss << "NWhileStatement(fixme)";
-        return oss.str();
+
+    virtual void visit(Visitor* v) {
+        v->visitNWhileStatement(this);
     }
 };
 
 class NRepeatUntilStatement : public NStatement {
 public:
-    NExpression& condition;
-    NBlock& block;
-    NRepeatUntilStatement(NExpression& condition, NBlock& block) :
+    NExpression* condition;
+    NBlock* block;
+    NRepeatUntilStatement(NExpression* condition, NBlock* block) :
         condition(condition), block(block) { }
-    // virtual llvm::Value* codeGen(CodeGenContext& context);
-    virtual std::string repr() {
-        std::ostringstream oss;
-        oss << "NRepeatUntil(fixme)";
-        return oss.str();
+
+    virtual void visit(Visitor* v) {
+        v->visitNRepeatStatement(this);
     }
 };
 
 class NIfStatement : public NStatement {
 public:
     std::vector<conditionBlock *> conditionBlockList;
-    NBlock& elseBlock;
-    NIfStatement(std::vector<conditionBlock *> conditionBlockList, NBlock& elseBlock) :
+    NBlock* elseBlock;
+    NIfStatement(std::vector<conditionBlock *> conditionBlockList, NBlock* elseBlock) :
         conditionBlockList(conditionBlockList), elseBlock(elseBlock) { }
-    // virtual llvm::Value* codeGen(CodeGenContext& context);
-    virtual std::string repr() {
-        std::ostringstream oss;
-        oss << "NIf(fixme)";
-        return oss.str();
+
+    virtual void visit(Visitor* v) {
+        v->visitNIfStatement(this);
     }
 };
 
 class NNumericForStatement : public NStatement {
 public:
-    NIdentifier& id;
-    NExpression& start;
-    NExpression& end;
-    NExpression& step;
-    NBlock& block;
-    NNumericForStatement(NIdentifier& id, NExpression& start, NExpression& end, NExpression& step, NBlock& block) :
+    NIdentifier* id;
+    NExpression* start;
+    NExpression* end;
+    NExpression* step;
+    NBlock* block;
+    NNumericForStatement(NIdentifier* id, NExpression* start, NExpression* end, NExpression* step, NBlock* block) :
         id(id), start(start), end(end), step(step), block(block) { }
-    // virtual llvm::Value* codeGen(CodeGenContext& context);
-    virtual std::string repr() {
-        std::ostringstream oss;
-        oss << "NNumericFor(fixme)";
-        return oss.str();
+
+    virtual void visit(Visitor* v) {
+        v->visitNNumericForStatement(this);
     }
 };
 
@@ -271,14 +255,12 @@ class NGenericForStatement : public NStatement {
 public:
     IdentifierList identifiers;
     ExpressionList expressions;
-    NBlock& block;
-    NGenericForStatement(IdentifierList identifiers, ExpressionList expressions, NBlock& block) :
+    NBlock* block;
+    NGenericForStatement(IdentifierList identifiers, ExpressionList expressions, NBlock* block) :
         identifiers(identifiers), expressions(expressions), block(block) { }
-    // virtual llvm::Value* codeGen(CodeGenContext& context);
-    virtual std::string repr() {
-        std::ostringstream oss;
-        oss << "NGenericFor(fixme)";
-        return oss.str();
+
+    virtual void visit(Visitor* v) {
+        v->visitNGenericForStatement(this);
     }
 };
 
@@ -302,30 +284,8 @@ public:
     NDeclarationStatement(NIdentifier *ident, NIdentifier *type, NExpression *expression) :
         ident(ident), type(type), expression(expression) { }
 
-    virtual std::string repr() {
-        std::ostringstream oss;
-
-        // oss << "NDeclarationStatement(statements=[\n";
-        // for (auto stmt: this->statements) {
-        //     oss << stmt->repr() <<", ";
-        // }
-
-        // oss << "],\nexpressions=[";
-        // for (auto expr: this->expressions) {
-        //     oss << expr->repr() <<", ";
-        // }
-
-        // oss << "])";
-
-        oss << "NDeclarationStatement(ident=" << this->ident->repr();
-        std::string type = "`To be deduced`";
-        if (this->type != nullptr) {
-            type = this->type->repr();
-        }
-        oss << ", type=" << type;
-        oss << ", expr=" << this->expression->repr();
-
-        return oss.str();
+    virtual void visit(Visitor* v) {
+        v->visitNDeclarationStatement(this);
     }
 };
 
@@ -337,16 +297,9 @@ public:
     NFunctionArgument(NIdentifier *id, NIdentifier *type) :
         id(id), type(type) { }
 
-    // virtual llvm::Value* codeGen(CodeGenContext& context);
-
-    virtual std::string repr() {
-        std::ostringstream oss;
-        oss << "NFunctionArgument(id=" << this->id->repr();
-        oss << ", type=" << this->type->repr();
-        oss << ")";
-        return oss.str();
+    virtual void visit(Visitor* v) {
+        v->visitNFunctionArgument(this);
     }
-
 };
 
 class NFunctionDeclaration : public NStatement {
@@ -360,102 +313,189 @@ public:
             std::vector<NDeclarationStatement *> *arguments, NBlock *block) :
         return_type(return_type), id(id), arguments(arguments), block(block) { }
 
-    // virtual llvm::Value* codeGen(CodeGenContext& context);
-
-    virtual std::string repr() {
-        std::ostringstream oss;
-        oss << "NFunctionDeclaration(id=" << this -> id -> repr();
-        oss << ", args=[" << std::endl;
-        for (auto x: *this -> arguments) {
-            oss << x -> repr() << ",\n";
-        }
-        oss << "]";
-        std::string return_type = "Nothing";
-        if (this->return_type != nullptr)
-            return_type = this -> return_type -> repr().c_str();
-        oss << ", return_type=" << return_type;
-        oss << ", block=" << this -> block -> repr();
-        return oss.str();
+    virtual void visit(Visitor* v) {
+        v->visitNFunctionDeclaration(this);
     }
 };
 
-// class NFuncStatement : public NStatement {
-// public:
-//     NIdentifier& id;
-//     std::vector<NIdentifier> argList;
-//     NBlock& block;
-//     NFuncStatement(NIdentifier& id, std::vector<NIdentifier> argList, NBlock& block) :
-//         id(id), argList(argList), block(block) { }
-//     // virtual llvm::Value* codeGen(CodeGenContext& context);
-// };
+class PrettyPrintVisitor : public Visitor {
+public:
+    int tabs;
+    PrettyPrintVisitor() : tabs(0) { }
+    const std::string indent() {
+        return std::string(4 * this->tabs, ' ');
+    }
 
-// class NDouble : public NExpression {
-// public:
-//     double value;
-//     NDouble(double value) : value(value) { }
-//     // virtual llvm::Value* codeGen(CodeGenContext& context);
-// };
+    virtual void visitNNum(NNum* node) {
+        std::cout << "NNum(value=" << node->value << ")";
+    }
 
-// class NIdentifier : public NExpression {
-// public:
-//     std::string name;
-//     NIdentifier(const std::string& name) : name(name) { }
-//     // virtual llvm::Value* codeGen(CodeGenContext& context);
-// };
+    virtual void visitNNil(NNil* node) {
+        std::cout << "NNil()";
+    }
 
-// // class NMethodCall : public NExpression {
-// // public:
-// //     const NIdentifier& id;
-// //     ExpressionList arguments;
-// //     NMethodCall(const NIdentifier& id, ExpressionList& arguments) :
-// //         id(id), arguments(arguments) { }
-// //     NMethodCall(const NIdentifier& id) : id(id) { }
-// //     // virtual llvm::Value* codeGen(CodeGenContext& context);
-// // };
+    virtual void visitNBool(NBool* node) {
+        std::cout << "NBool(value=" << node->value << ")";
+    }
 
-// // class NBinaryOperator : public NExpression {
-// // public:
-// //     int op;
-// //     NExpression& lhs;
-// //     NExpression& rhs;
-// //     NBinaryOperator(NExpression& lhs, int op, NExpression& rhs) :
-// //         lhs(lhs), rhs(rhs), op(op) { }
-// //     // virtual llvm::Value* codeGen(CodeGenContext& context);
-// // };
+    virtual void visitNString(NString* node) {
+        std::cout << "NStr(value=" << node->value << ")";
+    }
 
-// // class NAssignment : public NExpression {
-// // public:
-// //     NIdentifier& lhs;
-// //     NExpression& rhs;
-// //     NAssignment(NIdentifier& lhs, NExpression& rhs) : 
-// //         lhs(lhs), rhs(rhs) { }
-// //     // virtual llvm::Value* codeGen(CodeGenContext& context);
-// // };
+    virtual void visitNIdentifier(NIdentifier* node) {
+        std::cout << "NIdentifier(name=" << node->name << ")";
+    }
 
-// class NBlock : public NExpression {
-// public:
-//     StatementList statements;
-//     NBlock() { }
-//     // virtual llvm::Value* codeGen(CodeGenContext& context);
-// };
+    virtual void visitNBinaryOperatorExpression(NBinaryOperatorExpression* node) {
+        std::cout << "NBinaryOperatorExpression";
+        std::cout << "(lhs=";
+        node->lhs->visit(this);
+        std::cout << ", op=" << node->op << ", rhs=";
+        node->rhs->visit(this);
+        std::cout << ")";
+    }
 
-// // class NExpressionStatement : public NStatement {
-// // public:
-// //     NExpression& expression;
-// //     NExpressionStatement(NExpression& expression) : 
-// //         expression(expression) { }
-// //     // virtual llvm::Value* codeGen(CodeGenContext& context);
-// // };
+    virtual void visitNUnaryOperatorExpression(NUnaryOperatorExpression* node) {
+        std::cout << "NUnaryOperatorExpression(op=" << node->op << ", rhs=";
+        node->rhs->visit(this);
+        std::cout << ")";
+    }
 
-// class NDeclaration : public NStatement {
-// public:
-//     // const NIdentifier& type;
-//     NIdentifier& id;
-//     NExpression assignmentExpr;
-//     // Ndeclaration(const NIdentifier& type, NIdentifier& id) :
-//     //     type(type), id(id) { }
-//     NDeclaration(NIdentifier& id, NExpression assignmentExpr) :
-//         id(id), assignmentExpr(assignmentExpr) { }
-//     // virtual llvm::Value* codeGen(CodeGenContext& context);
-// };
+    virtual void visitNTableField(NTableField* node) {
+        std::cout << "NTableField(id=";
+        node->id->visit(this);
+        std::cout << ", key=";
+        node->key->visit(this);
+        std::cout << ", value=";
+        node->value->visit(this);
+        std::cout << ")";
+    }
 
+    virtual void visitNTableConstructor(NTableConstructor* node) {
+        std::cout << "NTableConstructor(fields=[";
+         for (auto field: node->fieldlist) {
+            field->visit(this);
+            std::cout << ", ";
+        }
+        std::cout << "])";
+    }
+
+    virtual void visitNFunctionDeclaration(NFunctionDeclaration* node) {
+        std::cout << "NFunctionDeclaration(id=";
+        node->id->visit(this);
+        std::cout << ", return_type=";
+        node->return_type->visit(this);
+        std::cout << ", block=\n\t";
+        node->block->visit(this);
+        std::cout << ")";
+    }
+
+    virtual void visitNFunctionArgument(NFunctionArgument* node) {
+        std::cout << "NFunctionArgument(id=";
+        node->id->visit(this);
+        std::cout << ", type=";
+        node->type->visit(this);
+        std::cout << ")";
+    }
+
+    virtual void visitNWhileStatement(NWhileStatement* node) {
+        std::cout << "NWhileStatement(condition=";
+        node->condition->visit(this);
+        std::cout << ", block=\n\t";
+        node->block->visit(this);
+        std::cout << ")";
+    }
+
+    virtual void visitNRepeatStatement(NRepeatUntilStatement* node) {
+        std::cout << "NRepeatUntilStatement(condition=";
+        node->condition->visit(this);
+        std::cout << ", block=\n\t";
+        node->block->visit(this);
+        std::cout << ")";
+    }
+
+    virtual void visitNIfStatement(NIfStatement* node) {
+        std::cout << "NIfStatement(conditions=[";
+        for (auto clause: node->conditionBlockList) {
+            std::cout << "condition=";
+            clause->first.visit(this);
+            std::cout << "block=\n\t";
+            clause->second.visit(this);
+            if (clause != node->conditionBlockList.back()) {
+                std::cout << ", ";
+            }
+        }
+        std::cout << "])";
+        if (node->elseBlock != nullptr) {
+            std::cout << ", elseBlock=\n\t";
+            node->elseBlock->visit(this);
+        }
+    }
+
+    virtual void visitNNumericForStatement(NNumericForStatement* node) {
+        std::cout << "NNumericForStatement(id=";
+        node->id->visit(this);
+        std::cout << ", start=";
+        node->start->visit(this);
+        std::cout << ", end=";
+        node->end->visit(this);
+        std::cout << ", step=";
+        node->step->visit(this);
+        std::cout << ", block=\n\t";
+        node->block->visit(this);
+        std::cout<< ")";
+    }
+
+    virtual void visitNGenericForStatement(NGenericForStatement* node) {
+        std::cout << "NGenericForStatement(identifiers=[";
+        for (auto ident: node->identifiers) {
+            ident->visit(this);
+            if (ident != node->identifiers.back()) {
+                std::cout << ", ";
+            }
+        }
+        std::cout << "], expressions=[";
+        for (auto expr: node->expressions) {
+            expr->visit(this);
+            if (expr != node->expressions.back()) {
+                std::cout << ", ";
+            }
+        }
+        std::cout << "], block=\n\t";
+        node->block->visit(this);
+        std::cout << ")";
+    }
+
+    virtual void visitNDeclarationStatement(NDeclarationStatement* node) {
+        std::cout << "NDeclarationStatement(ident=";
+        node->ident->visit(this);
+        std::string type = "`To be deduced`";
+        if (node->type != nullptr) {
+            std::cout << ", type=";
+            node->type->visit(this);
+        }
+        std::cout << ", expr=";
+        node->expression->visit(this);
+        std::cout << ")";
+    }
+
+    virtual void visitNBlock(NBlock* node) {
+        std::cout << "NBlock(\n  statements=[" << std::endl;
+        for (auto stmt: node->statements) {
+            std::cout << "    ";
+            stmt->visit(this);
+            std::cout<<std::endl;
+        }
+
+        std::cout << "  ]";
+        if (node->returnExpr != nullptr) {
+            std::cout << ",\n  returnExpr=";
+            node->returnExpr->visit(this);
+        }
+        std::cout << "\n)";
+    }
+
+    virtual void visitNExpression(NExpression* node) {
+        std::cout << "NExpression(nothing)";
+    }
+};
