@@ -140,6 +140,8 @@ var_decl : ident OP_EQUAL expr { $$ = new NDeclarationStatement($1, $3); }
 
 function_decl : KW_FUNCTION ident OP_LBRACE typed_var_list OP_RBRACE OP_ARROW type_ident block KW_END { $$ = new NFunctionDeclaration($7, $2, $4, $8);}
     |  KW_FUNCTION ident OP_LBRACE typed_var_list OP_RBRACE block KW_END { $$ = new NFunctionDeclaration(nullptr, $2, $4, $6);}
+    |  KW_FUNCTION ident OP_LBRACE OP_RBRACE OP_ARROW type_ident block KW_END { $$ = new NFunctionDeclaration($6, $2,new std::vector<NDeclarationStatement*>(), $7);}
+    |  KW_FUNCTION ident OP_LBRACE OP_RBRACE block KW_END { $$ = new NFunctionDeclaration(nullptr, $2, new std::vector<NDeclarationStatement*>(), $5);}
     ;
 
 type_ident: KW_STR { $$ = new NIdentifier(new std::string("str")); }

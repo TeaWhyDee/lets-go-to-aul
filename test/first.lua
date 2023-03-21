@@ -20,3 +20,16 @@ function f(a: S, b: num)
     d: num = -c
 end
 
+function f() -> num
+    b = "12345"
+    c: int = a + b
+    d: num = -c
+end
+
+
+function f()
+    b = "12345"
+    c: int = a + b
+    d: num = -c
+end
+
