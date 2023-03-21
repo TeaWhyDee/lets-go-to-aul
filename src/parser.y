@@ -147,8 +147,6 @@ expr : term
      | function_call
     ;
 
-prefix_expr : term
-            | 
 
 function_call : ident OP_LBRACE OP_RBRACE {$$ = new NFunctionCall($1, std::vector<NExpression *>());}
               | ident OP_LBRACE expr_list OP_RBRACE { $$ = new NFunctionCall($1, *$3); }
@@ -172,9 +170,6 @@ binop : OP_PLUS
     ;
 
 unop : OP_MINUS
-    ;
-
-var : ident | ident OP_DOT ident
     ;
 
 typed_var : ident OP_COLON type_ident {$$ = new NDeclarationStatement($1, $3, new NExpression());}
