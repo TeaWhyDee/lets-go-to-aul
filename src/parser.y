@@ -91,7 +91,7 @@ stmt : var_decl
      | function_call
      | function_decl
      | retstat
-     | KW_DO block KW_END
+     | KW_DO block KW_END { $$ = new NDoStatement($2); }
      | KW_WHILE expr KW_DO block KW_END
      | KW_REPEAT block KW_UNTIL expr
      | KW_IF if_stmt KW_END

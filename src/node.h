@@ -22,6 +22,7 @@ class NUnaryOperatorExpression;
 class NTableField;
 class NTableConstructor;
 class NWhileStatement;
+class NDoStatement;
 class NRepeatUntilStatement;
 class NIfStatement;
 class NNumericForStatement;
@@ -59,6 +60,7 @@ public:
     virtual void visitNFunctionArgument(NFunctionArgument* node) = 0;
     virtual void visitNWhileStatement(NWhileStatement* node) = 0;
     virtual void visitNRepeatStatement(NRepeatUntilStatement* node) = 0;
+    virtual void visitNDoStatement(NDoStatement* node) = 0;
     virtual void visitNIfStatement(NIfStatement* node) = 0;
     virtual void visitNNumericForStatement(NNumericForStatement* node) = 0;
     virtual void visitNGenericForStatement(NGenericForStatement* node) = 0;
@@ -88,18 +90,13 @@ public:
 class NBlock : public Node {
 public:
     StatementList statements;
-    // also possible expression for return statement
-    NExpression *returnExpr;
 
     NBlock() :
-        statements({}), returnExpr(nullptr) {}
+        statements({}) {}
 
-    NBlock(StatementList statements, NExpression *returnExpr) :
-        statements(statements), returnExpr(returnExpr) { }
-    
     NBlock(StatementList statements) :
         statements(statements) { }
-
+    
     virtual void visit(Visitor* v) {
         v->visitNBlock(this);
     }
@@ -225,6 +222,16 @@ public:
 
     virtual void visit(Visitor* v) {
         v->visitNRepeatStatement(this);
+    }
+};
+
+class NDoStatement : public NStatement {
+public:
+    NBlock* block;
+    NDoStatement(NBlock* block) : block(block) { }
+
+    virtual void visit(Visitor* v) {
+        v->visitNDoStatement(this);
     }
 };
 
@@ -465,6 +472,12 @@ public:
         std::cout << ")";
     }
 
+    virtual void visitNDoStatement(NDoStatement* node) {
+        std::cout << "NDoStatement(block=";
+        node->block->visit(this);
+        std::cout << ")";
+    }
+
     virtual void visitNIfStatement(NIfStatement* node) {
         std::cout << "NIfStatement(conditions=[";
         for (auto clause: node->conditionBlockList) {
@@ -545,10 +558,6 @@ public:
         }
 
         std::cout << "  ]";
-        if (node->returnExpr != nullptr) {
-            std::cout << ",\n  returnExpr=";
-            node->returnExpr->visit(this);
-        }
         std::cout << "\n)";
     }
 
