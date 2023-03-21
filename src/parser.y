@@ -85,10 +85,7 @@ program : block { programBlock = $1; }
 
 block : stmt { $$ = new NBlock(); $$->statements.push_back($<stmt>1); }
       | block stmt { $1->statements.push_back($<stmt>2); }
-      /* | block retstat { $1->statements.push_back($<stmt>2); } */
     ;
-
-retstat : KW_RETURN expr
 
 stmt : var_decl
      | function_call
@@ -97,13 +94,27 @@ stmt : var_decl
      | KW_DO block KW_END
      | KW_WHILE expr KW_DO block KW_END
      | KW_REPEAT block KW_UNTIL expr
-     | if_stmt KW_END
+     | KW_IF if_stmt KW_END
+     | KW_FOR ident OP_EQUAL expr OP_COMMA expr KW_DO block KW_END
+     | KW_FOR ident OP_EQUAL expr OP_COMMA expr OP_COMMA expr KW_DO block KW_END
+     | KW_FOR namelist KW_IN exprlist KW_DO block KW_END
     ;
 
-if_stmt : KW_IF expr KW_THEN block elseif KW_ELSE block
-        | KW_IF expr KW_THEN block elseif
-        | KW_IF expr KW_THEN block KW_ELSE block
-        | KW_IF expr KW_THEN block
+namelist : ident
+         | namelist OP_COMMA ident
+    ;
+
+exprlist : expr
+         | exprlist OP_COMMA expr
+    ;
+
+retstat : KW_RETURN expr
+    ;
+
+if_stmt : expr KW_THEN block elseif KW_ELSE block
+        | expr KW_THEN block elseif
+        | expr KW_THEN block KW_ELSE block
+        | expr KW_THEN block
     ;
 
 elseif : KW_ELSEIF expr KW_THEN block
