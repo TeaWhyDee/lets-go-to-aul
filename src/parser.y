@@ -92,16 +92,16 @@ stmt : var_decl
      | function_decl
      | retstat
      | KW_DO block KW_END { $$ = new NDoStatement($2); }
-     | KW_WHILE expr KW_DO block KW_END
-     | KW_REPEAT block KW_UNTIL expr
+     | KW_WHILE expr KW_DO block KW_END { $$ = new NWhileStatement($2, $4); }
+     | KW_REPEAT block KW_UNTIL expr { $$ = new NRepeatUntilStatement($4, $2); }
      | KW_IF if_stmt KW_END
      | KW_FOR ident OP_EQUAL expr OP_COMMA expr KW_DO block KW_END
      | KW_FOR ident OP_EQUAL expr OP_COMMA expr OP_COMMA expr KW_DO block KW_END
-     | KW_FOR namelist KW_IN exprlist KW_DO block KW_END
+     | KW_FOR ident_list KW_IN exprlist KW_DO block KW_END
     ;
 
-namelist : ident
-         | namelist OP_COMMA ident
+ident_list : ident
+         | ident_list OP_COMMA ident
     ;
 
 exprlist : expr
@@ -114,7 +114,9 @@ retstat : KW_RETURN expr { $$ = new NReturnStatement($2); }
 if_stmt : expr KW_THEN block elseif KW_ELSE block
         | expr KW_THEN block elseif
         | expr KW_THEN block KW_ELSE block
-        | expr KW_THEN block
+        | expr KW_THEN block { $$ = new NIfStatement(
+                new std::vector<conditionBlock *>() , nullptr);
+                $$->}
     ;
 
 elseif : KW_ELSEIF expr KW_THEN block
