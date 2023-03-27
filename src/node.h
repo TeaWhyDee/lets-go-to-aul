@@ -42,7 +42,7 @@ typedef std::vector<NStatement*> StatementList;
 typedef std::vector<NExpression*> ExpressionList;
 typedef std::vector<NIdentifier*> IdentifierList;
 typedef std::vector<NVariableDeclaration*> VariableList;
-typedef std::pair<NExpression, NBlock> conditionBlock;
+typedef std::pair<NExpression *, NBlock *> conditionBlock;
 typedef std::vector<NFunctionArgument*> functionArguments;
 
 class Visitor {
@@ -483,9 +483,9 @@ public:
         std::cout << "NIfStatement(conditions=[";
         for (auto clause: node->conditionBlockList) {
             std::cout << "condition=";
-            clause->first.visit(this);
+            clause->first->visit(this);
             std::cout << "block=\n\t";
-            clause->second.visit(this);
+            clause->second->visit(this);
             if (clause != node->conditionBlockList.back()) {
                 std::cout << ", ";
             }
