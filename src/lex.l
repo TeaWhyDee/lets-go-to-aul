@@ -10,7 +10,7 @@ extern "C" int yywrap() {}
 int enter_dblquotes = 0;
 std::string str;
 std::string str_init = std::string();
-long unsigned int str_bracketlen = 0;
+int str_bracketlen = 0;
 #define NEW_STR str = std::string();
 #define ADD_STR str += yytext;
 #define STR_NUM_ESCAPE SAVE_TOKEN;\
@@ -26,7 +26,7 @@ long unsigned int str_bracketlen = 0;
                 std::cout << "L_STIRNG[" << str << "] "; BEGIN(INITIAL); return L_STRING;}\
             else { str += yytext; }
 
-long unsigned int comment_bracklen = 0;
+int comment_bracklen = 0;
 #define NEW_COMMENT { comment_bracklen = std::string(yytext).length() - 2; }
 #define PROCESS_COMMENT_BRACKETS if (std::string(yytext).length() == comment_bracklen) {\
             std::cout << "COMMENT "; BEGIN(INITIAL);}
@@ -104,6 +104,7 @@ void yyerror (char const *s);
 [.][.]       {return OP_DOTDOT ;}
 [.]          {return OP_DOT ;}
 const        {return KW_CONST ;}
+new          {return KW_NEW ;}
 self         {return KW_SELF ;}
 static       {return KW_STATIC ;}
 struct       {return KW_STRUCT ;}
