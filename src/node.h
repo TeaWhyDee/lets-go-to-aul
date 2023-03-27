@@ -10,6 +10,7 @@ class NStatement;
 class NExpression;
 class NVariableDeclaration;
 class Node;
+class NExpression;
 class NStatement;
 class NBlock;
 class NNum;
@@ -22,13 +23,11 @@ class NUnaryOperatorExpression;
 class NTableField;
 class NTableConstructor;
 class NWhileStatement;
-class NDoStatement;
 class NRepeatUntilStatement;
 class NIfStatement;
 class NNumericForStatement;
 class NGenericForStatement;
 class NDeclarationStatement;
-class NReturnStatement;
 class NTypeIdent;
 class NFunctionDeclaration;
 class NFunctionCall;
@@ -62,12 +61,10 @@ public:
     virtual void visitNFunctionArgument(NFunctionArgument* node) = 0;
     virtual void visitNWhileStatement(NWhileStatement* node) = 0;
     virtual void visitNRepeatStatement(NRepeatUntilStatement* node) = 0;
-    virtual void visitNDoStatement(NDoStatement* node) = 0;
     virtual void visitNIfStatement(NIfStatement* node) = 0;
     virtual void visitNNumericForStatement(NNumericForStatement* node) = 0;
     virtual void visitNGenericForStatement(NGenericForStatement* node) = 0;
     virtual void visitNDeclarationStatement(NDeclarationStatement* node) = 0;
-    virtual void visitNReturnStatement(NReturnStatement* node) = 0;
     virtual void visitNBlock(NBlock* node) = 0;
     virtual void visitNExpression(NExpression* node) = 0;
     virtual void visitNStructDeclaration(NStructDeclaration* node) = 0;
@@ -93,12 +90,18 @@ public:
 class NBlock : public Node {
 public:
     StatementList statements;
+    // also possible expression for return statement
+    NExpression *returnExpr;
 
     NBlock() :
-        statements({}) {}
+        statements({}), returnExpr(nullptr) {}
 
+    NBlock(StatementList statements, NExpression *returnExpr) :
+        statements(statements), returnExpr(returnExpr) { }
+    
     NBlock(StatementList statements) :
         statements(statements) { }
+
     virtual void visit(Visitor* v) {
         v->visitNBlock(this);
     }
@@ -227,16 +230,6 @@ public:
     }
 };
 
-class NDoStatement : public NStatement {
-public:
-    NBlock* block;
-    NDoStatement(NBlock* block) : block(block) { }
-
-    virtual void visit(Visitor* v) {
-        v->visitNDoStatement(this);
-    }
-};
-
 class NIfStatement : public NStatement {
 public:
     std::vector<conditionBlock *> conditionBlockList;
@@ -256,8 +249,7 @@ public:
     NExpression* end;
     NExpression* step;
     NBlock* block;
-    NNumericForStatement(NIdentifier* id, NExpression* start, NExpression* end,
-                         NExpression* step, NBlock* block) :
+    NNumericForStatement(NIdentifier* id, NExpression* start, NExpression* end, NExpression* step, NBlock* block) :
         id(id), start(start), end(end), step(step), block(block) { }
 
     virtual void visit(Visitor* v) {
@@ -286,17 +278,6 @@ public:
 
     NTypedVar(NIdentifier *ident, NIdentifier *type) :
         ident(ident), type(type) { }
-};
-
-class NReturnStatement : public NStatement {
-public:
-    NExpression *expression;
-    NReturnStatement(NExpression *expression) :
-        expression(expression) { }
-
-    virtual void visit(Visitor* v) {
-        v->visitNReturnStatement(this);
-    }
 };
 
 class NDeclarationStatement : public NStatement {
@@ -498,12 +479,6 @@ public:
         std::cout << ")";
     }
 
-    virtual void visitNDoStatement(NDoStatement* node) {
-        std::cout << "NDoStatement(block=";
-        node->block->visit(this);
-        std::cout << ")";
-    }
-
     virtual void visitNIfStatement(NIfStatement* node) {
         std::cout << "NIfStatement(conditions=[";
         for (auto clause: node->conditionBlockList) {
@@ -569,12 +544,6 @@ public:
         std::cout << ")";
     }
 
-    virtual void visitNReturnStatement(NReturnStatement* node) {
-        std::cout << "NReturnStatement(expr=";
-        node->expression->visit(this);
-        std::cout << ")";
-    }
-
     virtual void visitNBlock(NBlock* node) {
         std::cout << "NBlock(\n  statements=[" << std::endl;
         for (auto stmt: node->statements) {
@@ -584,6 +553,10 @@ public:
         }
 
         std::cout << "  ]";
+        if (node->returnExpr != nullptr) {
+            std::cout << ",\n  returnExpr=";
+            node->returnExpr->visit(this);
+        }
         std::cout << "\n)";
     }
 

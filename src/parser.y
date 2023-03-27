@@ -19,10 +19,7 @@
     NExpression *expr;
     NStatement *stmt;
     std::vector<NStatement*> *statlist;
-    NIfStatement *ifstmt;
-    std::vector<conditionBlock*> *elif;
     std::vector<NExpression*> *expr_list;
-    std::vector<NIdentifier*> *ident_list;
     std::vector<NDeclarationStatement *> *typed_var_list;
     NDeclarationStatement *typed_var;
     NIdentifier *ident;
@@ -61,9 +58,7 @@
    calling an (NIdentifier*). It makes the compiler happy.
  */
 %type <block> program block
-%type <stmt> stmt var_decl retstat for_numeric for_generic
-%type <ifstmt> if_stmt
-%type <elif> elseif
+%type <stmt> stmt var_decl
 %type <function_decl> function_decl
 %type <expr> expr term function_call
 %type <ident> ident
@@ -73,7 +68,6 @@
 %type <typed_var> typed_var
 %type <typed_var_list> typed_var_list
 %type <expr_list> expr_list 
-%type <ident_list> ident_list 
 %type <struct_decl> struct_decl
 %type <struct_body> struct_body
 /* %type <stmt> stmt var_decl func_decl */
@@ -102,7 +96,6 @@ block : stmt { $$ = new NBlock(); $$->statements.push_back($<stmt>1); }
 stmt : var_decl
      | function_call
      | function_decl
-     | retstat
      | struct_decl
      | KW_DO block KW_END { $$ = new NDoStatement($2); }
      | KW_WHILE expr KW_DO block KW_END { $$ = new NWhileStatement($2, $4); }
@@ -140,14 +133,16 @@ retstat : KW_RETURN expr { $$ = new NReturnStatement($2); }
 ident_list : ident {$$ = new std::vector<NIdentifier *>(); $$ -> push_back($1);}
          | ident_list OP_COMMA ident {$$ -> push_back($3);}
     ;
+      /* | expr { $$ = new NExpressionStatement(*$1); } */
 
 expr : term
      | expr binop expr {$$ = new NBinaryOperatorExpression($1, $2, $3);}
      | unop expr {$$ = new NUnaryOperatorExpression($1, $2);}
-     | OP_LBRACE expr OP_RBRACE {$$ = $2;}
      | function_call
     ;
 
+prefix_expr : term
+            | 
 
 function_call : ident OP_LBRACE OP_RBRACE {$$ = new NFunctionCall($1, std::vector<NExpression *>());}
               | ident OP_LBRACE expr_list OP_RBRACE { $$ = new NFunctionCall($1, *$3); }
@@ -159,7 +154,6 @@ expr_list : expr {$$ = new std::vector<NExpression *>(); $$ -> push_back($1);}
 
 term : L_NUM { $$ = new NNum(atof($1->c_str())); delete $1; }
      | L_STRING { $$ = new NString(*$1);}
-     | ident { $$ = new NIdentifier(*$1); }
     ;
 
 binop : OP_PLUS
@@ -169,8 +163,6 @@ binop : OP_PLUS
       | OP_SLASH
       | OP_PERCENT
       | OP_EQUALEQUAL
-      | OP_MORE
-      | OP_LESS
     ;
 
 unop : OP_MINUS
@@ -214,8 +206,7 @@ type_ident: KW_STR { $$ = new NIdentifier(new std::string("str")); }
     | L_STRING { $$ = new NIdentifier(yylval.string); }
     ;
 
-ident : L_STRING { $$ = new NIdentifier($1); }
-    | ident OP_DOT L_STRING { $$->name = $$->name + std::string(".") + *$3; }
+ident : L_STRING { $$ = new NIdentifier($1); delete $1; }
 %%
 
 /*
@@ -268,5 +259,4 @@ call_args : blank  { $$ = new ExpressionList(); }
           | call_args TCOMMA expr  { $1->push_back($3); }
           ;
 */
-
 
