@@ -19,17 +19,17 @@ int str_bracketlen = 0;
             else {char c = stoi(s); str += c;} }
 #define PROCESS_QUOTE SAVE_TOKEN;\
             if (yytext == str_init)\
-                {yylval.string = new std::string(str); BEGIN(INITIAL); printf("%s", yylval.string->c_str()); return L_STRING;}\
+                {yylval.string = new std::string(str); BEGIN(INITIAL); return L_STRING;}\
             else {str += yytext;}
 #define PROCESS_BRACKETS SAVE_TOKEN;\
             if (std::string(yytext).length() == str_bracketlen) {\
-                std::cout << "L_STIRNG[" << str << "] "; BEGIN(INITIAL); return L_STRING;}\
+                BEGIN(INITIAL); return L_STRING;}\
             else { str += yytext; }
 
 int comment_bracklen = 0;
 #define NEW_COMMENT { comment_bracklen = std::string(yytext).length() - 2; }
 #define PROCESS_COMMENT_BRACKETS if (std::string(yytext).length() == comment_bracklen) {\
-            std::cout << "COMMENT "; BEGIN(INITIAL);}
+            BEGIN(INITIAL);}
 
 /* void yyerror (char const *s) { fprintf (stderr, "ERROR: %s\n", s); } */
 void yyerror (char const *s);
@@ -76,6 +76,7 @@ void yyerror (char const *s);
     ([^\]])*       {ADD_STR}
     .              {ADD_STR}
 }
+--.+           {printf("comment"); return COMMENT;}
 
 [ \t]+
 [\"\']              { NEW_STR; str_init=yytext; BEGIN(STRING); }
@@ -95,7 +96,7 @@ void yyerror (char const *s);
 [>][=]       {return OP_LARGERTHAN ;}
 [<]          {return OP_LESS ;}
 [>]          {return OP_MORE ;}
-[=]          {printf("%s", "="); return OP_EQUAL ;}
+[=]          {return OP_EQUAL ;}
 \(           {return OP_LBRACE ;}
 \)           {return OP_RBRACE ;}
 [;]          {return OP_SEMICOLON ;}
@@ -130,11 +131,10 @@ or           {return KW_OR ;}
 repeat       {return KW_REPEAT ;}
 return       {return KW_RETURN ;}
 then         {return KW_THEN ;}
-true         {printf("%s", "true");; return KW_TRUE;}
+true         {return KW_TRUE;}
 until        {return KW_UNTIL ;}
 while        {return KW_WHILE ;}
-[a-zA-Z0-9_]*  {SAVE_TOKEN; printf("%s", yylval.string->c_str()); return L_STRING;}
---.+         {return COMMENT;}
+[a-zA-Z0-9_]*  {SAVE_TOKEN; return L_STRING;}
 .            {printf("%s", yytext);}
 %%
   
