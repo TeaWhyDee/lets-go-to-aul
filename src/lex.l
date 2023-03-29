@@ -8,22 +8,27 @@ extern "C" int yywrap() {}
 #include <iostream>
 #include <string>
 int enter_dblquotes = 0;
+bool str_error = false;
 std::string str;
 std::string str_init = std::string();
 int str_bracketlen = 0;
-#define NEW_STR str = std::string();
+#define NEW_STR str = std::string(); str_error = false;
 #define ADD_STR str += yytext;
 #define STR_NUM_ESCAPE SAVE_TOKEN;\
             {std::string s = std::string(yytext); s.erase(0, 1); \
                 int n = stoi(s); if (n > 255){yyerror("decimal escape too large");}\
             else {char c = stoi(s); str += c;} }
 #define PROCESS_QUOTE SAVE_TOKEN;\
-            if (yytext == str_init)\
-                {yylval.string = new std::string(str); BEGIN(INITIAL); return L_STRING;}\
+            if (yytext == str_init) {\
+                yylval.string = new std::string(str); BEGIN(INITIAL);\
+                if (!str_error) return L_STRING;\
+                else return L_STRING_ERROR;}\
             else {str += yytext;}
 #define PROCESS_BRACKETS SAVE_TOKEN;\
             if (std::string(yytext).length() == str_bracketlen) {\
-                BEGIN(INITIAL); return L_STRING;}\
+                BEGIN(INITIAL);\
+                if (!str_error) return L_STRING;\
+                else return L_STRING_ERROR;}\
             else { str += yytext; }
 
 int comment_bracklen = 0;
@@ -66,8 +71,10 @@ void yyerror (char const *s);
   "\\t"             {str += "\t";}
   "\\v"             {str += "\v";}
   \\[0-9]{1,3}      STR_NUM_ESCAPE
-  \n                {yyerror("the string misses closing quote to termiate before newline");}
-  <<EOF>>           {yyerror("the string misses closing quote to terminate before EOF");}
+  /* \n                {yyerror("the string misses closing quote to termiate before newline");} */
+  /* <<EOF>>           {yyerror("the string misses closing quote to terminate before EOF");} */
+  \n                {str_error = true;}
+  <<EOF>>           {str_error = true;}
   [\"\']            PROCESS_QUOTE
   ([^\\\""\\'\n])*  {ADD_STR}
   .                 {ADD_STR};
