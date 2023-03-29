@@ -24,10 +24,11 @@ int str_bracketlen = 0;
                 if (!str_error) return L_STRING;\
                 else return L_STRING_ERROR;}\
             else {str += yytext;}
-#define PROCESS_BRACKETS SAVE_TOKEN;\
+#define PROCESS_BRACKETS \
             if (std::string(yytext).length() == str_bracketlen) {\
                 BEGIN(INITIAL);\
-                if (!str_error) return L_STRING;\
+                if (!str_error) {\
+                    yylval.string = new std::string(str); return L_STRING; }\
                 else return L_STRING_ERROR;}\
             else { str += yytext; }
 
