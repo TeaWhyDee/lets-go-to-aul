@@ -22,14 +22,14 @@ int str_bracketlen = 0;
             if (yytext == str_init) {\
                 yylval.string = new std::string(str); BEGIN(INITIAL);\
                 if (!str_error) return L_STRING;\
-                else return L_STRING_ERROR;}\
+                else return ERROR;}\
             else {str += yytext;}
 #define PROCESS_BRACKETS \
             if (std::string(yytext).length() == str_bracketlen) {\
                 BEGIN(INITIAL);\
                 if (!str_error) {\
                     yylval.string = new std::string(str); return L_STRING; }\
-                else return L_STRING_ERROR;}\
+                else return ERROR;}\
             else { str += yytext; }
 
 long unsigned int comment_bracklen = 0;
@@ -39,6 +39,15 @@ long unsigned int comment_bracklen = 0;
 
 /* void yyerror (char const *s) { fprintf (stderr, "ERROR: %s\n", s); } */
 void yyerror (char const *s);
+char linebuf[500];
+std::string errortext = std::string();
+
+/* void warning(char *s) { */
+/*     if (YYRECOVERING() ) */
+/*         return; */
+/*     else */
+/*         printf("%s", s); */
+/* } */
 %}
 %option yylineno
 
@@ -47,6 +56,10 @@ void yyerror (char const *s);
 %x STRING_NOESCAPE
 
 %%
+\n.* { strncpy(linebuf, yytext+1, sizeof(linebuf)); /* save the next line */
+    yyless(1);
+}
+
 <STRING>{
   "\\\n"            {str += "\n";}
   "\\\""            {str += '"';}
@@ -62,8 +75,8 @@ void yyerror (char const *s);
   \\[0-9]{1,3}      STR_NUM_ESCAPE
   /* \n                {yyerror("the string misses closing quote to termiate before newline");} */
   /* <<EOF>>           {yyerror("the string misses closing quote to terminate before EOF");} */
-  \n                {str_error = true;}
-  <<EOF>>           {str_error = true; return L_STRING_ERROR; BEGIN(INITIAL);}
+  \n                {str_error = true; errortext = "Unexpected \\n, string not closed.";}
+  <<EOF>>           {str_error = true; BEGIN(INITIAL); errortext = "Unexpected end of file, string not closed.";}
   [\"\']            PROCESS_QUOTE
   ([^\\\""\\'\n])*  {ADD_STR}
   .                 {ADD_STR};
@@ -79,16 +92,16 @@ void yyerror (char const *s);
 
 \-\-\[=*\[     { NEW_COMMENT; BEGIN(COMMENT_BRACKETS); }
 <COMMENT_BRACKETS>{
-    <<EOF>>        { yyerror("the comment doesn't close"); BEGIN(INITIAL); }
+    <<EOF>>        { errortext = "Unexpected EOF, the comment doesn't close"; BEGIN(INITIAL); }
     \]=*\]         PROCESS_COMMENT_BRACKETS
     ([^\]])*       {ADD_STR}
     .              {ADD_STR}
 }
---.+           {printf("comment"); return COMMENT;}
+--.+           {return COMMENT;}
 
 [ \t]+
 [\"\']              { NEW_STR; str_init=yytext; BEGIN(STRING); }
-\]=*\]              { yyerror("right square bracket before left square bracket"); }
+\]=*\]              { errortext = "Unexpected closing square bracket."; return ERROR;}
 [0-9]+[.]?[0-9]*   {SAVE_TOKEN; return L_NUM ;}
 [-][>]       {return OP_ARROW ;}
 [+]          {return OP_PLUS ;}
