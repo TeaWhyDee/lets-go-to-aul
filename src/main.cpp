@@ -1,6 +1,8 @@
 
 #include <iostream>
 #include "node.h"
+#include "expression_checker.cpp"
+
 extern NBlock* programBlock;
 extern int yyparse();
 
