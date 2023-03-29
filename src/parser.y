@@ -6,6 +6,9 @@
     extern int yylex();
     extern int yylineno;
     void yyerror(const char *s) { printf("YYERROR: %s\n", s); }
+    /* void yyerror (YYLTYPE *locp, char const *s) { */
+    /*     printf("YYERROR: %s\n", s); */
+    /* } */
 %}
 
 %define parse.error verbose
@@ -54,7 +57,7 @@
 %token <token> KW_FALSE KW_FOR KW_FUNCTION KW_IF KW_IN KW_LOCAL
 %token <token> KW_NOT KW_OR KW_REPEAT KW_RETURN KW_THEN KW_TRUE
 %token <token> KW_UNTIL KW_WHILE COMMENT
-%token <token> L_STRING_ERROR
+%token <token> L_STRING_ERROR ERROR
 
 /* Define the type of node our nonterminal symbols represent.
    The types refer to the %union declaration above. Ex: when
@@ -91,10 +94,6 @@
 
 %start program
 
-
-%precedence L_STRING
-%precedence OP_PERCENT OP_EQUALEQUAL
-
 %%
 program : block { programBlock = $1; }
     ;
@@ -103,9 +102,10 @@ block : stmt_list
     ;
 
 stmt_list : stmt_list stmt { $1->statements.push_back($<stmt>2); }
-          | /* empty */ { $$ = new NBlock(); }
+          | stmt_list error
+          | stmt_list COMMENT
+          | /* empty */    { $$ = new NBlock(); }
     ;
-
 
 stmt : var_decl
      | function_call
