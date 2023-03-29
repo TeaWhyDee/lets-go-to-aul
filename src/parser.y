@@ -54,13 +54,14 @@
 %token <token> KW_FALSE KW_FOR KW_FUNCTION KW_IF KW_IN KW_LOCAL
 %token <token> KW_NOT KW_OR KW_REPEAT KW_RETURN KW_THEN KW_TRUE
 %token <token> KW_UNTIL KW_WHILE COMMENT
+%token <token> L_STRING_ERROR
 
 /* Define the type of node our nonterminal symbols represent.
    The types refer to the %union declaration above. Ex: when
    we call an ident (defined by union type ident) we are really
    calling an (NIdentifier*). It makes the compiler happy.
  */
-%type <block> program block
+%type <block> program block stmt_list
 %type <stmt> stmt var_decl retstat for_numeric for_generic
 %type <ifstmt> if_stmt
 %type <elif> elseif
@@ -85,17 +86,24 @@
 
 %token <token> OP_ARROW OP_PLUS OP_MINUS OP_STAR OP_SLASHSLASH OP_SLASH
 /* Operator precedence for mathematical operators */
-%left OP_TPLUS OP_TMINUS
+%left OP_PLUS OP_MINUS
 %left OP_STAR OP_SLASH OP_SLASHSLASH
 
 %start program
+
+
+%precedence L_STRING
+%precedence OP_PERCENT OP_EQUALEQUAL
 
 %%
 program : block { programBlock = $1; }
     ;
 
-block : stmt { $$ = new NBlock(); $$->statements.push_back($<stmt>1); }
-      | block stmt { $1->statements.push_back($<stmt>2); }
+block : stmt_list
+    ;
+
+stmt_list : stmt_list stmt { $1->statements.push_back($<stmt>2); }
+          | /* empty */ { $$ = new NBlock(); }
     ;
 
 
@@ -149,8 +157,6 @@ expr : term
      | function_call
     ;
 
-prefix_expr : term
-            | 
 
 function_call : ident OP_LBRACE OP_RBRACE {$$ = new NFunctionCall($1, std::vector<NExpression *>());}
               | ident OP_LBRACE expr_list OP_RBRACE { $$ = new NFunctionCall($1, *$3); }
