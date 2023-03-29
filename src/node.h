@@ -7,169 +7,172 @@ class NStatement;
 class NExpression;
 class NVariableDeclaration;
 
-typedef std::vector<NStatement*> StatementList;
-typedef std::vector<NExpression*> ExpressionList;
-typedef std::vector<NIdentifier*> IdentifierList;
-typedef std::vector<NVariableDeclaration*> VariableList;
+typedef std::vector<NStatement *> StatementList;
+typedef std::vector<NExpression *> ExpressionList;
+typedef std::vector<NIdentifier *> IdentifierList;
+typedef std::vector<NVariableDeclaration *> VariableList;
 typedef std::pair<NExpression, NBlock> conditionBlock;
 
-class Node {
+class Node
+{
 public:
     virtual ~Node() {}
     // virtual llvm::Value* codeGen(CodeGenContext& context) { }
 };
 
-class NExpression : public Node {
+class NExpression : public Node
+{
 };
 
-class NStatement : public Node {
+class NStatement : public Node
+{
 };
 
-class NBlock : public NExpression {
+class NBlock : public NExpression
+{
 public:
     StatementList statements;
     // also possible expression for return statement
-    Expression *returnExpr;
-    NBlock(StatementList statements, Expression *returnExpr) :
-        statements(statements), returnExpr(returnExpr) { }
-    
-    NBlock(StatementList statements) :
-        statements(statements) { }
+    NExpression *returnExpr;
+    NBlock(StatementList statements, NExpression *returnExpr) : statements(statements), returnExpr(returnExpr) {}
+
+    NBlock(StatementList statements) : statements(statements) {}
     // virtual llvm::Value* codeGen(CodeGenContext& context);
 };
 
-
-class NNum : public NExpression {
+class NNum : public NExpression
+{
 public:
     long double value;
-    NInteger(long double value) : value(value) { }
+    NNum(long double value) : value(value) {}
     // virtual llvm::Value* codeGen(CodeGenContext& context);
 };
 
-class NNill : public NExpression {
+class NNill : public NExpression
+{
 public:
-    NNill() { }
+    NNill() {}
     // virtual llvm::Value* codeGen(CodeGenContext& context);
 };
 
-class NBool : public NExpression {
+class NBool : public NExpression
+{
 public:
     bool value;
-    NBool(bool value) : value(value) { }
+    NBool(bool value) : value(value) {}
     // virtual llvm::Value* codeGen(CodeGenContext& context);
 };
 
-class NString : public NExpression {
+class NString : public NExpression
+{
 public:
     std::string value;
-    NString(std::string value) : value(value) { }
+    NString(std::string value) : value(value) {}
     // virtual llvm::Value* codeGen(CodeGenContext& context);
 };
 
-class NIdentifier : public NExpression {
+class NIdentifier : public NExpression
+{
 public:
     std::string name;
-    NIdentifier(const std::string& name) : name(name) { }
+    NIdentifier(const std::string &name) : name(name) {}
     // virtual llvm::Value* codeGen(CodeGenContext& context);
 };
 
-class NBinaryOperatorExpression : public NExpression {
+class NBinaryOperatorExpression : public NExpression
+{
 public:
     int op;
-    NExpression& lhs;
-    NExpression& rhs;
-    NBinaryOperatorExpression(NExpression& lhs, int op, NExpression& rhs) :
-        lhs(lhs), rhs(rhs), op(op) { }
+    NExpression &lhs;
+    NExpression &rhs;
+    NBinaryOperatorExpression(NExpression &lhs, int op, NExpression &rhs) : lhs(lhs), rhs(rhs), op(op) {}
     // virtual llvm::Value* codeGen(CodeGenContext& context);
 };
 
-class NUnaryOperatorExpression : public NExpression {
+class NUnaryOperatorExpression : public NExpression
+{
 public:
     int op;
-    NExpression& rhs;
-    NUnaryOperatorExpression(int op, NExpression& rhs) :
-        rhs(rhs), op(op) { }
+    NExpression &rhs;
+    NUnaryOperatorExpression(int op, NExpression &rhs) : rhs(rhs), op(op) {}
     // virtual llvm::Value* codeGen(CodeGenContext& context);
 };
 
-class TableField : public Node {
+class TableField : public Node
+{
 public:
-    NExpression& key;
-    NExpression& value;
-    NIdentifier& id;
-    TableField(NExpression& key, NExpression& value) :
-        key(key), value(value) { }
-    TableField(NIdentifier& id, NExpression& value) :
-        id(id), value(value) { }
+    NExpression &key;
+    NExpression &value;
+    NIdentifier &id;
+    TableField(NExpression &key, NExpression &value) : key(key), value(value) {}
+    TableField(NIdentifier &id, NExpression &value) : id(id), value(value) {}
     // virtual llvm::Value* codeGen(CodeGenContext& context);
 };
 
-
-
-class NTableConstructor : public NExpression {
+class NTableConstructor : public NExpression
+{
 public:
     IdentifierList fieldlist;
-    NTableConstructor() { }
+    NTableConstructor() {}
     // virtual llvm::Value* codeGen(CodeGenContext& context);
 };
 
-class NWhileStatement : public NStatement {
+class NWhileStatement : public NStatement
+{
 public:
-    NExpression& condition;
-    NBlock& block;
-    NWhileStatement(NExpression& condition, NBlock& block) :
-        condition(condition), block(block) { }
+    NExpression &condition;
+    NBlock &block;
+    NWhileStatement(NExpression &condition, NBlock &block) : condition(condition), block(block) {}
     // virtual llvm::Value* codeGen(CodeGenContext& context);
 };
 
-class NRepeatUntilStatement : public NStatement {
+class NRepeatUntilStatement : public NStatement
+{
 public:
-    NExpression& condition;
-    NBlock& block;
-    NRepeatUntilStatement(NExpression& condition, NBlock& block) :
-        condition(condition), block(block) { }
+    NExpression &condition;
+    NBlock &block;
+    NRepeatUntilStatement(NExpression &condition, NBlock &block) : condition(condition), block(block) {}
     // virtual llvm::Value* codeGen(CodeGenContext& context);
 };
 
-class NIfStatement : public NStatement {
+class NIfStatement : public NStatement
+{
 public:
     std::vector<conditionBlock> conditionBlockList;
-    NBlock& elseBlock;
-    NIfStatement(std::vector<conditionBlock> conditionBlockList, NBlock& elseBlock) :
-        conditionBlockList(conditionBlockList), elseBlock(elseBlock) { }
+    NBlock &elseBlock;
+    NIfStatement(std::vector<conditionBlock> conditionBlockList, NBlock &elseBlock) : conditionBlockList(conditionBlockList), elseBlock(elseBlock) {}
     // virtual llvm::Value* codeGen(CodeGenContext& context);
 };
 
-class NNumericForStatement : public NStatement {
+class NNumericForStatement : public NStatement
+{
 public:
-    NIdentifier& id;
-    NExpression& start;
-    NExpression& end;
-    NExpression& step;
-    NBlock& block;
-    NNumericForStatement(NIdentifier& id, NExpression& start, NExpression& end, NExpression& step, NBlock& block) :
-        id(id), start(start), end(end), step(step), block(block) { }
+    NIdentifier &id;
+    NExpression &start;
+    NExpression &end;
+    NExpression &step;
+    NBlock &block;
+    NNumericForStatement(NIdentifier &id, NExpression &start, NExpression &end, NExpression &step, NBlock &block) : id(id), start(start), end(end), step(step), block(block) {}
     // virtual llvm::Value* codeGen(CodeGenContext& context);
 };
 
-class NGenericForStatement : public NStatement {
+class NGenericForStatement : public NStatement
+{
 public:
     IdentifierList idList;
     ExpressionList exprList;
-    NBlock& block;
-    NGenericForStatement(std::vector<NIdentifier> idList, std::vector<NExpression> exprList, NBlock& block) :
-        idList(idList), exprList(exprList), block(block) { }
+    NBlock &block;
+    NGenericForStatement(IdentifierList idList, ExpressionList exprList, NBlock &block) : idList(idList), exprList(exprList), block(block) {}
     // virtual llvm::Value* codeGen(CodeGenContext& context);
 };
 
-
-class NDeclarationStatement : public NStatement {
+class NDeclarationStatement : public NStatement
+{
 public:
     StatementList statlist;
     ExpressionList exprList;
-    NDeclarationStatement(StatementList statements, ExpressionList exprList) :
-        statements(statements), exprList(exprList) { }
-
+    NDeclarationStatement(StatementList statements, ExpressionList exprList) : statlist(statements), exprList(exprList) {}
+};
 
 // class NFuncStatement : public NStatement {
 // public:
@@ -219,7 +222,7 @@ public:
 // // public:
 // //     NIdentifier& lhs;
 // //     NExpression& rhs;
-// //     NAssignment(NIdentifier& lhs, NExpression& rhs) : 
+// //     NAssignment(NIdentifier& lhs, NExpression& rhs) :
 // //         lhs(lhs), rhs(rhs) { }
 // //     // virtual llvm::Value* codeGen(CodeGenContext& context);
 // // };
@@ -234,7 +237,7 @@ public:
 // // class NExpressionStatement : public NStatement {
 // // public:
 // //     NExpression& expression;
-// //     NExpressionStatement(NExpression& expression) : 
+// //     NExpressionStatement(NExpression& expression) :
 // //         expression(expression) { }
 // //     // virtual llvm::Value* codeGen(CodeGenContext& context);
 // // };
@@ -257,7 +260,7 @@ public:
 // //     const NIdentifier& id;
 // //     VariableList arguments;
 // //     NBlock& block;
-// //     NFunctionDeclaration(const NIdentifier& type, const NIdentifier& id, 
+// //     NFunctionDeclaration(const NIdentifier& type, const NIdentifier& id,
 // //             const VariableList& arguments, NBlock& block) :
 // //         type(type), id(id), arguments(arguments), block(block) { }
 // //     // virtual llvm::Value* codeGen(CodeGenContext& context);
