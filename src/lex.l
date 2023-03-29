@@ -3,7 +3,7 @@
 #include "parser.hpp"
 #define SAVE_TOKEN yylval.string = new std::string(yytext, yyleng)
 #define TOKEN(t) (yylval.token = t)
-extern "C" int yywrap() { }
+extern "C" int yywrap() {}
 
 #include <iostream>
 #include <string>
@@ -19,17 +19,17 @@ int str_bracketlen = 0;
             else {char c = stoi(s); str += c;} }
 #define PROCESS_QUOTE SAVE_TOKEN;\
             if (yytext == str_init)\
-                {std::cout << "L_STRING" << str << "] "; BEGIN(INITIAL);}\
+                {yylval.string = new std::string(str); BEGIN(INITIAL); return L_STRING;}\
             else {str += yytext;}
 #define PROCESS_BRACKETS SAVE_TOKEN;\
             if (std::string(yytext).length() == str_bracketlen) {\
-                std::cout << "L_STIRNG[" << str << "] "; BEGIN(INITIAL);}\
+                BEGIN(INITIAL); return L_STRING;}\
             else { str += yytext; }
 
 int comment_bracklen = 0;
 #define NEW_COMMENT { comment_bracklen = std::string(yytext).length() - 2; }
 #define PROCESS_COMMENT_BRACKETS if (std::string(yytext).length() == comment_bracklen) {\
-            std::cout << "COMMENT "; BEGIN(INITIAL);}
+            BEGIN(INITIAL);}
 
 /* void yyerror (char const *s) { fprintf (stderr, "ERROR: %s\n", s); } */
 void yyerror (char const *s);
@@ -41,9 +41,6 @@ void yyerror (char const *s);
 %x STRING_NOESCAPE
 
 %%
-[ \t]+
-[\"\']              { NEW_STR; str_init=yytext; BEGIN(STRING); }
-\]=*\]              { yyerror("right square bracket before left square bracket"); }
 <STRING>{
   "\\\n"            {str += "\n";}
   "\\\""            {str += '"';}
@@ -57,10 +54,10 @@ void yyerror (char const *s);
   "\\t"             {str += "\t";}
   "\\v"             {str += "\v";}
   \\[0-9]{1,3}      STR_NUM_ESCAPE
-  \n                yyerror("the string misses \" to termiate before newline");
-  <<EOF>>           yyerror("the string misses \" to terminate before EOF");
+  \n                {yyerror("the string misses closing quote to termiate before newline");}
+  <<EOF>>           {yyerror("the string misses closing quote to terminate before EOF");}
   [\"\']            PROCESS_QUOTE
-  ([^\\\""\n])*     {ADD_STR}
+  ([^\\\""\\'\n])*  {ADD_STR}
   .                 {ADD_STR};
 }
 
@@ -79,7 +76,11 @@ void yyerror (char const *s);
     ([^\]])*       {ADD_STR}
     .              {ADD_STR}
 }
+--.+           {printf("comment"); return COMMENT;}
 
+[ \t]+
+[\"\']              { NEW_STR; str_init=yytext; BEGIN(STRING); }
+\]=*\]              { yyerror("right square bracket before left square bracket"); }
 [0-9]+[.]?[0-9]*   {SAVE_TOKEN; return L_NUM ;}
 [-][>]       {return OP_ARROW ;}
 [+]          {return OP_PLUS ;}
@@ -104,6 +105,7 @@ void yyerror (char const *s);
 [.][.]       {return OP_DOTDOT ;}
 [.]          {return OP_DOT ;}
 const        {return KW_CONST ;}
+new          {return KW_NEW ;}
 self         {return KW_SELF ;}
 static       {return KW_STATIC ;}
 struct       {return KW_STRUCT ;}
@@ -129,12 +131,11 @@ or           {return KW_OR ;}
 repeat       {return KW_REPEAT ;}
 return       {return KW_RETURN ;}
 then         {return KW_THEN ;}
-true         {return KW_TRUE ;}
+true         {return KW_TRUE;}
 until        {return KW_UNTIL ;}
 while        {return KW_WHILE ;}
-[a-zA-Z0-9_]*  {SAVE_TOKEN; return ID;}
---.+         {return COMMENT;}
-.            {printf(yytext);}
+[a-zA-Z0-9_]*  {SAVE_TOKEN; return L_STRING;}
+.            {printf("%s", yytext);}
 %%
   
 /* int yywrap(){} */
