@@ -10,8 +10,6 @@ class NStatement;
 class NExpression;
 class NVariableDeclaration;
 class Node;
-class NExpression;
-class NStatement;
 class NBlock;
 class NNum;
 class NNil;
@@ -154,7 +152,9 @@ public:
 class NIdentifier : public NExpression {
 public:
     std::string name;
-    NIdentifier(const std::string* name) : name(*name) { }
+    int lineno;
+    int colno;
+    NIdentifier(const std::string* name, int lineno, int colno) : name(*name), lineno(lineno), colno(colno) { }
 
     virtual void visit(Visitor* v) {
         v->visitNIdentifier(this);
@@ -412,7 +412,7 @@ public:
     }
 
     virtual void visitNIdentifier(NIdentifier* node) {
-        std::cout << "NIdentifier(name=" << node->name << ")";
+        std::cout << "NIdentifier(name=" << node->name << ", line=" << node->lineno << ", column=" << node->colno << ")";
     }
 
     virtual void visitNBinaryOperatorExpression(NBinaryOperatorExpression* node) {
