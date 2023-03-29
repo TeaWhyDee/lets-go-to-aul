@@ -31,7 +31,7 @@ int str_bracketlen = 0;
                 else return L_STRING_ERROR;}\
             else { str += yytext; }
 
-int comment_bracklen = 0;
+long unsigned int comment_bracklen = 0;
 #define NEW_COMMENT { comment_bracklen = std::string(yytext).length() - 2; }
 #define PROCESS_COMMENT_BRACKETS if (std::string(yytext).length() == comment_bracklen) {\
             BEGIN(INITIAL);}
@@ -42,7 +42,7 @@ void yyerror (char const *s);
 %option yylineno
 
 %x STRING
-%x COMMENT
+%x COMMENT_BRACKETS
 %x STRING_NOESCAPE
 
 %%
@@ -62,7 +62,7 @@ void yyerror (char const *s);
   /* \n                {yyerror("the string misses closing quote to termiate before newline");} */
   /* <<EOF>>           {yyerror("the string misses closing quote to terminate before EOF");} */
   \n                {str_error = true;}
-  <<EOF>>           {str_error = true;}
+  <<EOF>>           {str_error = true; return L_STRING_ERROR; BEGIN(INITIAL);}
   [\"\']            PROCESS_QUOTE
   ([^\\\""\\'\n])*  {ADD_STR}
   .                 {ADD_STR};
@@ -76,8 +76,8 @@ void yyerror (char const *s);
   .                 {ADD_STR}
 }
 
-\-\-\[=*\[     { NEW_COMMENT; BEGIN(COMMENT); }
-<COMMENT>{
+\-\-\[=*\[     { NEW_COMMENT; BEGIN(COMMENT_BRACKETS); }
+<COMMENT_BRACKETS>{
     <<EOF>>        { yyerror("the comment doesn't close"); BEGIN(INITIAL); }
     \]=*\]         PROCESS_COMMENT_BRACKETS
     ([^\]])*       {ADD_STR}
@@ -142,7 +142,7 @@ true         {return KW_TRUE;}
 until        {return KW_UNTIL ;}
 while        {return KW_WHILE ;}
 [a-zA-Z0-9_]*  {SAVE_TOKEN; return L_STRING;}
-.            {printf("%s", yytext);}
+.            {return ERROR;}
 %%
   
 /* int yywrap(){} */
