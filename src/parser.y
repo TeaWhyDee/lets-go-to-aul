@@ -1,11 +1,26 @@
 %{
     #include "node.h"
+    #include <cstring>
     #define YYERROR_VERBOSE 1
     NBlock *programBlock; /* the top level root node of our final AST */
 
     extern int yylex();
+    extern int yytext;
+    extern char linebuf[500];
+    extern std::string errortext;
     extern int yylineno;
-    void yyerror(const char *s) { printf("YYERROR: %s\n", s); }
+    void yyerror(const char *s) {
+        std::string print = std::string(s, s + strlen(s));
+        if (errortext != "") {
+            print = errortext;
+            errortext = "";
+        }
+
+        printf("Error on line %d: %s\n\t%s\n\n", yylineno, linebuf, print.c_str());
+    }
+    /* void yyerror (YYLTYPE *locp, char const *s) { */
+    /*     printf("YYERROR: %s\n", s); */
+    /* } */
 %}
 
 %define parse.error verbose
@@ -55,7 +70,7 @@
 %token <token> KW_FALSE KW_FOR KW_FUNCTION KW_IF KW_IN KW_LOCAL
 %token <token> KW_NOT KW_OR KW_REPEAT KW_RETURN KW_THEN KW_TRUE
 %token <token> KW_UNTIL KW_WHILE COMMENT
-%token <token> L_STRING_ERROR ERROR
+%token <token> ERROR
 
 /* Define the type of node our nonterminal symbols represent.
    The types refer to the %union declaration above. Ex: when
