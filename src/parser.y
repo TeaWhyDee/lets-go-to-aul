@@ -60,7 +60,7 @@
    we call an ident (defined by union type ident) we are really
    calling an (NIdentifier*). It makes the compiler happy.
  */
-%type <block> program block
+%type <block> program block stmt_list
 %type <stmt> stmt var_decl retstat for_numeric for_generic
 %type <ifstmt> if_stmt
 %type <elif> elseif
@@ -94,8 +94,11 @@
 program : block { programBlock = $1; }
     ;
 
-block : stmt { $$ = new NBlock(); $$->statements.push_back($<stmt>1); }
-      | block stmt { $1->statements.push_back($<stmt>2); }
+block : stmt_list
+    ;
+
+stmt_list : stmt_list stmt { $1->statements.push_back($<stmt>2); }
+          | /* empty */ { $$ = new NBlock(); }
     ;
 
 
