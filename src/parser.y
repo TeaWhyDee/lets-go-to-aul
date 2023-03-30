@@ -6,10 +6,13 @@
     extern int yylex();
     extern int yylineno;
     void yyerror(const char *s) { printf("YYERROR: %s\n", s); }
+
+
 %}
 
 %define parse.error verbose
 %define parse.trace
+%define locations
 %printer { fprintf (yyo, "%s ", yylval.string->c_str()); } <token>
 
 /* Represents the many different ways we can access our data */
@@ -165,7 +168,7 @@ expr_list : expr {$$ = new std::vector<NExpression *>(); $$ -> push_back($1);}
 
 term : L_NUM { $$ = new NNum(atof($1->c_str())); delete $1; }
      | L_STRING { $$ = new NString(*$1);}
-     | ident { $$ = new NIdentifier(*$1); }
+     | ident { $$ = new NIdentifier(&($1->name)); }
     ;
 
 binop : OP_PLUS

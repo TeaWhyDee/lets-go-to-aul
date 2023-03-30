@@ -30,7 +30,19 @@ int comment_bracklen = 0;
 #define NEW_COMMENT { comment_bracklen = std::string(yytext).length() - 2; }
 #define PROCESS_COMMENT_BRACKETS if (std::string(yytext).length() == comment_bracklen) {\
             BEGIN(INITIAL);}
-
+//http://stackoverflow.com/questions/656703/how-does-flex-support-bison-location-exactly
+#define YY_USER_ACTION \
+   yylloc.first_line = yylloc.last_line; \
+   yylloc.first_column = yylloc.last_column; \
+   for(int i = 0; yytext[i] != '\0'; i++) { \
+       if(yytext[i] == '\n') { \
+           yylloc.last_line++; \
+           yylloc.last_column = 0; \
+       } \
+       else { \
+           yylloc.last_column++; \
+       } \
+   } \
 /* void yyerror (char const *s) { fprintf (stderr, "ERROR: %s\n", s); } */
 void yyerror (char const *s);
 %}
