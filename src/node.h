@@ -152,9 +152,7 @@ public:
 class NIdentifier : public NExpression {
 public:
     std::string name;
-    int lineno;
-    int colno;
-    NIdentifier(const std::string* name, int lineno, int colno) : name(*name), lineno(lineno), colno(colno) { }
+    NIdentifier(const std::string* name) : name(*name) { }
 
     virtual void visit(Visitor* v) {
         v->visitNIdentifier(this);
@@ -412,7 +410,7 @@ public:
     }
 
     virtual void visitNIdentifier(NIdentifier* node) {
-        std::cout << "NIdentifier(name=" << node->name << ", line=" << node->lineno << ", column=" << node->colno << ")";
+        std::cout << "NIdentifier(name=" << node->name << ")";
     }
 
     virtual void visitNBinaryOperatorExpression(NBinaryOperatorExpression* node) {

@@ -168,7 +168,7 @@ expr_list : expr {$$ = new std::vector<NExpression *>(); $$ -> push_back($1);}
 
 term : L_NUM { $$ = new NNum(atof($1->c_str())); delete $1; }
      | L_STRING { $$ = new NString(*$1);}
-     | ident { $$ = new NIdentifier(&($1->name), @1.first_line, @1.first_column); }
+     | ident { $$ = new NIdentifier(&($1->name)); }
     ;
 
 binop : OP_PLUS
@@ -200,8 +200,8 @@ function_decl : KW_FUNCTION ident OP_LBRACE typed_var_list OP_RBRACE OP_ARROW ty
     |  KW_FUNCTION ident OP_LBRACE typed_var_list OP_RBRACE block KW_END { $$ = new NFunctionDeclaration(nullptr, $2, $4, $6);}
     |  KW_FUNCTION ident OP_LBRACE OP_RBRACE OP_ARROW type_ident block KW_END { $$ = new NFunctionDeclaration($6, $2, new std::vector<NDeclarationStatement*>(), $7);}
     |  KW_FUNCTION ident OP_LBRACE OP_RBRACE block KW_END { $$ = new NFunctionDeclaration(nullptr, $2, new std::vector<NDeclarationStatement*>(), $5);}
-    |  KW_NEW OP_LBRACE OP_RBRACE block KW_END { $$ = new NFunctionDeclaration(nullptr, new NIdentifier(new std::string("new"), @1.first_line, @1.first_column), new std::vector<NDeclarationStatement*>(), $4);}
-    |  KW_NEW OP_LBRACE typed_var_list OP_RBRACE block KW_END { $$ = new NFunctionDeclaration(nullptr, new NIdentifier(new std::string("new"), @1.first_line, @1.first_column), $3, $5);}
+    |  KW_NEW OP_LBRACE OP_RBRACE block KW_END { $$ = new NFunctionDeclaration(nullptr, new NIdentifier(new std::string("new")), new std::vector<NDeclarationStatement*>(), $4);}
+    |  KW_NEW OP_LBRACE typed_var_list OP_RBRACE block KW_END { $$ = new NFunctionDeclaration(nullptr, new NIdentifier(new std::string("new")), $3, $5);}
     ;
 
 struct_decl : KW_STRUCT ident KW_END { $$ = new NStructDeclaration($2, new StructBody());}
@@ -214,16 +214,16 @@ struct_body : typed_var { $$ = new StructBody(); $$->fields.push_back($1);}
         | struct_body function_decl { $$->methods.push_back($2); };
     ;
 
-type_ident: KW_STR { $$ = new NIdentifier(new std::string("str"), @1.first_line, @1.first_column); }
-    | KW_BOOL { $$ = new NIdentifier(new std::string("bool"), @1.first_line, @1.first_column); }
-    | KW_NUM { $$ = new NIdentifier(new std::string("num"), @1.first_line, @1.first_column); }
-    | KW_TABLE { $$ = new NIdentifier(new std::string("table"), @1.first_line, @1.first_column); }
-    | KW_NIL { $$ = new NIdentifier(new std::string("nil"), @1.first_line, @1.first_column); }
-    | KW_FUNCTION { $$ = new NIdentifier(new std::string("function"), @1.first_line, @1.first_column); }
-    | L_STRING { $$ = new NIdentifier(yylval.string, @1.first_line, @1.first_column); }
+type_ident: KW_STR { $$ = new NIdentifier(new std::string("str")); }
+    | KW_BOOL { $$ = new NIdentifier(new std::string("bool")); }
+    | KW_NUM { $$ = new NIdentifier(new std::string("num")); }
+    | KW_TABLE { $$ = new NIdentifier(new std::string("table")); }
+    | KW_NIL { $$ = new NIdentifier(new std::string("nil")); }
+    | KW_FUNCTION { $$ = new NIdentifier(new std::string("function")); }
+    | L_STRING { $$ = new NIdentifier(yylval.string); }
     ;
 
-ident : L_STRING { $$ = new NIdentifier($1, @1.first_line, @1.first_column); delete $1; }
+ident : L_STRING { $$ = new NIdentifier($1); delete $1; }
 %%
 
 /*
