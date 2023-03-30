@@ -1,3 +1,5 @@
+function as((  -> num
+
 a=2
 
 123
