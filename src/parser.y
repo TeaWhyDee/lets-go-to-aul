@@ -5,7 +5,7 @@
     NBlock *programBlock; /* the top level root node of our final AST */
 
     extern int yylex();
-    extern int yytext;
+    extern char* yytext;
     extern char linebuf[500];
     extern std::string errortext;
     extern int yylineno;
@@ -16,7 +16,11 @@
             errortext = "";
         }
 
-        printf("Error on line %d: %s\n\t%s\n\n", yylineno, linebuf, print.c_str());
+        /* TODO: print line directly from file instead */
+        printf("Error on line %d: %s\n\
+                \t%s\n\
+                \t%s\n\n",
+                yylineno, linebuf, yytext, print.c_str());
     }
     /* void yyerror (YYLTYPE *locp, char const *s) { */
     /*     printf("YYERROR: %s\n", s); */
@@ -117,6 +121,7 @@ block : stmt_list
 stmt_list : stmt_list stmt { $1->statements.push_back($<stmt>2); }
           | stmt_list error
           | stmt_list COMMENT
+          | stmt_list OP_EQUALEQUAL { YYERROR; }
           | /* empty */    { $$ = new NBlock(); }
     ;
 

@@ -36,7 +36,6 @@ long unsigned int comment_bracklen = 0;
 #define NEW_COMMENT { comment_bracklen = std::string(yytext).length() - 2; }
 #define PROCESS_COMMENT_BRACKETS if (std::string(yytext).length() == comment_bracklen) {\
             BEGIN(INITIAL);}
-//http://stackoverflow.com/questions/656703/how-does-flex-support-bison-location-exactly
 #define YY_USER_ACTION \
    yylloc.first_line = yylloc.last_line; \
    yylloc.first_column = yylloc.last_column; \
@@ -50,25 +49,27 @@ long unsigned int comment_bracklen = 0;
        } \
    } \
 /* void yyerror (char const *s) { fprintf (stderr, "ERROR: %s\n", s); } */
+
+ /* ERROR HANDLING STUFF */
+#define YY_USER_INIT BEGIN(STARTUP);
 void yyerror (char const *s);
 char linebuf[500];
 std::string errortext = std::string();
-
-/* void warning(char *s) { */
-/*     if (YYRECOVERING() ) */
-/*         return; */
-/*     else */
-/*         printf("%s", s); */
-/* } */
 %}
+
 %option yylineno
 
+%x STARTUP
 %x STRING
 %x COMMENT_BRACKETS
 %x STRING_NOESCAPE
 
 %%
-\n.* { strncpy(linebuf, yytext+1, sizeof(linebuf)); /* save the next line */
+<STARTUP>{
+    ^[^\n]* { strncpy(linebuf, yytext+1, sizeof(linebuf)); BEGIN(INITIAL); yyless(0); }
+}
+
+\n.* { strncpy(linebuf, yytext+1, sizeof(linebuf));
     yyless(1);
 }
 
