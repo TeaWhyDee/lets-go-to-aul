@@ -3,7 +3,7 @@
     #include <cstring>
     #define YYERROR_VERBOSE 1
     NBlock *programBlock; /* the top level root node of our final AST */
-
+    SymbolTableStorage *symtab_storage = new SymbolTableStorage(new ScopedSymbolTable());
     extern int yylex();
     extern char* yytext;
     extern std::string linebuf;
@@ -249,27 +249,27 @@ exp : expr OP_PLUS expr  {$$ = new NBinaryOperatorExpression($1, $2, $3);}
     | KW_NOT expr {$$ = new NUnaryOperatorExpression($1, $2);}
     ;
 
-typed_var : ident OP_COLON type_ident {$$ = new NDeclarationStatement($1, $3, new NExpression());}
+typed_var : ident OP_COLON type_ident {$$ = new NDeclarationStatement($1, $3, new NExpression(), Position(@ident.first_line, @ident.first_column));}
     ;
 
 typed_var_list: typed_var { $$ = new std::vector<NDeclarationStatement *>(); $$->push_back($1);}
         | typed_var_list OP_COMMA typed_var {$1 -> push_back($3);}
     ;
 
-var_decl : ident OP_EQUAL expr { $$ = new NDeclarationStatement($1, $3); }
-         | ident OP_COLON type_ident OP_EQUAL expr { $$ = new NDeclarationStatement($1, $3, $5); }
+var_decl : ident OP_EQUAL expr { $$ = new NDeclarationStatement($ident, $expr, Position(@ident.first_line, @ident.first_column)); }
+         | ident OP_COLON type_ident OP_EQUAL expr { $$ = new NDeclarationStatement($ident, $type_ident, $expr, Position(@ident.first_line, @ident.first_column)); }
     ;
 
-function_decl : KW_FUNCTION ident OP_LBRACE typed_var_list OP_RBRACE OP_ARROW typelist block KW_END { $$ = new NFunctionDeclaration($7, $2, $4, $8);}
-    |  KW_FUNCTION ident OP_LBRACE typed_var_list OP_RBRACE block KW_END { $$ = new NFunctionDeclaration(nullptr, $2, $4, $6);}
-    |  KW_FUNCTION ident OP_LBRACE OP_RBRACE OP_ARROW typelist block KW_END { $$ = new NFunctionDeclaration($6, $2, new std::vector<NDeclarationStatement*>(), $7);}
-    |  KW_FUNCTION ident OP_LBRACE OP_RBRACE block KW_END { $$ = new NFunctionDeclaration(nullptr, $2, new std::vector<NDeclarationStatement*>(), $5);}
-    |  KW_NEW OP_LBRACE OP_RBRACE block KW_END { $$ = new NFunctionDeclaration(nullptr, new NIdentifier(new std::string("new")), new std::vector<NDeclarationStatement*>(), $4);}
-    |  KW_NEW OP_LBRACE typed_var_list OP_RBRACE block KW_END { $$ = new NFunctionDeclaration(nullptr, new NIdentifier(new std::string("new")), $3, $5);}
+function_decl : KW_FUNCTION ident OP_LBRACE typed_var_list OP_RBRACE OP_ARROW typelist block KW_END { $$ = new NFunctionDeclaration($typelist, $ident, $typed_var_list, $block, Position(@ident.first_line, @ident.first_column));}
+    |  KW_FUNCTION ident OP_LBRACE typed_var_list OP_RBRACE block KW_END { $$ = new NFunctionDeclaration(nullptr, $ident, $typed_var_list, $block, Position(@ident.first_line, @ident.first_column));}
+    |  KW_FUNCTION ident OP_LBRACE OP_RBRACE OP_ARROW typelist block KW_END { $$ = new NFunctionDeclaration($typelist, $ident, new std::vector<NDeclarationStatement*>(), $block, Position(@ident.first_line, @ident.first_column));}
+    |  KW_FUNCTION ident OP_LBRACE OP_RBRACE block KW_END { $$ = new NFunctionDeclaration(nullptr, $ident, new std::vector<NDeclarationStatement*>(), $block, Position(@ident.first_line, @ident.first_column));}
+    |  KW_NEW OP_LBRACE OP_RBRACE block KW_END { $$ = new NFunctionDeclaration(nullptr, new NIdentifier(new std::string("new")), new std::vector<NDeclarationStatement*>(), $block, Position(@block.first_line, @block.first_column));}
+    |  KW_NEW OP_LBRACE typed_var_list OP_RBRACE block KW_END { $$ = new NFunctionDeclaration(nullptr, new NIdentifier(new std::string("new")), $typed_var_list, $block, Position(@block.first_line, @block.first_column));}
     ;
 
-struct_decl : KW_STRUCT ident KW_END { $$ = new NStructDeclaration($2, new StructBody());}
-        |  KW_STRUCT ident struct_body KW_END { $$ = new NStructDeclaration($2, $3);}
+struct_decl : KW_STRUCT ident KW_END { $$ = new NStructDeclaration($ident, new StructBody());}
+        |  KW_STRUCT ident struct_body KW_END { $$ = new NStructDeclaration($ident, $struct_body);}
     ;
 
 struct_body : typed_var { $$ = new StructBody(); $$->fields.push_back($1);}
