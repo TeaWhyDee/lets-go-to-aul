@@ -1,13 +1,28 @@
 %{
     #include "node.h"
+    #include <cstring>
     #define YYERROR_VERBOSE 1
     NBlock *programBlock; /* the top level root node of our final AST */
 
     extern int yylex();
+    extern char* yytext;
+    extern std::string linebuf;
+    extern std::string errortext;
     extern int yylineno;
-    void yyerror(const char *s) { printf("YYERROR: %s\n", s); }
+    void yyerror(const char *s) {
+        std::string print = std::string(s, s + strlen(s));
+        if (errortext != "") {
+            print = errortext;
+            errortext = "";
+        }
 
+        /* TODO: print column? */
+        std::cout << "Error on line " << yylineno << ": "<< linebuf << "\n\t" << print << "\n\n";
+    }
 
+    /* void yyerror (YYLTYPE *locp, char const *s) { */
+    /*     printf("YYERROR: %s\n", s); */
+    /* } */
 %}
 
 %define parse.error verbose
@@ -57,6 +72,7 @@
 %token <token> KW_FALSE KW_FOR KW_FUNCTION KW_IF KW_IN KW_LOCAL
 %token <token> KW_NOT KW_OR KW_REPEAT KW_RETURN KW_THEN KW_TRUE
 %token <token> KW_UNTIL KW_WHILE COMMENT
+%token <token> ERROR
 
 /* Define the type of node our nonterminal symbols represent.
    The types refer to the %union declaration above. Ex: when
@@ -79,16 +95,11 @@
 %type <ident_list> ident_list 
 %type <struct_decl> struct_decl
 %type <struct_body> struct_body
-/* %type <stmt> stmt var_decl func_decl */
-/* %type <token> comparison */
-/* %type <expr> numeric expr  */
-/* %type <varvec> func_decl_args */
-/* %type <exprvec> call_args */
-/* %type <block> program stmts block */
+
 
 %token <token> OP_ARROW OP_PLUS OP_MINUS OP_STAR OP_SLASHSLASH OP_SLASH
 /* Operator precedence for mathematical operators */
-%left OP_TPLUS OP_TMINUS
+%left OP_PLUS OP_MINUS
 %left OP_STAR OP_SLASH OP_SLASHSLASH
 
 %start program
@@ -101,9 +112,10 @@ block : stmt_list
     ;
 
 stmt_list : stmt_list stmt { $1->statements.push_back($<stmt>2); }
-          | /* empty */ { $$ = new NBlock(); }
+          | stmt_list error
+          | stmt_list COMMENT
+          | /* empty */    { $$ = new NBlock(); }
     ;
-
 
 stmt : var_decl
      | function_call
@@ -120,6 +132,7 @@ stmt : var_decl
 
 for_generic : KW_FOR ident_list KW_IN expr_list KW_DO block KW_END {
             $$ = new NGenericForStatement(*$2, *$4, $6); }
+    ;
 
 for_numeric : KW_FOR ident OP_EQUAL expr OP_COMMA expr KW_DO block KW_END { 
             $$ = new NNumericForStatement($2, $4, $6, new NNum((double)1), $8); }
@@ -135,10 +148,12 @@ if_stmt : expr KW_THEN block elseif KW_ELSE block { $$ = new NIfStatement(*$4, $
                 $$->conditionBlockList.push_back( new std::pair<NExpression *, NBlock *>($1, $3) );}
         | expr KW_THEN block { $$ = new NIfStatement(std::vector<conditionBlock*>(), nullptr);
                 $$->conditionBlockList.push_back( new std::pair<NExpression *, NBlock *>($1, $3) );}
+    ;
 
 elseif : KW_ELSEIF expr KW_THEN block { $$ = new std::vector<conditionBlock*>();
        $$->push_back( new std::pair<NExpression *, NBlock *>($2, $4) );}
        | elseif KW_ELSEIF expr KW_THEN block { $1->push_back( new std::pair<NExpression *, NBlock *>($3, $5) );}
+    ;
 
 retstat : KW_RETURN expr { $$ = new NReturnStatement($2); }
     ;
@@ -146,7 +161,6 @@ retstat : KW_RETURN expr { $$ = new NReturnStatement($2); }
 ident_list : ident {$$ = new std::vector<NIdentifier *>(); $$ -> push_back($1);}
          | ident_list OP_COMMA ident {$$ -> push_back($3);}
     ;
-      /* | expr { $$ = new NExpressionStatement(*$1); } */
 
 expr : term
      | expr binop expr {$$ = new NBinaryOperatorExpression($1, $2, $3);}
@@ -155,8 +169,6 @@ expr : term
      | function_call
     ;
 
-prefix_expr : term
-            | 
 
 function_call : ident OP_LBRACE OP_RBRACE {$$ = new NFunctionCall($1, std::vector<NExpression *>());}
               | ident OP_LBRACE expr_list OP_RBRACE { $$ = new NFunctionCall($1, *$3); }
@@ -211,7 +223,7 @@ struct_decl : KW_STRUCT ident KW_END { $$ = new NStructDeclaration($2, new Struc
 struct_body : typed_var { $$ = new StructBody(); $$->fields.push_back($1);}
         | function_decl { $$ = new StructBody(); $$->methods.push_back($1);}
         | struct_body typed_var { $$->fields.push_back($2); }
-        | struct_body function_decl { $$->methods.push_back($2); };
+        | struct_body function_decl { $$->methods.push_back($2); }
     ;
 
 type_ident: KW_STR { $$ = new NIdentifier(new std::string("str")); }
@@ -224,57 +236,6 @@ type_ident: KW_STR { $$ = new NIdentifier(new std::string("str")); }
     ;
 
 ident : L_STRING { $$ = new NIdentifier($1); delete $1; }
+    ;
 %%
-
-/*
-comparison : OP_EQUALEQUAL | OP_NOTEQUAL | OP_LESSTHAN | OP_LARGERTHAN 
-           | OP_PLUS | OP_MINUS | OP_STAR | OP_SLASH | OP_SLASHSLASH
-           ;
-
-program : stmts { programBlock = $1; }
-        ;
-
-stmts : stmt { $$ = new NBlock(); $$->statements.push_back($<stmt>1); }
-      | stmts stmt { $1->statements.push_back($<stmt>2); }
-      ;
-
-stmt : var_decl | func_decl
-     | expr { $$ = new NExpressionStatement(*$1); }
-     ;
-
-block : TLBRACE stmts TRBRACE { $$ = $2; }
-      | TLBRACE TRBRACE { $$ = new NBlock(); }
-      ;
-
-var_decl : ident ident { $$ = new NVariableDeclaration(*$1, *$2); }
-         | ident ident TEQUAL expr { $$ = new NVariableDeclaration(*$1, *$2, $4); }
-         ;
-        
-func_decl : ident ident TLPAREN func_decl_args TRPAREN block 
-            { $$ = new NFunctionDeclaration(*$1, *$2, *$4, *$6); delete $4; }
-          ;
-    
-func_decl_args : blank  { $$ = new VariableList(); }
-          | var_decl { $$ = new VariableList(); $$->push_back($<var_decl>1); }
-          | func_decl_args TCOMMA var_decl { $1->push_back($<var_decl>3); }
-          ;
-
-numeric : TINTEGER { $$ = new NInteger(atol($1->c_str())); delete $1; }
-        | TDOUBLE { $$ = new NDouble(atof($1->c_str())); delete $1; }
-        ;
-    
-expr : ident TEQUAL expr { $$ = new NAssignment(*$<ident>1, *$3); }
-     | ident TLPAREN call_args TRPAREN { $$ = new NMethodCall(*$1, *$3); delete $3; }
-     | ident { $<ident>$ = $1; }
-     | numeric
-     | expr comparison expr { $$ = new NBinaryOperator(*$1, $2, *$3); }
-     | TLPAREN expr TRPAREN { $$ = $2; }
-     ;
-    
-call_args : blank  { $$ = new ExpressionList(); }
-          | expr { $$ = new ExpressionList(); $$->push_back($1); }
-          | call_args TCOMMA expr  { $1->push_back($3); }
-          ;
-*/
-
 
