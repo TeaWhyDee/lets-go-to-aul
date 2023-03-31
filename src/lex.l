@@ -11,7 +11,7 @@ int enter_dblquotes = 0;
 bool str_error = false;
 std::string str;
 std::string str_init = std::string();
-int str_bracketlen = 0;
+unsigned long int str_bracketlen = 0;
 #define NEW_STR str = std::string(); str_error = false;
 #define ADD_STR str += yytext;
 #define STR_NUM_ESCAPE SAVE_TOKEN;\
@@ -106,7 +106,7 @@ std::string errortext = std::string();
     ([^\]])*       {ADD_STR}
     .              {ADD_STR}
 }
---.+           {return COMMENT;}
+--.+           {}
 
 [ \t]+
 [\"\']              { NEW_STR; str_init=yytext; BEGIN(STRING); }
@@ -164,7 +164,7 @@ then         {return KW_THEN ;}
 true         {return KW_TRUE;}
 until        {return KW_UNTIL ;}
 while        {return KW_WHILE ;}
-[a-zA-Z0-9_]*  {SAVE_TOKEN; return L_STRING;}
+[a-zA-Z0-9_]*  {SAVE_TOKEN; return ID;}
 .            {return ERROR;}
 %%
 
