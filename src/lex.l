@@ -64,7 +64,6 @@ std::string errortext = std::string();
 %x STRING_NOESCAPE
 
 %%
-/* Capture last read line in a buffer for error reporing */
 <STARTUP>{ 
     ^[^\n]* { linebuf = std::string(yytext); BEGIN(INITIAL); yyless(0); }
 }
@@ -72,7 +71,6 @@ std::string errortext = std::string();
     yyless(1);
 }
 
-/* Actual grammar */
 <STRING>{
   "\\\n"            {str += "\n";}
   "\\\""            {str += '"';}
