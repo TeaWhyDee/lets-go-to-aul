@@ -158,8 +158,8 @@ expr : term
 prefix_expr : term
             | 
 
-function_call : ident OP_LBRACE OP_RBRACE {$$ = new NFunctionCall($1, std::vector<NExpression *>());}
-              | ident OP_LBRACE expr_list OP_RBRACE { $$ = new NFunctionCall($1, *$3); }
+function_call : ident OP_LBRACE OP_RBRACE {$$ = new NExpressionCall($1, std::vector<NExpression *>());}
+              | ident OP_LBRACE expr_list OP_RBRACE { $$ = new NExpressionCall($1, *$3); }
     ;
 
 expr_list : expr {$$ = new std::vector<NExpression *>(); $$ -> push_back($1);}
@@ -214,13 +214,19 @@ struct_body : typed_var { $$ = new StructBody(); $$->fields.push_back($1);}
         | struct_body function_decl { $$->methods.push_back($2); };
     ;
 
-type_ident: KW_STR { $$ = new NIdentifier(new std::string("str")); }
-    | KW_BOOL { $$ = new NIdentifier(new std::string("bool")); }
-    | KW_NUM { $$ = new NIdentifier(new std::string("num")); }
-    | KW_TABLE { $$ = new NIdentifier(new std::string("table")); }
-    | KW_NIL { $$ = new NIdentifier(new std::string("nil")); }
-    | KW_FUNCTION { $$ = new NIdentifier(new std::string("function")); }
+type_ident: KW_STR { $$ = new NStringType(); }
+    | KW_BOOL { $$ = new NBoolType(); }
+    | KW_NUM { $$ = new NNumType(); }
+    | KW_TABLE OP_LSQUARE_BRACE type_ident OP_COMMA type_ident { $$ = new NTableType($3, $5); }
+    | KW_NIL { $$ = new NNilType(); }
+    | function_type
     | L_STRING { $$ = new NIdentifier(yylval.string); }
+    ;
+
+function_type: KW_FUNCTION OP_LBRACE typed_var_list OP_RBRACE OP_ARROW type_ident { $$ = new NFunctionType($4, $6); }
+    | KW_FUNCTION OP_LBRACE typed_var_list OP_RBRACE { $$ = new NFunctionType($4, nullptr); }
+    | KW_FUNCTION OP_LBRACE OP_RBRACE OP_ARROW type_ident { $$ = new NFunctionType(new std::vector<NDeclarationStatement *>(), $5); }
+    | KW_FUNCTION OP_LBRACE OP_RBRACE { $$ = new NFunctionType(new std::vector<NDeclarationStatement *>(), nullptr); }
     ;
 
 ident : L_STRING { $$ = new NIdentifier($1); delete $1; }
