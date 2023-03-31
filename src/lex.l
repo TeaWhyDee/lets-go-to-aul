@@ -48,12 +48,11 @@ long unsigned int comment_bracklen = 0;
            yylloc.last_column++; \
        } \
    } \
-/* void yyerror (char const *s) { fprintf (stderr, "ERROR: %s\n", s); } */
 
  /* ERROR HANDLING STUFF */
 #define YY_USER_INIT BEGIN(STARTUP);
 void yyerror (char const *s);
-char linebuf[500];
+std::string linebuf;
 std::string errortext = std::string();
 %}
 
@@ -65,14 +64,15 @@ std::string errortext = std::string();
 %x STRING_NOESCAPE
 
 %%
-<STARTUP>{
-    ^[^\n]* { strncpy(linebuf, yytext+1, sizeof(linebuf)); BEGIN(INITIAL); yyless(0); }
+/* Capture last read line in a buffer for error reporing */
+<STARTUP>{ 
+    ^[^\n]* { linebuf = std::string(yytext); BEGIN(INITIAL); yyless(0); }
 }
-
-\n.* { strncpy(linebuf, yytext+1, sizeof(linebuf));
+\n.* { linebuf = std::string(yytext+1);
     yyless(1);
 }
 
+/* Actual grammar */
 <STRING>{
   "\\\n"            {str += "\n";}
   "\\\""            {str += '"';}
@@ -86,8 +86,6 @@ std::string errortext = std::string();
   "\\t"             {str += "\t";}
   "\\v"             {str += "\v";}
   \\[0-9]{1,3}      STR_NUM_ESCAPE
-  /* \n                {yyerror("the string misses closing quote to termiate before newline");} */
-  /* <<EOF>>           {yyerror("the string misses closing quote to terminate before EOF");} */
   \n                {str_error = true; errortext = "Unexpected \\n, string not closed.";}
   <<EOF>>           {str_error = true; BEGIN(INITIAL); errortext = "Unexpected end of file, string not closed.";}
   [\"\']            PROCESS_QUOTE
@@ -171,11 +169,4 @@ while        {return KW_WHILE ;}
 [a-zA-Z0-9_]*  {SAVE_TOKEN; return L_STRING;}
 .            {return ERROR;}
 %%
-  
-/* int yywrap(){} */
-/* int main(){ */
-/*     yylex(); */
-/*     printf(" "); */
-/*      */
-/*     return 0; */
-/* } */
+
