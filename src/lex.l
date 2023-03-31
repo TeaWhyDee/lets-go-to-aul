@@ -8,29 +8,34 @@ extern "C" int yywrap() {}
 #include <iostream>
 #include <string>
 int enter_dblquotes = 0;
+bool str_error = false;
 std::string str;
 std::string str_init = std::string();
-int str_bracketlen = 0;
-#define NEW_STR str = std::string();
+unsigned long int str_bracketlen = 0;
+#define NEW_STR str = std::string(); str_error = false;
 #define ADD_STR str += yytext;
 #define STR_NUM_ESCAPE SAVE_TOKEN;\
             {std::string s = std::string(yytext); s.erase(0, 1); \
                 int n = stoi(s); if (n > 255){yyerror("decimal escape too large");}\
             else {char c = stoi(s); str += c;} }
 #define PROCESS_QUOTE SAVE_TOKEN;\
-            if (yytext == str_init)\
-                {yylval.string = new std::string(str); BEGIN(INITIAL); return L_STRING;}\
+            if (yytext == str_init) {\
+                yylval.string = new std::string(str); BEGIN(INITIAL);\
+                if (!str_error) return L_STRING;\
+                else return ERROR;}\
             else {str += yytext;}
-#define PROCESS_BRACKETS SAVE_TOKEN;\
+#define PROCESS_BRACKETS \
             if (std::string(yytext).length() == str_bracketlen) {\
-                BEGIN(INITIAL); return L_STRING;}\
+                BEGIN(INITIAL);\
+                if (!str_error) {\
+                    yylval.string = new std::string(str); return L_STRING; }\
+                else return ERROR;}\
             else { str += yytext; }
 
-int comment_bracklen = 0;
+long unsigned int comment_bracklen = 0;
 #define NEW_COMMENT { comment_bracklen = std::string(yytext).length() - 2; }
 #define PROCESS_COMMENT_BRACKETS if (std::string(yytext).length() == comment_bracklen) {\
             BEGIN(INITIAL);}
-//http://stackoverflow.com/questions/656703/how-does-flex-support-bison-location-exactly
 #define YY_USER_ACTION \
    yylloc.first_line = yylloc.last_line; \
    yylloc.first_column = yylloc.last_column; \
@@ -43,16 +48,29 @@ int comment_bracklen = 0;
            yylloc.last_column++; \
        } \
    } \
-/* void yyerror (char const *s) { fprintf (stderr, "ERROR: %s\n", s); } */
+
+ /* ERROR HANDLING STUFF */
+#define YY_USER_INIT BEGIN(STARTUP);
 void yyerror (char const *s);
+std::string linebuf;
+std::string errortext = std::string();
 %}
+
 %option yylineno
 
+%x STARTUP
 %x STRING
-%x COMMENT
+%x COMMENT_BRACKETS
 %x STRING_NOESCAPE
 
 %%
+<STARTUP>{ 
+    ^[^\n]* { linebuf = std::string(yytext); BEGIN(INITIAL); yyless(0); }
+}
+\n.* { linebuf = std::string(yytext+1);
+    yyless(1);
+}
+
 <STRING>{
   "\\\n"            {str += "\n";}
   "\\\""            {str += '"';}
@@ -66,8 +84,8 @@ void yyerror (char const *s);
   "\\t"             {str += "\t";}
   "\\v"             {str += "\v";}
   \\[0-9]{1,3}      STR_NUM_ESCAPE
-  \n                {yyerror("the string misses closing quote to termiate before newline");}
-  <<EOF>>           {yyerror("the string misses closing quote to terminate before EOF");}
+  \n                {str_error = true; errortext = "Unexpected \\n, string not closed.";}
+  <<EOF>>           {str_error = true; BEGIN(INITIAL); errortext = "Unexpected end of file, string not closed.";}
   [\"\']            PROCESS_QUOTE
   ([^\\\""\\'\n])*  {ADD_STR}
   .                 {ADD_STR};
@@ -81,18 +99,18 @@ void yyerror (char const *s);
   .                 {ADD_STR}
 }
 
-\-\-\[=*\[     { NEW_COMMENT; BEGIN(COMMENT); }
-<COMMENT>{
-    <<EOF>>        { yyerror("the comment doesn't close"); BEGIN(INITIAL); }
+\-\-\[=*\[     { NEW_COMMENT; BEGIN(COMMENT_BRACKETS); }
+<COMMENT_BRACKETS>{
+    <<EOF>>        { errortext = "Unexpected EOF, the comment doesn't close"; BEGIN(INITIAL); }
     \]=*\]         PROCESS_COMMENT_BRACKETS
     ([^\]])*       {ADD_STR}
     .              {ADD_STR}
 }
---.+           {printf("comment"); return COMMENT;}
+--.+           {}
 
 [ \t]+
 [\"\']              { NEW_STR; str_init=yytext; BEGIN(STRING); }
-\]=*\]              { yyerror("right square bracket before left square bracket"); }
+\]=*\]              { errortext = "Unexpected closing square bracket."; return ERROR;}
 [0-9]+[.]?[0-9]*   {SAVE_TOKEN; return L_NUM ;}
 [-][>]       {return OP_ARROW ;}
 [+]          {return OP_PLUS ;}
@@ -146,14 +164,7 @@ then         {return KW_THEN ;}
 true         {return KW_TRUE;}
 until        {return KW_UNTIL ;}
 while        {return KW_WHILE ;}
-[a-zA-Z0-9_]*  {SAVE_TOKEN; return L_STRING;}
-.            {printf("%s", yytext);}
+[a-zA-Z0-9_]*  {SAVE_TOKEN; return ID;}
+.            {return ERROR;}
 %%
-  
-/* int yywrap(){} */
-/* int main(){ */
-/*     yylex(); */
-/*     printf(" "); */
-/*      */
-/*     return 0; */
-/* } */
+
