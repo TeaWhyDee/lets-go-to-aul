@@ -17,7 +17,8 @@
         }
 
         /* TODO: print column? */
-        std::cout << "Error on line " << yylineno << ": "<< linebuf << "\n\t" << print << "\n\n";
+        std::cout << "Error on line " << yylineno << ": "<< linebuf <<\
+                "\n\t '" << yytext << "': " << print << "\n\n";
     }
 
     /* void yyerror (YYLTYPE *locp, char const *s) { */
@@ -60,7 +61,7 @@
    match our tokens.l lex file. We also define the node type
    they represent.
  */
-%token <string> L_STRING L_NUM
+%token <string> L_STRING L_NUM ID
 %token <token> OP_PERCENT OP_HASH OP_EQUALEQUAL OP_NOTEQUAL
 %token <token> OP_LESSTHAN OP_LARGERTHAN OP_LESS OP_MORE OP_EQUAL
 %token <token> OP_LBRACE OP_RBRACE OP_LCURLY_BRACE OP_LSQUARE_BRACE
@@ -232,10 +233,10 @@ type_ident: KW_STR { $$ = new NIdentifier(new std::string("str")); }
     | KW_TABLE { $$ = new NIdentifier(new std::string("table")); }
     | KW_NIL { $$ = new NIdentifier(new std::string("nil")); }
     | KW_FUNCTION { $$ = new NIdentifier(new std::string("function")); }
-    | L_STRING { $$ = new NIdentifier(yylval.string); }
+    | ID { $$ = new NIdentifier(yylval.string); }
     ;
 
-ident : L_STRING { $$ = new NIdentifier($1); delete $1; }
+ident : ID { $$ = new NIdentifier($1); delete $1; }
     ;
 %%
 

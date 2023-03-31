@@ -106,7 +106,7 @@ std::string errortext = std::string();
     ([^\]])*       {ADD_STR}
     .              {ADD_STR}
 }
---.+           {return COMMENT;}
+--.+           {}
 
 [ \t]+
 [\"\']              { NEW_STR; str_init=yytext; BEGIN(STRING); }
@@ -164,7 +164,7 @@ then         {return KW_THEN ;}
 true         {return KW_TRUE;}
 until        {return KW_UNTIL ;}
 while        {return KW_WHILE ;}
-[a-zA-Z0-9_]*  {SAVE_TOKEN; return L_STRING;}
+[a-zA-Z0-9_]*  {SAVE_TOKEN; return ID;}
 .            {return ERROR;}
 %%
 
