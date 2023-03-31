@@ -11,7 +11,7 @@ int enter_dblquotes = 0;
 bool str_error = false;
 std::string str;
 std::string str_init = std::string();
-int str_bracketlen = 0;
+unsigned long int str_bracketlen = 0;
 #define NEW_STR str = std::string(); str_error = false;
 #define ADD_STR str += yytext;
 #define STR_NUM_ESCAPE SAVE_TOKEN;\
@@ -64,7 +64,6 @@ std::string errortext = std::string();
 %x STRING_NOESCAPE
 
 %%
-/* Capture last read line in a buffer for error reporing */
 <STARTUP>{ 
     ^[^\n]* { linebuf = std::string(yytext); BEGIN(INITIAL); yyless(0); }
 }
@@ -72,7 +71,6 @@ std::string errortext = std::string();
     yyless(1);
 }
 
-/* Actual grammar */
 <STRING>{
   "\\\n"            {str += "\n";}
   "\\\""            {str += '"';}
