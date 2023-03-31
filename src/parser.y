@@ -42,15 +42,17 @@
     std::vector<conditionBlock*> *elif;
     std::vector<NExpression*> *expr_list;
     std::vector<NIdentifier*> *ident_list;
+    std::vector<NType*> *typelist;
     std::vector<NDeclarationStatement *> *typed_var_list;
     NDeclarationStatement *typed_var;
     NIdentifier *ident;
-    NIdentifier *type_ident;
+    NType *type_ident;
     NFunctionDeclaration *function_decl;
     NStructDeclaration *struct_decl;
     StructBody *struct_body;
     std::vector<NIdentifier*> *varlist;
     std::string *string;
+    NFunctionType *function_type;
 
     int token;
     int binop;
@@ -96,6 +98,8 @@
 %type <ident_list> ident_list 
 %type <struct_decl> struct_decl
 %type <struct_body> struct_body
+%type <function_type> function_type
+%type <typelist> typelist
 
 
 %token <token> OP_ARROW OP_PLUS OP_MINUS OP_STAR OP_SLASHSLASH OP_SLASH
@@ -209,9 +213,9 @@ var_decl : ident OP_EQUAL expr { $$ = new NDeclarationStatement($1, $3); }
          | ident OP_COLON type_ident OP_EQUAL expr { $$ = new NDeclarationStatement($1, $3, $5); }
     ;
 
-function_decl : KW_FUNCTION ident OP_LBRACE typed_var_list OP_RBRACE OP_ARROW type_ident block KW_END { $$ = new NFunctionDeclaration($7, $2, $4, $8);}
+function_decl : KW_FUNCTION ident OP_LBRACE typed_var_list OP_RBRACE OP_ARROW typelist block KW_END { $$ = new NFunctionDeclaration($7, $2, $4, $8);}
     |  KW_FUNCTION ident OP_LBRACE typed_var_list OP_RBRACE block KW_END { $$ = new NFunctionDeclaration(nullptr, $2, $4, $6);}
-    |  KW_FUNCTION ident OP_LBRACE OP_RBRACE OP_ARROW type_ident block KW_END { $$ = new NFunctionDeclaration($6, $2, new std::vector<NDeclarationStatement*>(), $7);}
+    |  KW_FUNCTION ident OP_LBRACE OP_RBRACE OP_ARROW typelist block KW_END { $$ = new NFunctionDeclaration($6, $2, new std::vector<NDeclarationStatement*>(), $7);}
     |  KW_FUNCTION ident OP_LBRACE OP_RBRACE block KW_END { $$ = new NFunctionDeclaration(nullptr, $2, new std::vector<NDeclarationStatement*>(), $5);}
     |  KW_NEW OP_LBRACE OP_RBRACE block KW_END { $$ = new NFunctionDeclaration(nullptr, new NIdentifier(new std::string("new")), new std::vector<NDeclarationStatement*>(), $4);}
     |  KW_NEW OP_LBRACE typed_var_list OP_RBRACE block KW_END { $$ = new NFunctionDeclaration(nullptr, new NIdentifier(new std::string("new")), $3, $5);}
@@ -227,19 +231,23 @@ struct_body : typed_var { $$ = new StructBody(); $$->fields.push_back($1);}
         | struct_body function_decl { $$->methods.push_back($2); }
     ;
 
-type_ident: KW_STR { $$ = new NIdentifier(new std::string("str")); }
-    | KW_BOOL { $$ = new NIdentifier(new std::string("bool")); }
-    | KW_NUM { $$ = new NIdentifier(new std::string("num")); }
-    | KW_TABLE { $$ = new NIdentifier(new std::string("table")); }
-    | KW_NIL { $$ = new NIdentifier(new std::string("nil")); }
-    | KW_FUNCTION { $$ = new NIdentifier(new std::string("function")); }
-    | ID { $$ = new NIdentifier(yylval.string); }
+type_ident: KW_STR { $$ = new NStringType(); }
+    | KW_BOOL { $$ = new NBoolType(); }
+    | KW_NUM { $$ = new NNumType(); }
+    | KW_TABLE OP_LSQUARE_BRACE type_ident OP_COMMA type_ident OP_RSQUARE_BRACE { $$ = new NTableType($3, $5); }
+    | KW_NIL { $$ = new NNilType(); }
+    | function_type
+    | ID { $$ = new NStructType(new NIdentifier($1)); }
     ;
 
-function_type: KW_FUNCTION OP_LBRACE typed_var_list OP_RBRACE OP_ARROW type_ident { $$ = new NFunctionType($4, $6); }
-    | KW_FUNCTION OP_LBRACE typed_var_list OP_RBRACE { $$ = new NFunctionType($4, nullptr); }
-    | KW_FUNCTION OP_LBRACE OP_RBRACE OP_ARROW type_ident { $$ = new NFunctionType(new std::vector<NDeclarationStatement *>(), $5); }
-    | KW_FUNCTION OP_LBRACE OP_RBRACE { $$ = new NFunctionType(new std::vector<NDeclarationStatement *>(), nullptr); }
+typelist : type_ident { $$ = new std::vector<NType *>(); $$->push_back($1); }
+    | typelist OP_COMMA type_ident { $$->push_back($3); }
+    ;
+
+function_type: KW_FUNCTION OP_LBRACE typelist OP_RBRACE OP_ARROW typelist { $$ = new NFunctionType(NTypedVar::fromTypeList($3), $6); }
+    | KW_FUNCTION OP_LBRACE typelist OP_RBRACE { $$ = new NFunctionType(NTypedVar::fromTypeList($3), {}); }
+    | KW_FUNCTION OP_LBRACE OP_RBRACE OP_ARROW typelist { $$ = new NFunctionType(nullptr, $5); }
+    | KW_FUNCTION OP_LBRACE OP_RBRACE { $$ = new NFunctionType({}, {}); }
     ;
 
 ident : ID { $$ = new NIdentifier($1); delete $1; }

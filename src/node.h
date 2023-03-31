@@ -90,6 +90,7 @@ class Visitor {
     virtual void visitNTableType(NTableType* node) = 0;
     virtual void visitNFunctionType(NFunctionType* node) = 0;
     virtual void visitNStructType(NStructType* node) = 0;
+    virtual void visitNTypedVar(NTypedVar* node) = 0;
 };
 
 class Node {
@@ -102,7 +103,7 @@ class NStatement : public Node {};
 
 class NExpression : public NStatement {
    public:
-    NType* type;
+    NType* type = nullptr;
     virtual void visit(Visitor* v) { v->visitNExpression(this); }
 };
 
@@ -130,6 +131,7 @@ class NType : public Node {
 };
 
 class NStringType : public NType {
+   public:
     NStringType() {}
 
     virtual void visit(Visitor* v) {
@@ -138,6 +140,7 @@ class NStringType : public NType {
 };
 
 class NNumType : public NType {
+   public:
     NNumType() {}
 
     virtual void visit(Visitor* v) {
@@ -146,6 +149,7 @@ class NNumType : public NType {
 };
 
 class NBoolType : public NType {
+   public:
     NBoolType() {}
 
     virtual void visit(Visitor* v) {
@@ -154,6 +158,7 @@ class NBoolType : public NType {
 };
 
 class NNilType : public NType {
+   public:
     NNilType() {}
 
     virtual void visit(Visitor* v) {
@@ -162,6 +167,7 @@ class NNilType : public NType {
 };
 
 class NTableType : public NType {
+   public:
     NType* keyType;
     NType* valueType;
     NTableType(NType* keyType, NType* valueType) : keyType(keyType), valueType(valueType) {}
@@ -172,13 +178,11 @@ class NTableType : public NType {
 };
 
 class NFunctionType : public NType {
-    typeList returnTypes;
-    typedVarList argumentTypes;
+   public:
+    typeList* returnTypes;
+    typedVarList* argumentTypes;
 
-    NFunctionType(typeList returnTypes, typedVarList argumentTypes) : returnTypes(returnTypes), argumentTypes(argumentTypes) {}
-    NFunctionType(typeList returnTypes) : returnTypes(returnTypes), argumentTypes({}) {}
-    NFunctionType(typedVarList argumentTypes) : argumentTypes(argumentTypes), returnTypes({}) {}
-    NFunctionType() : returnTypes({}), argumentTypes({}) {}
+    NFunctionType(typedVarList* argumentTypes, typeList* returnTypes) : argumentTypes(argumentTypes), returnTypes(returnTypes) {}
 
     virtual void visit(Visitor* v) {
         v->visitNFunctionType(this);
@@ -186,9 +190,13 @@ class NFunctionType : public NType {
 };
 
 class NStructType : public NType {
+   public:
+    NIdentifier* name;
     typedVarList fields;
     typedVarList methods;
     NStructType(typedVarList fields, typedVarList methods) : fields(fields), methods(methods) {}
+
+    NStructType(NIdentifier* name) : name(name), fields({}), methods({}) {}
 
     virtual void visit(Visitor* v) {
         v->visitNStructType(this);
@@ -198,14 +206,14 @@ class NStructType : public NType {
 class NNum : public NExpression {
    public:
     long double value;
-    NNum(long double value) : value(value) {}
+    NNum(long double value) : value(value) { this->type = new NNumType(); }
 
     virtual void visit(Visitor* v) { v->visitNNum(this); }
 };
 
 class NNil : public NExpression {
    public:
-    NNil() {}
+    NNil() { this->type = new NNilType(); }
 
     virtual void visit(Visitor* v) { v->visitNNil(this); }
 };
@@ -213,7 +221,7 @@ class NNil : public NExpression {
 class NBool : public NExpression {
    public:
     bool value;
-    NBool(bool value) : value(value) {}
+    NBool(bool value) : value(value) { this->type = new NBoolType(); }
 
     virtual void visit(Visitor* v) { v->visitNBool(this); }
 };
@@ -221,7 +229,7 @@ class NBool : public NExpression {
 class NString : public NExpression {
    public:
     std::string& value;
-    NString(std::string& value) : value(value) {}
+    NString(std::string& value) : value(value) { this->type = new NStringType(); }
 
     virtual void visit(Visitor* v) { v->visitNString(this); }
 };
@@ -341,10 +349,22 @@ class NGenericForStatement : public NStatement {
 class NTypedVar : public NStatement {
    public:
     NIdentifier* ident;
-    NIdentifier* type;
+    NType* type;
 
-    NTypedVar(NIdentifier* ident, NIdentifier* type)
+    static typedVarList* fromTypeList(typeList* types) {
+        typedVarList* typedVarList = new std::vector<NTypedVar*>();
+        for (auto type : *types) {
+            typedVarList->push_back(new NTypedVar(type));
+        }
+        return typedVarList;
+    }
+
+    NTypedVar(NIdentifier* ident, NType* type)
         : ident(ident), type(type) {}
+
+    NTypedVar(NType* type) : ident(nullptr), type(type) {}
+
+    virtual void visit(Visitor* v) { v->visitNTypedVar(this); }
 };
 
 class NReturnStatement : public NStatement {
@@ -397,18 +417,29 @@ class NFunctionDeclaration : public NStatement {
    public:
     //    TODO initialize function_type
     NType* function_type;
-    NType* return_type;
+    typeList* return_type;
     NIdentifier* id;
     std::vector<NDeclarationStatement*>* arguments;
     NBlock* block;
 
-    NFunctionDeclaration(NType* return_type, NIdentifier* id,
+    NFunctionDeclaration(typeList* return_type,
+                         NIdentifier* id,
                          std::vector<NDeclarationStatement*>* arguments,
                          NBlock* block)
         : return_type(return_type),
           id(id),
           arguments(arguments),
-          block(block) {}
+          block(block) {
+        this->function_type = fromFunctionDeclaration(arguments, return_type);
+    }
+
+    NFunctionType* fromFunctionDeclaration(std::vector<NDeclarationStatement*>* arguments, typeList* returnTypes) {
+        typedVarList* argumentTypes = new typedVarList();
+        for (auto arg : *arguments) {
+            argumentTypes->push_back(new NTypedVar(arg->ident, arg->type));
+        }
+        return new NFunctionType(argumentTypes, returnTypes);
+    }
 
     virtual void visit(Visitor* v) { v->visitNFunctionDeclaration(this); }
 };
@@ -442,21 +473,34 @@ class PrettyPrintVisitor : public Visitor {
     const std::string indent() { return std::string(4 * this->tabs, ' '); }
 
     virtual void visitNNum(NNum* node) {
-        std::cout << "NNum(value=" << node->value << ")";
+        std::cout << "NNum(value=" << node->value << ", type=";
+        node->type->visit(this);
+        std::cout << ")";
     }
 
     virtual void visitNNil(NNil* node) { std::cout << "NNil()"; }
 
     virtual void visitNBool(NBool* node) {
-        std::cout << "NBool(value=" << node->value << ")";
+        std::cout << "NBool(value=" << node->value << ", type=";
+        node->type->visit(this);
+        std::cout << ")";
     }
 
     virtual void visitNString(NString* node) {
-        std::cout << "NStr(value=" << node->value << ")";
+        std::cout << "NStr(value=" << node->value << ", type=";
+        node->type->visit(this);
+        std::cout << ")";
     }
 
     virtual void visitNIdentifier(NIdentifier* node) {
-        std::cout << "NIdentifier(name=" << node->name << ")";
+        std::cout << "NIdentifier(name=" << node->name;
+        if (node->type != nullptr) {
+            std::cout << ", type=";
+            node->type->visit(this);
+        } else {
+            std::cout << ", type=undefined";
+        }
+        std::cout << ")";
     }
 
     virtual void visitNBinaryOperatorExpression(
@@ -497,9 +541,12 @@ class PrettyPrintVisitor : public Visitor {
     virtual void visitNFunctionDeclaration(NFunctionDeclaration* node) {
         std::cout << "NFunctionDeclaration(id=";
         node->id->visit(this);
-        std::cout << ", return_type=";
+        std::cout << ", return_types=";
         if (node->return_type != nullptr)
-            node->return_type->visit(this);
+            for (auto type : *node->return_type) {
+                type->visit(this);
+                std::cout << ", ";
+            }
         else
             std::cout << "nothing";
         std::cout << ", block=[\n\t";
@@ -697,5 +744,13 @@ class PrettyPrintVisitor : public Visitor {
     virtual void visitNStructType(NStructType* node) {
         // TODO: print struct type
         std::cout << "NStructType";
+    }
+
+    virtual void visitNTypedVar(NTypedVar* node) {
+        std::cout << "NTypedVar(id=";
+        node->ident->visit(this);
+        std::cout << ", type=";
+        node->type->visit(this);
+        std::cout << ")";
     }
 };
