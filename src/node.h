@@ -497,8 +497,6 @@ class PrettyPrintVisitor : public Visitor {
         if (node->type != nullptr) {
             std::cout << ", type=";
             node->type->visit(this);
-        } else {
-            std::cout << ", type=undefined";
         }
         std::cout << ")";
     }
