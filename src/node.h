@@ -30,13 +30,21 @@ class NDeclarationStatement;
 class NReturnStatement;
 class NTypeIdent;
 class NFunctionDeclaration;
-class NFunctionCall;
+class NExpressionCall;
 class NFunctionArgument;
 class Visitor;
 class PrettyPrintVisitor;
 class NTypedVar;
 class NStructDeclaration;
 class StructBody;
+class NType;
+class NStringType;
+class NNumType;
+class NBoolType;
+class NNilType;
+class NTableType;
+class NFunctionType;
+class NStructType;
 
 typedef std::vector<NStatement*> StatementList;
 typedef std::vector<NExpression*> ExpressionList;
@@ -44,6 +52,8 @@ typedef std::vector<NIdentifier*> IdentifierList;
 typedef std::vector<NVariableDeclaration*> VariableList;
 typedef std::pair<NExpression*, NBlock*> conditionBlock;
 typedef std::vector<NFunctionArgument*> functionArguments;
+typedef std::vector<NTypedVar*> typedVarList;
+typedef std::vector<NType*> typeList;
 
 class Visitor {
    public:
@@ -59,7 +69,7 @@ class Visitor {
     virtual void visitNTableField(NTableField* node) = 0;
     virtual void visitNTableConstructor(NTableConstructor* node) = 0;
     virtual void visitNFunctionDeclaration(NFunctionDeclaration* node) = 0;
-    virtual void visitNFunctionCall(NFunctionCall* node) = 0;
+    virtual void visitNExpressionCall(NExpressionCall* node) = 0;
     virtual void visitNFunctionArgument(NFunctionArgument* node) = 0;
     virtual void visitNWhileStatement(NWhileStatement* node) = 0;
     virtual void visitNRepeatStatement(NRepeatUntilStatement* node) = 0;
@@ -72,6 +82,15 @@ class Visitor {
     virtual void visitNBlock(NBlock* node) = 0;
     virtual void visitNExpression(NExpression* node) = 0;
     virtual void visitNStructDeclaration(NStructDeclaration* node) = 0;
+    virtual void visitNType(NType* node) = 0;
+    virtual void visitNStringType(NStringType* node) = 0;
+    virtual void visitNNumType(NNumType* node) = 0;
+    virtual void visitNBoolType(NBoolType* node) = 0;
+    virtual void visitNNilType(NNilType* node) = 0;
+    virtual void visitNTableType(NTableType* node) = 0;
+    virtual void visitNFunctionType(NFunctionType* node) = 0;
+    virtual void visitNStructType(NStructType* node) = 0;
+    virtual void visitNTypedVar(NTypedVar* node) = 0;
 };
 
 class Node {
@@ -84,6 +103,7 @@ class NStatement : public Node {};
 
 class NExpression : public NStatement {
    public:
+    NType* type = nullptr;
     virtual void visit(Visitor* v) { v->visitNExpression(this); }
 };
 
@@ -103,17 +123,97 @@ class NBlock : public Node {
     virtual void visit(Visitor* v) { v->visitNBlock(this); }
 };
 
+class NType : public Node {
+   public:
+    virtual void visit(Visitor* v) {
+        v->visitNType(this);
+    }
+};
+
+class NStringType : public NType {
+   public:
+    NStringType() {}
+
+    virtual void visit(Visitor* v) {
+        v->visitNStringType(this);
+    }
+};
+
+class NNumType : public NType {
+   public:
+    NNumType() {}
+
+    virtual void visit(Visitor* v) {
+        v->visitNNumType(this);
+    }
+};
+
+class NBoolType : public NType {
+   public:
+    NBoolType() {}
+
+    virtual void visit(Visitor* v) {
+        v->visitNBoolType(this);
+    }
+};
+
+class NNilType : public NType {
+   public:
+    NNilType() {}
+
+    virtual void visit(Visitor* v) {
+        v->visitNNilType(this);
+    }
+};
+
+class NTableType : public NType {
+   public:
+    NType* keyType;
+    NType* valueType;
+    NTableType(NType* keyType, NType* valueType) : keyType(keyType), valueType(valueType) {}
+
+    virtual void visit(Visitor* v) {
+        v->visitNTableType(this);
+    }
+};
+
+class NFunctionType : public NType {
+   public:
+    typeList* returnTypes;
+    typedVarList* argumentTypes;
+
+    NFunctionType(typedVarList* argumentTypes, typeList* returnTypes) : argumentTypes(argumentTypes), returnTypes(returnTypes) {}
+
+    virtual void visit(Visitor* v) {
+        v->visitNFunctionType(this);
+    }
+};
+
+class NStructType : public NType {
+   public:
+    NIdentifier* name;
+    typedVarList fields;
+    typedVarList methods;
+    NStructType(typedVarList fields, typedVarList methods) : fields(fields), methods(methods) {}
+
+    NStructType(NIdentifier* name) : name(name), fields({}), methods({}) {}
+
+    virtual void visit(Visitor* v) {
+        v->visitNStructType(this);
+    }
+};
+
 class NNum : public NExpression {
    public:
     long double value;
-    NNum(long double value) : value(value) {}
+    NNum(long double value) : value(value) { this->type = new NNumType(); }
 
     virtual void visit(Visitor* v) { v->visitNNum(this); }
 };
 
 class NNil : public NExpression {
    public:
-    NNil() {}
+    NNil() { this->type = new NNilType(); }
 
     virtual void visit(Visitor* v) { v->visitNNil(this); }
 };
@@ -121,7 +221,7 @@ class NNil : public NExpression {
 class NBool : public NExpression {
    public:
     bool value;
-    NBool(bool value) : value(value) {}
+    NBool(bool value) : value(value) { this->type = new NBoolType(); }
 
     virtual void visit(Visitor* v) { v->visitNBool(this); }
 };
@@ -129,7 +229,7 @@ class NBool : public NExpression {
 class NString : public NExpression {
    public:
     std::string& value;
-    NString(std::string& value) : value(value) {}
+    NString(std::string& value) : value(value) { this->type = new NStringType(); }
 
     virtual void visit(Visitor* v) { v->visitNString(this); }
 };
@@ -249,10 +349,22 @@ class NGenericForStatement : public NStatement {
 class NTypedVar : public NStatement {
    public:
     NIdentifier* ident;
-    NIdentifier* type;
+    NType* type;
 
-    NTypedVar(NIdentifier* ident, NIdentifier* type)
+    static typedVarList* fromTypeList(typeList* types) {
+        typedVarList* typedVarList = new std::vector<NTypedVar*>();
+        for (auto type : *types) {
+            typedVarList->push_back(new NTypedVar(type));
+        }
+        return typedVarList;
+    }
+
+    NTypedVar(NIdentifier* ident, NType* type)
         : ident(ident), type(type) {}
+
+    NTypedVar(NType* type) : ident(nullptr), type(type) {}
+
+    virtual void visit(Visitor* v) { v->visitNTypedVar(this); }
 };
 
 class NReturnStatement : public NStatement {
@@ -266,12 +378,12 @@ class NReturnStatement : public NStatement {
 class NDeclarationStatement : public NStatement {
    public:
     NIdentifier* ident;
-    NIdentifier* type;
+    NType* type;
     NExpression* expression;
     NDeclarationStatement(NIdentifier* ident, NExpression* expression)
         : ident(ident), type(nullptr), expression(expression) {}
 
-    NDeclarationStatement(NIdentifier* ident, NIdentifier* type,
+    NDeclarationStatement(NIdentifier* ident, NType* type,
                           NExpression* expression)
         : ident(ident), type(type), expression(expression) {}
 
@@ -289,32 +401,45 @@ class NFunctionArgument : public NStatement {
     virtual void visit(Visitor* v) { v->visitNFunctionArgument(this); }
 };
 
-class NFunctionCall : public NExpression {
+class NExpressionCall : public NExpression {
    public:
     NExpression* expr;
 
     ExpressionList exprlist;
 
-    NFunctionCall(NExpression* expr, ExpressionList exprlist)
+    NExpressionCall(NExpression* expr, ExpressionList exprlist)
         : expr(expr), exprlist(exprlist) {}
 
-    virtual void visit(Visitor* v) { v->visitNFunctionCall(this); }
+    virtual void visit(Visitor* v) { v->visitNExpressionCall(this); }
 };
 
 class NFunctionDeclaration : public NStatement {
    public:
-    NIdentifier* return_type;
+    //    TODO initialize function_type
+    NType* function_type;
+    typeList* return_type;
     NIdentifier* id;
     std::vector<NDeclarationStatement*>* arguments;
     NBlock* block;
 
-    NFunctionDeclaration(NIdentifier* return_type, NIdentifier* id,
+    NFunctionDeclaration(typeList* return_type,
+                         NIdentifier* id,
                          std::vector<NDeclarationStatement*>* arguments,
                          NBlock* block)
         : return_type(return_type),
           id(id),
           arguments(arguments),
-          block(block) {}
+          block(block) {
+        this->function_type = fromFunctionDeclaration(arguments, return_type);
+    }
+
+    NFunctionType* fromFunctionDeclaration(std::vector<NDeclarationStatement*>* arguments, typeList* returnTypes) {
+        typedVarList* argumentTypes = new typedVarList();
+        for (auto arg : *arguments) {
+            argumentTypes->push_back(new NTypedVar(arg->ident, arg->type));
+        }
+        return new NFunctionType(argumentTypes, returnTypes);
+    }
 
     virtual void visit(Visitor* v) { v->visitNFunctionDeclaration(this); }
 };
@@ -348,21 +473,34 @@ class PrettyPrintVisitor : public Visitor {
     const std::string indent() { return std::string(4 * this->tabs, ' '); }
 
     virtual void visitNNum(NNum* node) {
-        std::cout << "NNum(value=" << node->value << ")";
+        std::cout << "NNum(value=" << node->value << ", type=";
+        node->type->visit(this);
+        std::cout << ")";
     }
 
     virtual void visitNNil(NNil* node) { std::cout << "NNil()"; }
 
     virtual void visitNBool(NBool* node) {
-        std::cout << "NBool(value=" << node->value << ")";
+        std::cout << "NBool(value=" << node->value << ", type=";
+        node->type->visit(this);
+        std::cout << ")";
     }
 
     virtual void visitNString(NString* node) {
-        std::cout << "NStr(value=" << node->value << ")";
+        std::cout << "NStr(value=" << node->value << ", type=";
+        node->type->visit(this);
+        std::cout << ")";
     }
 
     virtual void visitNIdentifier(NIdentifier* node) {
-        std::cout << "NIdentifier(name=" << node->name << ")";
+        std::cout << "NIdentifier(name=" << node->name;
+        if (node->type != nullptr) {
+            std::cout << ", type=";
+            node->type->visit(this);
+        } else {
+            std::cout << ", type=undefined";
+        }
+        std::cout << ")";
     }
 
     virtual void visitNBinaryOperatorExpression(
@@ -403,9 +541,12 @@ class PrettyPrintVisitor : public Visitor {
     virtual void visitNFunctionDeclaration(NFunctionDeclaration* node) {
         std::cout << "NFunctionDeclaration(id=";
         node->id->visit(this);
-        std::cout << ", return_type=";
+        std::cout << ", return_types=";
         if (node->return_type != nullptr)
-            node->return_type->visit(this);
+            for (auto type : *node->return_type) {
+                type->visit(this);
+                std::cout << ", ";
+            }
         else
             std::cout << "nothing";
         std::cout << ", block=[\n\t";
@@ -418,8 +559,8 @@ class PrettyPrintVisitor : public Visitor {
         std::cout << "])";
     }
 
-    virtual void visitNFunctionCall(NFunctionCall* node) {
-        std::cout << "NFunctionCall(expr=";
+    virtual void visitNExpressionCall(NExpressionCall* node) {
+        std::cout << "NExpressionCall(expr=";
         node->expr->visit(this);
         std::cout << ", expr_list=[";
         for (auto expr : node->exprlist) {
@@ -568,5 +709,48 @@ class PrettyPrintVisitor : public Visitor {
             }
         }
         std::cout << "])";
+    }
+
+    virtual void visitNType(NType* node) {
+        std::cout << "NType(nothing)";
+    }
+
+    virtual void visitNNumType(NNumType* node) {
+        std::cout << "NNumType";
+    }
+
+    virtual void visitNBoolType(NBoolType* node) {
+        std::cout << "NBoolType";
+    }
+
+    virtual void visitNStringType(NStringType* node) {
+        std::cout << "NStringType";
+    }
+
+    virtual void visitNNilType(NNilType* node) {
+        std::cout << "NNilType";
+    }
+
+    virtual void visitNTableType(NTableType* node) {
+        // TODO: print table type
+        std::cout << "NTableType";
+    }
+
+    virtual void visitNFunctionType(NFunctionType* node) {
+        // TODO: print function type
+        std::cout << "NFunctionType";
+    }
+
+    virtual void visitNStructType(NStructType* node) {
+        // TODO: print struct type
+        std::cout << "NStructType";
+    }
+
+    virtual void visitNTypedVar(NTypedVar* node) {
+        std::cout << "NTypedVar(id=";
+        node->ident->visit(this);
+        std::cout << ", type=";
+        node->type->visit(this);
+        std::cout << ")";
     }
 };
