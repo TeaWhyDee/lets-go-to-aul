@@ -7,7 +7,7 @@
 
 -- Valid variables: ("if" would be invalid)
 If = 123 -- comment at the end of a string
-local a1 = 234
+a1 = 234
 
 if 1==2 and 2~=3 or 4<=5 then
   var3 = 123
