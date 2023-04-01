@@ -28,9 +28,9 @@ class NNumericForStatement;
 class NGenericForStatement;
 class NDeclarationStatement;
 class NReturnStatement;
-class NTypeIdent;
 class NFunctionDeclaration;
 class NExpressionCall;
+// NFunctionArgument is unused
 class NFunctionArgument;
 class Visitor;
 class PrettyPrintVisitor;
@@ -51,7 +51,6 @@ typedef std::vector<NExpression*> ExpressionList;
 typedef std::vector<NIdentifier*> IdentifierList;
 typedef std::vector<NVariableDeclaration*> VariableList;
 typedef std::pair<NExpression*, NBlock*> conditionBlock;
-typedef std::vector<NFunctionArgument*> functionArguments;
 typedef std::vector<NTypedVar*> typedVarList;
 typedef std::vector<NType*> typeList;
 
@@ -72,7 +71,7 @@ class Visitor {
     virtual void visitNExpressionCall(NExpressionCall* node) = 0;
     virtual void visitNFunctionArgument(NFunctionArgument* node) = 0;
     virtual void visitNWhileStatement(NWhileStatement* node) = 0;
-    virtual void visitNRepeatStatement(NRepeatUntilStatement* node) = 0;
+    virtual void visitNRepeatUntilStatement(NRepeatUntilStatement* node) = 0;
     virtual void visitNDoStatement(NDoStatement* node) = 0;
     virtual void visitNIfStatement(NIfStatement* node) = 0;
     virtual void visitNNumericForStatement(NNumericForStatement* node) = 0;
@@ -298,7 +297,7 @@ class NRepeatUntilStatement : public NStatement {
     NRepeatUntilStatement(NExpression* condition, NBlock* block)
         : condition(condition), block(block) {}
 
-    virtual void visit(Visitor* v) { v->visitNRepeatStatement(this); }
+    virtual void visit(Visitor* v) { v->visitNRepeatUntilStatement(this); }
 };
 
 class NDoStatement : public NStatement {
@@ -385,7 +384,9 @@ class NDeclarationStatement : public NStatement {
 
     NDeclarationStatement(NIdentifier* ident, NType* type,
                           NExpression* expression)
-        : ident(ident), type(type), expression(expression) {}
+        : ident(ident), type(type), expression(expression) {
+        this->ident->type = type;
+    }
 
     virtual void visit(Visitor* v) { v->visitNDeclarationStatement(this); }
 };
@@ -584,7 +585,7 @@ class PrettyPrintVisitor : public Visitor {
         std::cout << ")";
     }
 
-    virtual void visitNRepeatStatement(NRepeatUntilStatement* node) {
+    virtual void visitNRepeatUntilStatement(NRepeatUntilStatement* node) {
         std::cout << "NRepeatUntilStatement(condition=";
         node->condition->visit(this);
         std::cout << ", block=\n\t";
@@ -751,4 +752,174 @@ class PrettyPrintVisitor : public Visitor {
         node->type->visit(this);
         std::cout << ")";
     }
+};
+
+class TypeChecker : public Visitor {
+   public:
+    PrettyPrintVisitor* prettyPrinter;
+    TypeChecker(PrettyPrintVisitor* prettyPrinter) : prettyPrinter(prettyPrinter) {}
+
+    virtual void visitNDeclarationStatement(NDeclarationStatement* node) {
+        std::cout << "DeclarationStatement(" << std::endl;
+        // node->visit(this->prettyPrinter);
+        std::cout << "lhs: " << node->ident->name;
+        // check if it has type
+        if (node->type != nullptr) {
+            // check if the type is correct
+            std::cout << ", type: ";
+            node->type->visit(this->prettyPrinter);
+        }
+
+        std::cout << std::endl
+                  << "rhs: ";
+        node->expression->visit(this);
+        std::cout << std::endl;
+
+        if (node->type == nullptr) {
+            // type is not specified in the declaration, has to be deduced
+            if (node->expression->type == nullptr) {
+                // type cannot be deduced
+                std::cout << "TypeError: expression type not known (type not specified, cannot be deduced)";
+            } else {
+                node->type = node->expression->type;
+                std::cout << "Deduced type: ";
+                node->type->visit(this->prettyPrinter);
+            }
+        } else if (node->expression->type != nullptr) {
+            // type is specified in the declaration, has to be approved
+            if (node->type != node->expression->type) {
+                // type is not approved, different from expression type
+                std::cout << "TypeError: wrong type (" << node->ident->name << " is ";
+                node->expression->type->visit(this->prettyPrinter);
+                std::cout << " but should be ";
+                node->type->visit(this->prettyPrinter);
+            } else {
+                std::cout << "Type approved" << std::endl;
+            }
+        } else {
+            std::cout << "TypeError: expression type not known(cannot be approved)";
+        }
+        std::cout << ")" << std::endl;
+    }
+
+    virtual void visitNExpression(NExpression* node) {
+        std::cout << "Expression(";
+        node->visit(this->prettyPrinter);
+        std::cout << " has type: ";
+        if (node->type != nullptr) {
+            node->type->visit(this->prettyPrinter);
+        } else {
+            std::cout << "UNKNOWN";
+        }
+        std::cout << ")" << std::endl;
+    }
+
+    virtual void visitNIdentifier(NIdentifier* node) {
+        std::cout << "Identifier(";
+        node->visit(this->prettyPrinter);
+        std::cout << " has type: ";
+        if (node->type != nullptr) {
+            node->type->visit(this->prettyPrinter);
+        } else {
+            // TODO could be found in the symbol table
+            std::cout << "UNKNOWN";
+        }
+        std::cout << ")" << std::endl;
+    }
+
+    virtual void visitNBinaryOperatorExpression(NBinaryOperatorExpression* node) {
+        std::cout << "BinaryOperatorExpression(";
+        node->visit(this->prettyPrinter);
+        std::cout << " has type: ";
+        // TODO: check if the types are correct
+        std::cout << ")" << std::endl;
+    }
+
+    virtual void visitNExpressionCall(NExpressionCall* node) {
+        std::cout << "ExpressionCall(";
+        node->visit(this->prettyPrinter);
+        // TODO 1. check if the expression is a function
+        // TODO     1.1 check if function is defined (in the symbol table)
+        // TODO 2. check if the number of arguments is correct
+        // TODO 3. check if the types of the arguments are correct
+        // TODO 4. set type to the return type of the function
+        //     What if the are multiple return types (e.g. function() -> int, string)?
+        std::cout << " has type: ";
+        // TODO check if the type is correct
+        std::cout << ")" << std::endl;
+    }
+
+    void checkConditionalExpression(NExpression* expression) {
+        if (expression->type == nullptr) {
+            std::cout << "TypeError: expression type not known (cannot be approved)";
+        } else if (expression->type != new NBoolType()) {
+            std::cout << "TypeError: wrong type (condition is ";
+            expression->type->visit(this->prettyPrinter);
+            std::cout << " but should be bool)";
+        } else {
+            std::cout << "Type approved(bool)";
+        }
+    }
+
+    void checkConditionalBlockList(std::vector<conditionBlock*> conditionBlockList) {
+        for (auto conditionBlock : conditionBlockList) {
+            std::cout << "condition: ";
+            conditionBlock->first->visit(this);
+            checkConditionalExpression(conditionBlock->first);
+            std::cout << std::endl;
+        }
+    }
+
+    virtual void visitNIfStatement(NIfStatement* node) {
+        std::cout << "IfStatement(";
+        node->visit(this->prettyPrinter);
+        checkConditionalBlockList(node->conditionBlockList);
+        std::cout << ")" << std::endl;
+    }
+
+    virtual void visitNWhileStatement(NWhileStatement* node) {
+        std::cout << "WhileStatement(";
+        node->visit(this->prettyPrinter);
+        std::cout << "condition: ";
+        node->condition->visit(this);
+        checkConditionalExpression(node->condition);
+        std::cout << ")" << std::endl;
+    }
+
+    virtual void visitNRepeatUntilStatement(NRepeatUntilStatement* node) {
+        std::cout << "RepeatUntilStatement(";
+        node->visit(this->prettyPrinter);
+        std::cout << "condition: ";
+        node->condition->visit(this);
+        checkConditionalExpression(node->condition);
+        std::cout << ")" << std::endl;
+    }
+
+    virtual void visitNNumericForStatement(NNumericForStatement* node) {
+        std::cout << "NumericForStatement(";
+        // TODO: check if the type of the variable is correct
+    }
+
+    virtual void visitNGenericForStatement(NGenericForStatement* node) {
+        std::cout << "GenericForStatement(";
+        // TODO: check if the type of the variable is correct
+    }
+
+    virtual void visitNReturnStatement(NReturnStatement* node) {
+        std::cout << "ReturnStatement(";
+        node->visit(this->prettyPrinter);
+        // TODO: check if return statement is in a function(at the end of block)
+        // TODO: check if the number of return values is correct
+        // TODO: check if the types of the return values are correct
+        std::cout << ")" << std::endl;
+    }
+
+    // TODO: check type for several function return types
+    // TODO: check type for function calls
+    // TODO: add
+    // TODO: add tables and structs
+    //      TODO: add type checking for tables and structs(declaration, access, etc.)
+    // TODO: check type for binary/unary operators
+    //      TODO: define accepted types for each operator
+    // TODO: check type for all conditional statements
 };
