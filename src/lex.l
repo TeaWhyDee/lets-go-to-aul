@@ -129,6 +129,10 @@ std::string errortext = std::string();
 [=]          {return OP_EQUAL ;}
 \(           {return OP_LBRACE ;}
 \)           {return OP_RBRACE ;}
+\{           {return OP_LCURLY_BRACE ;}
+\}           {return OP_RCURLY_BRACE ;}
+\[           {return OP_LSQUARE_BRACE ;}
+\]           {return OP_RSQUARE_BRACE ;}
 [;]          {return OP_SEMICOLON ;}
 [:]          {return OP_COLON ;}
 [,]          {return OP_COMMA ;}

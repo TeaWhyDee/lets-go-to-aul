@@ -51,6 +51,7 @@ typedef std::vector<NExpression*> ExpressionList;
 typedef std::vector<NIdentifier*> IdentifierList;
 typedef std::vector<NVariableDeclaration*> VariableList;
 typedef std::pair<NExpression*, NBlock*> conditionBlock;
+typedef std::pair<NIdentifier*, NExpression*> keyvalPair;
 typedef std::vector<NFunctionArgument*> functionArguments;
 typedef std::vector<NTypedVar*> typedVarList;
 typedef std::vector<NType*> typeList;
@@ -275,7 +276,9 @@ class NTableField : public Node {
 
 class NTableConstructor : public NExpression {
    public:
-    IdentifierList fieldlist;
+    // Two different ways to create a table
+    std::vector<keyvalPair*> keyvalPairList; // Either one of these
+    ExpressionList expressionList;           // or both are nullptr!!
     NTableConstructor() {}
 
     virtual void visit(Visitor* v) { v->visitNTableConstructor(this); }
@@ -529,11 +532,19 @@ class PrettyPrintVisitor : public Visitor {
 
     virtual void visitNTableConstructor(NTableConstructor* node) {
         std::cout << "NTableConstructor(fields=[";
-        for (auto field : node->fieldlist) {
+        for (auto field : node->keyvalPairList) {
+            std::cout << "\n\t{ key=";
+            field->first->visit(this);
+            std::cout << ", value=";
+            field->second->visit(this);
+            std::cout << " }, ";
+        }
+        for (auto field : node->expressionList) {
+            std::cout << "\n\texpr=";
             field->visit(this);
             std::cout << ", ";
         }
-        std::cout << "])";
+        std::cout << "\n    ])";
     }
 
     virtual void visitNFunctionDeclaration(NFunctionDeclaration* node) {

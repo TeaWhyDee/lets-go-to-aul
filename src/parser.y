@@ -26,8 +26,9 @@
     /* } */
 %}
 
-%define parse.error verbose
-%define parse.trace
+
+/* %define parse.error verbose */
+/* %define parse.trace */
 %define locations
 %printer { fprintf (yyo, "%s ", yylval.string->c_str()); } <token>
 
@@ -44,6 +45,9 @@
     std::vector<NIdentifier*> *ident_list;
     std::vector<NType*> *typelist;
     std::vector<NDeclarationStatement *> *typed_var_list;
+    std::vector<keyvalPair*> *keyval_pair_list;
+    keyvalPair *keyval_pair;
+    NTableConstructor *table_constructor;
     NDeclarationStatement *typed_var;
     NIdentifier *ident;
     NType *type_ident;
@@ -89,7 +93,7 @@
 %type <function_decl> function_decl
 %type <expr> expr term function_call
 %type <ident> ident
-%type <type_ident> type_ident
+%type <type_ident> type_ident type_table
 %type <binop> binop
 %type <unop> unop
 %type <typed_var> typed_var
@@ -100,6 +104,9 @@
 %type <struct_body> struct_body
 %type <function_type> function_type
 %type <typelist> typelist
+%type <table_constructor> table_constructor
+%type <keyval_pair_list> keyval_pair_list
+%type <keyval_pair> keyval_pair
 
 
 %token <token> OP_ARROW OP_PLUS OP_MINUS OP_STAR OP_SLASHSLASH OP_SLASH
@@ -172,8 +179,28 @@ expr : term
      | unop expr {$$ = new NUnaryOperatorExpression($1, $2);}
      | OP_LBRACE expr OP_RBRACE {$$ = $2;}
      | function_call
+     | OP_LCURLY_BRACE table_constructor OP_RCURLY_BRACE { $$ = $2; }
+     | KW_TRUE { new NBool(true); }
+     | KW_FALSE { new NBool(false); }
     ;
 
+table_constructor : expr_list { $$ = new NTableConstructor(); $$->expressionList = *$1; }
+    | keyval_pair_list { $$ = new NTableConstructor(); $$->keyvalPairList = *$1; }
+    | /* empty */  { $$ = new NTableConstructor(); }
+    ;
+
+keyval_pair_list : keyval_pair { $$ = new std::vector<std::pair<NIdentifier*, NExpression*>*>;
+                                 $$->push_back($1); }
+                 | keyval_pair_list OP_COMMA keyval_pair { $1->push_back($3); }
+    ;
+
+keyval_pair : ident OP_EQUAL expr { $$ = new std::pair<NIdentifier*, NExpression*>($1, $3); }
+    ;
+
+stmt_list : stmt_list stmt { $1->statements.push_back($<stmt>2); }
+          | stmt_list error
+          | stmt_list COMMENT
+          | /* empty */    { $$ = new NBlock(); }
 
 function_call : ident OP_LBRACE OP_RBRACE {$$ = new NExpressionCall($1, std::vector<NExpression *>());}
               | ident OP_LBRACE expr_list OP_RBRACE { $$ = new NExpressionCall($1, *$3); }
@@ -248,6 +275,14 @@ function_type: KW_FUNCTION OP_LBRACE typelist OP_RBRACE OP_ARROW typelist { $$ =
     | KW_FUNCTION OP_LBRACE typelist OP_RBRACE { $$ = new NFunctionType(NTypedVar::fromTypeList($3), {}); }
     | KW_FUNCTION OP_LBRACE OP_RBRACE OP_ARROW typelist { $$ = new NFunctionType(nullptr, $5); }
     | KW_FUNCTION OP_LBRACE OP_RBRACE { $$ = new NFunctionType({}, {}); }
+    ;
+
+type_table: KW_STR { $$ = new NIdentifier(new std::string("str")); }
+    | KW_BOOL { $$ = new NIdentifier(new std::string("bool")); }
+    | KW_NUM { $$ = new NIdentifier(new std::string("num")); }
+    | KW_NIL { $$ = new NIdentifier(new std::string("nil")); }
+    | KW_FUNCTION { $$ = new NIdentifier(new std::string("function")); }
+    | ID { $$ = new NIdentifier(yylval.string); }
     ;
 
 ident : ID { $$ = new NIdentifier($1); delete $1; }
