@@ -741,8 +741,11 @@ class PrettyPrintVisitor : public Visitor {
     }
 
     virtual void visitNTableType(NTableType* node) {
-        // TODO: print table type
-        std::cout << "NTableType";
+        std::cout << "NTableType(keyType=";
+        node->keyType->visit(this);
+        std::cout << ", valueType=";
+        node->valueType->visit(this);
+        std::cout << ")\n";
     }
 
     virtual void visitNFunctionType(NFunctionType* node) {
