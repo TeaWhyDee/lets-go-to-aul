@@ -7,5 +7,8 @@ end
 
 st = S("e")
 
-a: table[int, str] = { 1: "asd" }
-b: table[str, s] = { "key": } 
+a: table[int, str] = { "asd" }
+b: table[str, s] = { key = 2 } 
+
+a[1] = b["key"]
+a[1] = st.text

@@ -87,11 +87,11 @@
    calling an (NIdentifier*). It makes the compiler happy.
  */
 %type <block> program block stmt_list
-%type <stmt> stmt var_decl retstat for_numeric for_generic
+%type <stmt> stmt var_decl retstat for_numeric for_generic var_assignment
 %type <ifstmt> if_stmt
 %type <elif> elseif
 %type <function_decl> function_decl
-%type <expr> expr term function_call
+%type <expr> expr term function_call access_member object
 %type <ident> ident
 %type <type_ident> type_ident type_table
 %type <binop> binop
@@ -130,6 +130,7 @@ stmt_list : stmt_list stmt { $1->statements.push_back($<stmt>2); }
     ;
 
 stmt : var_decl
+     | var_assignment
      | function_call
      | function_decl
      | retstat
@@ -174,7 +175,12 @@ ident_list : ident {$$ = new std::vector<NIdentifier *>(); $$ -> push_back($1);}
          | ident_list OP_COMMA ident {$$ -> push_back($3);}
     ;
 
+var_assignment : access_member OP_EQUAL expr { $$ = new NAssignmentStatement($1, $3); }
+               /* { $$ = new NDeclarationStatement($1, $4); } */
+    ;
+
 expr : term
+     | access_member
      | expr binop expr {$$ = new NBinaryOperatorExpression($1, $2, $3);}
      | unop expr {$$ = new NUnaryOperatorExpression($1, $2);}
      | OP_LBRACE expr OP_RBRACE {$$ = $2;}
@@ -182,6 +188,15 @@ expr : term
      | OP_LCURLY_BRACE table_constructor OP_RCURLY_BRACE { $$ = $2; }
      | KW_TRUE { new NBool(true); }
      | KW_FALSE { new NBool(false); }
+    ;
+
+access_member : access_member OP_LSQUARE_BRACE expr OP_RSQUARE_BRACE { $$ = new NAccessKey($1, $3); }
+              | access_member OP_DOT ident { $$ = new NAccessKey($1, $3); }
+              /* | access_member OP_DOT function_call { $$ = new NExpressionCall($1, $3); } */
+              | access_member OP_LBRACE OP_RBRACE {$$ = new NExpressionCall($1, std::vector<NExpression *>());}
+              | access_member OP_LBRACE expr_list OP_RBRACE {$$ = new NExpressionCall($1, *$3);}
+              | ident
+              | function_call
     ;
 
 table_constructor : expr_list { $$ = new NTableConstructor(); $$->expressionList = *$1; }
@@ -212,7 +227,6 @@ expr_list : expr {$$ = new std::vector<NExpression *>(); $$ -> push_back($1);}
 
 term : L_NUM { $$ = new NNum(atof($1->c_str())); delete $1; }
      | L_STRING { $$ = new NString(*$1);}
-     | ident { $$ = new NIdentifier(&($1->name)); }
     ;
 
 binop : OP_PLUS
