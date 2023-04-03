@@ -130,6 +130,7 @@ stmt_list : stmt_list stmt { $1->statements.push_back($<stmt>2); }
     ;
 
 stmt : var_decl
+     | access_member
      | var_assignment
      | function_call
      | function_decl
