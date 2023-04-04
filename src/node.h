@@ -27,7 +27,7 @@ class NIfStatement;
 class NNumericForStatement;
 class NGenericForStatement;
 class NDeclarationStatement;
-class NAssignmentStatement ;
+class NAssignmentStatement;
 class NReturnStatement;
 class NFunctionDeclaration;
 class NAccessKey;
@@ -80,7 +80,7 @@ class Visitor {
     virtual void visitNIfStatement(NIfStatement* node) = 0;
     virtual void visitNNumericForStatement(NNumericForStatement* node) = 0;
     virtual void visitNGenericForStatement(NGenericForStatement* node) = 0;
-    virtual void visitNAssignmentStatement(NAssignmentStatement * node) = 0;
+    virtual void visitNAssignmentStatement(NAssignmentStatement* node) = 0;
     virtual void visitNDeclarationStatement(NDeclarationStatement* node) = 0;
     virtual void visitNReturnStatement(NReturnStatement* node) = 0;
     virtual void visitNBlock(NBlock* node) = 0;
@@ -280,8 +280,8 @@ class NTableField : public Node {
 class NTableConstructor : public NExpression {
    public:
     // Two different ways to create a table
-    std::vector<keyvalPair*> keyvalPairList; // Either one of these
-    ExpressionList expressionList;           // or both are nullptr!!
+    std::vector<keyvalPair*> keyvalPairList;  // Either one of these
+    ExpressionList expressionList;            // or both are nullptr!!
     NTableConstructor() {}
 
     virtual void visit(Visitor* v) { v->visitNTableConstructor(this); }
@@ -390,7 +390,7 @@ class NAssignmentStatement : public NStatement {
         : ident(ident), type(nullptr), expression(expression) {}
 
     NAssignmentStatement(NExpression* ident, NType* type,
-                          NExpression* expression)
+                         NExpression* expression)
         : ident(ident), type(type), expression(expression) {}
 
     virtual void visit(Visitor* v) { v->visitNAssignmentStatement(this); }
