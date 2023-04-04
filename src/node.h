@@ -850,9 +850,10 @@ class TypeChecker : public Visitor {
     }
 
     void checkConditionalExpression(NExpression* expression) {
+        // check if type of expression->type pointer is pointer to class NBoolType
         if (expression->type == nullptr) {
             std::cout << "TypeError: expression type not known (cannot be approved)";
-        } else if (expression->type != new NBoolType()) {
+        } else if (dynamic_cast<NBoolType*>(expression->type) == nullptr) {
             std::cout << "TypeError: wrong type (condition is ";
             expression->type->visit(this->prettyPrinter);
             std::cout << " but should be bool)";
@@ -914,12 +915,10 @@ class TypeChecker : public Visitor {
         std::cout << ")" << std::endl;
     }
 
-    // TODO: check type for several function return types
-    // TODO: check type for function calls
-    // TODO: add
-    // TODO: add tables and structs
-    //      TODO: add type checking for tables and structs(declaration, access, etc.)
-    // TODO: check type for binary/unary operators
-    //      TODO: define accepted types for each operator
+    // TODO: check type for several function return types (not necessary for now, only one return type is allowed)
+    // TODO: check type for function calls (check if the function is defined, check if the number of arguments is correct, check if the types of the arguments are correct)
+    // TODO: add type checking for tables and structs(declaration, access, etc.)
+    // TODO: check type for binary/unary operators (Camil)
+    //      TODO: define accepted types for each operator (Camil)
     // TODO: check type for all conditional statements
 };
