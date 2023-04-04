@@ -127,10 +127,11 @@ std::string errortext = std::string();
 [/]          {return OP_SLASH ;}
 [\%]         {return OP_PERCENT ;}
 [#]          {return OP_HASH ;}
+[\^]          {return OP_CARET ;}
 [=][=]       {return OP_EQUALEQUAL ;}
 [~][=]       {return OP_NOTEQUAL ;}
-[<][=]       {return OP_LESSTHAN ;}
-[>][=]       {return OP_LARGERTHAN ;}
+[<][=]       {return OP_LESSEQ ;}
+[>][=]       {return OP_MOREEQ ;}
 [<]          {return OP_LESS ;}
 [>]          {return OP_MORE ;}
 [=]          {return OP_EQUAL ;}

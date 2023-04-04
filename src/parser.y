@@ -69,7 +69,7 @@
  */
 %token <string> L_STRING L_NUM ID
 %token <token> OP_PERCENT OP_HASH OP_EQUALEQUAL OP_NOTEQUAL
-%token <token> OP_LESSTHAN OP_LARGERTHAN OP_LESS OP_MORE OP_EQUAL
+%token <token> OP_LESSEQ OP_MOREEQ OP_LESS OP_MORE OP_EQUAL
 %token <token> OP_LBRACE OP_RBRACE OP_LCURLY_BRACE OP_LSQUARE_BRACE
 %token <token> OP_RSQUARE_BRACE OP_RCURLY_BRACE
 %token <token> OP_SEMICOLON OP_COLON OP_COMMA OP_DOTDOT OP_DOT
@@ -91,9 +91,9 @@
 %type <ifstmt> if_stmt
 %type <elif> elseif
 %type <function_decl> function_decl
-%type <expr> expr term function_call access_member object
+%type <expr> expr term function_call access_member binexp
 %type <ident> ident
-%type <type_ident> type_ident type_table
+%type <type_ident> type_ident
 %type <binop> binop
 %type <unop> unop
 %type <typed_var> typed_var
@@ -109,10 +109,15 @@
 %type <keyval_pair> keyval_pair
 
 
-%token <token> OP_ARROW OP_PLUS OP_MINUS OP_STAR OP_SLASHSLASH OP_SLASH
+%token <token> OP_ARROW OP_PLUS OP_MINUS OP_STAR OP_SLASHSLASH OP_SLASH OP_CARET
 /* Operator precedence for mathematical operators */
+%left KW_OR
+%left KW_AND
+%left OP_LESS OP_MORE OP_LESSEQ OP_MOREEQ OP_EQUALEQUAL OP_NOTEQUAL
 %left OP_PLUS OP_MINUS
-%left OP_STAR OP_SLASH OP_SLASHSLASH
+%left OP_STAR OP_SLASH OP_SLASHSLASH OP_PERCENT
+%right OP_CARET
+%nonassoc UMINUS
 
 %start program
 
@@ -182,8 +187,9 @@ var_assignment : access_member OP_EQUAL expr { $$ = new NAssignmentStatement($1,
 
 expr : term
      | access_member
-     | expr binop expr {$$ = new NBinaryOperatorExpression($1, $2, $3);}
-     | unop expr {$$ = new NUnaryOperatorExpression($1, $2);}
+     | binexp
+     /* | expr binop expr {$$ = new NBinaryOperatorExpression($1, $2, $3);} */
+     /* | unop expr */
      | OP_LBRACE expr OP_RBRACE {$$ = $2;}
      | function_call
      | OP_LCURLY_BRACE table_constructor OP_RCURLY_BRACE { $$ = $2; }
@@ -225,18 +231,24 @@ term : L_NUM { $$ = new NNum(atof($1->c_str())); delete $1; }
      | L_STRING { $$ = new NString(*$1);}
     ;
 
-binop : OP_PLUS
-      | OP_MINUS
-      | OP_STAR
-      | OP_SLASHSLASH
-      | OP_SLASH
-      | OP_PERCENT
-      | OP_EQUALEQUAL
-      | OP_MORE
-      | OP_LESS
+binexp : expr OP_PLUS expr  {$$ = new NBinaryOperatorExpression($1, $2, $3);}
+       | expr OP_MINUS expr {$$ = new NBinaryOperatorExpression($1, $2, $3);}
+       | expr OP_STAR expr {$$ = new NBinaryOperatorExpression($1, $2, $3);}
+       | expr OP_SLASHSLASH expr {$$ = new NBinaryOperatorExpression($1, $2, $3);}
+       | expr OP_SLASH expr {$$ = new NBinaryOperatorExpression($1, $2, $3);}
+       | expr OP_PERCENT expr {$$ = new NBinaryOperatorExpression($1, $2, $3);}
+       | expr OP_EQUALEQUAL expr {$$ = new NBinaryOperatorExpression($1, $2, $3);}
+       | expr OP_MORE expr {$$ = new NBinaryOperatorExpression($1, $2, $3);}
+       | expr OP_LESS expr {$$ = new NBinaryOperatorExpression($1, $2, $3);}
+       | expr OP_MOREEQ expr {$$ = new NBinaryOperatorExpression($1, $2, $3);}
+       | expr OP_LESS expr {$$ = new NBinaryOperatorExpression($1, $2, $3);}
+       | expr KW_AND expr {$$ = new NBinaryOperatorExpression($1, $2, $3);}
+       | expr KW_OR expr {$$ = new NBinaryOperatorExpression($1, $2, $3);}
+       | expr OP_CARET expr {$$ = new NBinaryOperatorExpression($1, $2, $3);}
+       | OP_MINUS expr {$$ = new NUnaryOperatorExpression($1, $2);} %prec UMINUS
     ;
 
-unop : OP_MINUS
+unop : OP_MINUS %prec UMINUS
     ;
 
 typed_var : ident OP_COLON type_ident {$$ = new NDeclarationStatement($1, $3, new NExpression());}
@@ -287,15 +299,14 @@ function_type: KW_FUNCTION OP_LBRACE typelist OP_RBRACE OP_ARROW typelist { $$ =
     | KW_FUNCTION OP_LBRACE OP_RBRACE { $$ = new NFunctionType({}, {}); }
     ;
 
-type_table: KW_STR { $$ = new NIdentifier(new std::string("str")); }
-    | KW_BOOL { $$ = new NIdentifier(new std::string("bool")); }
-    | KW_NUM { $$ = new NIdentifier(new std::string("num")); }
-    | KW_NIL { $$ = new NIdentifier(new std::string("nil")); }
-    | KW_FUNCTION { $$ = new NIdentifier(new std::string("function")); }
-    | ID { $$ = new NIdentifier(yylval.string); }
-    ;
-
 ident : ID { $$ = new NIdentifier($1); delete $1; }
     ;
 %%
 
+/* type_table: KW_STR { $$ = new NIdentifier(new std::string("str")); } */
+/*     | KW_BOOL { $$ = new NIdentifier(new std::string("bool")); } */
+/*     | KW_NUM { $$ = new NIdentifier(new std::string("num")); } */
+/*     | KW_NIL { $$ = new NIdentifier(new std::string("nil")); } */
+/*     | KW_FUNCTION { $$ = new NIdentifier(new std::string("function")); } */
+/*     | ID { $$ = new NIdentifier(yylval.string); } */
+/*     ; */
