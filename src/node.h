@@ -27,9 +27,11 @@ class NIfStatement;
 class NNumericForStatement;
 class NGenericForStatement;
 class NDeclarationStatement;
+class NAssignmentStatement ;
 class NReturnStatement;
 class NTypeIdent;
 class NFunctionDeclaration;
+class NAccessKey;
 class NExpressionCall;
 class NFunctionArgument;
 class Visitor;
@@ -51,6 +53,7 @@ typedef std::vector<NExpression*> ExpressionList;
 typedef std::vector<NIdentifier*> IdentifierList;
 typedef std::vector<NVariableDeclaration*> VariableList;
 typedef std::pair<NExpression*, NBlock*> conditionBlock;
+typedef std::pair<NIdentifier*, NExpression*> keyvalPair;
 typedef std::vector<NFunctionArgument*> functionArguments;
 typedef std::vector<NTypedVar*> typedVarList;
 typedef std::vector<NType*> typeList;
@@ -69,6 +72,7 @@ class Visitor {
     virtual void visitNTableField(NTableField* node) = 0;
     virtual void visitNTableConstructor(NTableConstructor* node) = 0;
     virtual void visitNFunctionDeclaration(NFunctionDeclaration* node) = 0;
+    virtual void visitNAccessKey(NAccessKey* node) = 0;
     virtual void visitNExpressionCall(NExpressionCall* node) = 0;
     virtual void visitNFunctionArgument(NFunctionArgument* node) = 0;
     virtual void visitNWhileStatement(NWhileStatement* node) = 0;
@@ -77,6 +81,7 @@ class Visitor {
     virtual void visitNIfStatement(NIfStatement* node) = 0;
     virtual void visitNNumericForStatement(NNumericForStatement* node) = 0;
     virtual void visitNGenericForStatement(NGenericForStatement* node) = 0;
+    virtual void visitNAssignmentStatement(NAssignmentStatement * node) = 0;
     virtual void visitNDeclarationStatement(NDeclarationStatement* node) = 0;
     virtual void visitNReturnStatement(NReturnStatement* node) = 0;
     virtual void visitNBlock(NBlock* node) = 0;
@@ -275,7 +280,9 @@ class NTableField : public Node {
 
 class NTableConstructor : public NExpression {
    public:
-    IdentifierList fieldlist;
+    // Two different ways to create a table
+    std::vector<keyvalPair*> keyvalPairList; // Either one of these
+    ExpressionList expressionList;           // or both are nullptr!!
     NTableConstructor() {}
 
     virtual void visit(Visitor* v) { v->visitNTableConstructor(this); }
@@ -375,6 +382,21 @@ class NReturnStatement : public NStatement {
     virtual void visit(Visitor* v) { v->visitNReturnStatement(this); }
 };
 
+class NAssignmentStatement : public NStatement {
+   public:
+    NExpression* ident;
+    NType* type;
+    NExpression* expression;
+    NAssignmentStatement(NExpression* ident, NExpression* expression)
+        : ident(ident), type(nullptr), expression(expression) {}
+
+    NAssignmentStatement(NExpression* ident, NType* type,
+                          NExpression* expression)
+        : ident(ident), type(type), expression(expression) {}
+
+    virtual void visit(Visitor* v) { v->visitNAssignmentStatement(this); }
+};
+
 class NDeclarationStatement : public NStatement {
    public:
     NIdentifier* ident;
@@ -399,6 +421,18 @@ class NFunctionArgument : public NStatement {
         : id(id), type(type) {}
 
     virtual void visit(Visitor* v) { v->visitNFunctionArgument(this); }
+};
+
+class NAccessKey : public NExpression {
+   public:
+    NExpression* expr;
+
+    NExpression* indexExpr;
+
+    NAccessKey(NExpression* expr, NExpression* indexexpr)
+        : expr(expr), indexExpr(indexexpr) {}
+
+    virtual void visit(Visitor* v) { v->visitNAccessKey(this); }
 };
 
 class NExpressionCall : public NExpression {
@@ -529,11 +563,19 @@ class PrettyPrintVisitor : public Visitor {
 
     virtual void visitNTableConstructor(NTableConstructor* node) {
         std::cout << "NTableConstructor(fields=[";
-        for (auto field : node->fieldlist) {
+        for (auto field : node->keyvalPairList) {
+            std::cout << "\n\t{ key=";
+            field->first->visit(this);
+            std::cout << ", value=";
+            field->second->visit(this);
+            std::cout << " }, ";
+        }
+        for (auto field : node->expressionList) {
+            std::cout << "\n\texpr=";
             field->visit(this);
             std::cout << ", ";
         }
-        std::cout << "])";
+        std::cout << "\n    ])";
     }
 
     virtual void visitNFunctionDeclaration(NFunctionDeclaration* node) {
@@ -557,8 +599,16 @@ class PrettyPrintVisitor : public Visitor {
         std::cout << "])";
     }
 
+    virtual void visitNAccessKey(NAccessKey* node) {
+        std::cout << "\n\tNAccessKey(expr=";
+        node->expr->visit(this);
+        std::cout << ",\n  \t idx_expr=[";
+        node->indexExpr->visit(this);
+        std::cout << "])";
+    }
+
     virtual void visitNExpressionCall(NExpressionCall* node) {
-        std::cout << "NExpressionCall(expr=";
+        std::cout << "\n\tNExpressionCall(expr=";
         node->expr->visit(this);
         std::cout << ", expr_list=[";
         for (auto expr : node->exprlist) {
@@ -650,6 +700,19 @@ class PrettyPrintVisitor : public Visitor {
         std::cout << ")";
     }
 
+    virtual void visitNAssignmentStatement(NAssignmentStatement* node) {
+        std::cout << "NAssignmentStatement(ident=";
+        node->ident->visit(this);
+        std::string type = "`To be deduced`";
+        if (node->type != nullptr) {
+            std::cout << ", type=";
+            node->type->visit(this);
+        }
+        std::cout << ", expr=";
+        node->expression->visit(this);
+        std::cout << ")";
+    }
+
     virtual void visitNDeclarationStatement(NDeclarationStatement* node) {
         std::cout << "NDeclarationStatement(ident=";
         node->ident->visit(this);
@@ -730,8 +793,11 @@ class PrettyPrintVisitor : public Visitor {
     }
 
     virtual void visitNTableType(NTableType* node) {
-        // TODO: print table type
-        std::cout << "NTableType";
+        std::cout << "NTableType(keyType=";
+        node->keyType->visit(this);
+        std::cout << ", valueType=";
+        node->valueType->visit(this);
+        std::cout << ")\n";
     }
 
     virtual void visitNFunctionType(NFunctionType* node) {
