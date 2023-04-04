@@ -213,11 +213,6 @@ keyval_pair_list : keyval_pair { $$ = new std::vector<std::pair<NIdentifier*, NE
 keyval_pair : ident OP_EQUAL expr { $$ = new std::pair<NIdentifier*, NExpression*>($1, $3); }
     ;
 
-stmt_list : stmt_list stmt { $1->statements.push_back($<stmt>2); }
-          | stmt_list error
-          | stmt_list COMMENT
-          | /* empty */    { $$ = new NBlock(); }
-
 function_call : ident OP_LBRACE OP_RBRACE {$$ = new NExpressionCall($1, std::vector<NExpression *>());}
               | ident OP_LBRACE expr_list OP_RBRACE { $$ = new NExpressionCall($1, *$3); }
     ;

@@ -184,8 +184,8 @@ class NTableType : public NType {
 
 class NFunctionType : public NType {
    public:
-    typeList* returnTypes;
     typedVarList* argumentTypes;
+    typeList* returnTypes;
 
     NFunctionType(typedVarList* argumentTypes, typeList* returnTypes) : argumentTypes(argumentTypes), returnTypes(returnTypes) {}
 
