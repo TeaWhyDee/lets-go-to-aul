@@ -635,7 +635,7 @@ class PrettyPrintVisitor : public Visitor {
         std::cout << ")";
     }
 
-    virtual void visitNRepeatStatement(NRepeatUntilStatement* node) {
+    virtual void visitNRepeatUntilStatement(NRepeatUntilStatement* node) {
         std::cout << "NRepeatUntilStatement(condition=";
         node->condition->visit(this);
         std::cout << ", block=\n\t";
