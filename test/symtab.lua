@@ -12,7 +12,15 @@ end
 
 for i = 1, 10 do
     c = c + 1
+    inside_scope = 1
 end
+
+inside_scope = 0
+function print()
+    return 1
+end
+
+print(inside_scope)
 
 -- function call
 function f(a: int, b: str, c: int) -> None
@@ -32,23 +40,21 @@ f = 123
 g = g()
 f = f()
 
--- struct call
 struct S
     a: int
     b: str
     function f()
-        self.a = 2
+        a = 2
     end
 
     function g()
-        self.c = 3
+        c = 3
     end
 
     function k()
-        self.x = 5
+        x = 5
     end
 end
 
 g = G()
 s = S()
-

@@ -103,6 +103,7 @@ class Visitor {
     virtual void cleanup() = 0;
 };
 
+
 class Position {
 public:
     int lineno;
@@ -146,6 +147,16 @@ public:
 
 extern SymbolTableStorage *symtab_storage;
 
+class SymtabVisitor : public Visitor{
+public:
+    virtual void cleanup() {
+        while (symtab_storage->symtab->parent != nullptr) {
+            symtab_storage->symtab = symtab_storage->symtab->parent;
+        }
+        symtab_storage->symtab->prepare_for_next_run();
+    }
+};
+
 
 class ScopedSymbolTable : public SymbolTable {
 public:
@@ -163,6 +174,7 @@ public:
     }
 
     virtual SymbolTableEntry *declare(SymbolTableEntry *entry) {
+        std::cout << "Entites in " << this << ": " << this->entries.size() << std::endl;
         SymbolTableEntry *prev_entry = this->lookup(entry->name, entry->position.lineno);
         if (prev_entry != nullptr) {
             std::cerr << "Declare " << "'" << entry->name << "'";
@@ -180,6 +192,7 @@ public:
         std::cout << "Scope entered" << std::endl;
         auto next_scope = this->children[this->scope_id++];
         symtab_storage->symtab = next_scope;
+        std::cout << "Now scope is " << symtab_storage->symtab << std::endl;
     }
 
     virtual void scope_started() {
@@ -193,6 +206,7 @@ public:
         // current symbol table is the parent
         std::cout << "Scope ended" << std::endl;
         symtab_storage->symtab = symtab_storage->symtab->parent;
+        std::cout << "Now scope is " << symtab_storage->symtab << std::endl;
     }
 
     virtual void scope_ended() {
@@ -201,7 +215,6 @@ public:
 
     virtual void prepare_for_next_run() {
         this->scope_id = 0;
-        std::cout << "Prepare for next run: " << this << std::endl;
         for (auto child: this->children) {
             child->prepare_for_next_run();
         }
@@ -938,11 +951,12 @@ class PrettyPrintVisitor : public Visitor {
     virtual void cleanup() {}
 };
 
-class SymbolTableFillerVisitor : public Visitor {
+class SymbolTableFillerVisitor : public SymtabVisitor {
 public:
-    SymbolTableStorage *symtab_storage;
+    SymbolTableFillerVisitor() {
+        this->name = "Symbol Table Filler";
+    }
 
-    SymbolTableFillerVisitor(SymbolTableStorage *symtab_storage) : symtab_storage(symtab_storage) { this->name = "Symbol Table Filler"; }
 
     virtual void visitNNum(NNum* node) {}
 
@@ -968,29 +982,35 @@ public:
     virtual void visitNTableConstructor(NTableConstructor* node) {}
 
     virtual void visitNFunctionDeclaration(NFunctionDeclaration* node) {
-        this->symtab_storage->symtab->declare(new SymbolTableEntry(node->id->name, Position(node->position)));
+        symtab_storage->symtab->declare(new SymbolTableEntry(node->id->name, Position(node->position)));
 
-        this->symtab_storage->symtab->scope_started();
+        symtab_storage->symtab->scope_started();
         for(auto arg: *node->arguments) {
-            this->symtab_storage->symtab->declare(new SymbolTableEntry(arg->ident->name, Position(node->position)));
+            symtab_storage->symtab->declare(new SymbolTableEntry(arg->ident->name, Position(node->position)));
         }
 
         node->block->visit(this);
-        this->symtab_storage->symtab->scope_ended();
+        symtab_storage->symtab->scope_ended();
     }
 
     virtual void visitNFunctionArgument(NFunctionArgument* node) {}
 
     virtual void visitNWhileStatement(NWhileStatement* node) {
+        symtab_storage->symtab->scope_started();
         node->block->visit(this);
+        symtab_storage->symtab->scope_ended();
     }
 
     virtual void visitNRepeatStatement(NRepeatUntilStatement* node) {
+        symtab_storage->symtab->scope_started();
         node->block->visit(this);
+        symtab_storage->symtab->scope_ended();
     }
 
     virtual void visitNDoStatement(NDoStatement* node) {
+        symtab_storage->symtab->scope_started();
         node->block->visit(this);
+        symtab_storage->symtab->scope_ended();
     }
 
     virtual void visitNIfStatement(NIfStatement* node) {
@@ -1008,16 +1028,20 @@ public:
     }
 
     virtual void visitNNumericForStatement(NNumericForStatement* node) {
+        symtab_storage->symtab->scope_started();
         node->block->visit(this);
+        symtab_storage->symtab->scope_ended();
     }
 
     virtual void visitNGenericForStatement(NGenericForStatement* node) {
+        symtab_storage->symtab->scope_started();
         node->block->visit(this);
+        symtab_storage->symtab->scope_ended();
     }
 
     virtual void visitNDeclarationStatement(NDeclarationStatement* node) {
         SymbolTableEntry *entry = new SymbolTableEntry(node->ident->name, node->position);
-        this->symtab_storage->symtab->declare(entry);
+        symtab_storage->symtab->declare(entry);
     }
 
     virtual void visitNReturnStatement(NReturnStatement* node) {}
@@ -1036,12 +1060,13 @@ public:
 
     virtual void visitNStructDeclaration(NStructDeclaration* node) {
         SymbolTableEntry *entry = new SymbolTableEntry(node->id->name, node->position);
-        this->symtab_storage->symtab->declare(entry);
-        this->symtab_storage->symtab->scope_started();
+        symtab_storage->symtab->declare(entry);
+        symtab_storage->symtab->scope_started();
         for (auto field: node->fields) {
             field->visit(this);
         }
         for (auto method: node->methods) {
+            
             method->visit(this);
         }
     }
@@ -1058,13 +1083,6 @@ public:
     virtual void visitNAccessKey(NAccessKey* node) {}
     virtual void visitNAssignmentStatement(NAssignmentStatement * node) { }
 
-    virtual void cleanup() {
-        while (this->symtab_storage->symtab->parent != nullptr) {
-            this->symtab_storage->symtab = this->symtab_storage->symtab->parent;
-        }
-
-        this->symtab_storage->symtab->prepare_for_next_run();
-    }
 };
 
 
@@ -1083,11 +1101,9 @@ public:
     }
 };
 
-class DeclaredBeforeUseCheckerVisitor : public Visitor {
+class DeclaredBeforeUseCheckerVisitor : public SymtabVisitor {
 public:
-    SymbolTableStorage *symtab_storage;
-
-    DeclaredBeforeUseCheckerVisitor(SymbolTableStorage *symtab_storage) : symtab_storage(symtab_storage) {
+    DeclaredBeforeUseCheckerVisitor() {
         this->name = "Declare before use checker";
     }
 
@@ -1107,7 +1123,7 @@ public:
                 std::cout << entry->name << "(";
                 std::cout << entry->position.lineno << ":" << entry->position.colno << "-";
                 std::cout << node->position.lineno << ":" << node->position.colno << ")" << std::endl;
-                if (entry->position.lineno <= node->position.lineno) {
+                if (entry->position.lineno < node->position.lineno) {
                     std::cout<< entry->name << " ok" << std::endl;
                     return;
                 }
@@ -1124,7 +1140,7 @@ public:
         // temporary try-catch just to print the line
         // do smth with it, it's impossible to compile it later
         try {
-            check_symtab(node, this->symtab_storage->symtab);
+            check_symtab(node, symtab_storage->symtab);
         } catch (SemanticError *e) {
             std::cout << e->what() << std::endl;
         }
@@ -1144,9 +1160,9 @@ public:
     virtual void visitNTableConstructor(NTableConstructor* node) {}
 
     virtual void visitNFunctionDeclaration(NFunctionDeclaration* node) {
-        this->symtab_storage->symtab->enter_scope();
+        symtab_storage->symtab->enter_scope();
         node->block->visit(this);
-        this->symtab_storage->symtab->exit_scope();
+        symtab_storage->symtab->exit_scope();
     }
 
     virtual void visitNFunctionArgument(NFunctionArgument* node) {}
@@ -1217,11 +1233,12 @@ public:
     virtual void visitNExpression(NExpression *node) { }
 
     virtual void visitNStructDeclaration(NStructDeclaration* node) {
+        symtab_storage->symtab->enter_scope();
         for(auto method : node->methods) {
-            this->symtab_storage->symtab->enter_scope();
+            std::cout << "method " << method->id->name << std::endl;
             method->visit(this);
-            this->symtab_storage->symtab->exit_scope();
         }
+        symtab_storage->symtab->exit_scope();
     }
     virtual void visitNExpressionCall(NExpressionCall* node) { 
         node->expr->visit(this);
@@ -1240,5 +1257,4 @@ public:
     virtual void visitNTypedVar(NTypedVar* node) { return; }
     virtual void visitNAccessKey(NAccessKey* node) {}
     virtual void visitNAssignmentStatement(NAssignmentStatement * node) {}
-    virtual void cleanup() {}
 };

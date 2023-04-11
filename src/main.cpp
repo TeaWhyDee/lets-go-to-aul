@@ -10,8 +10,8 @@ int main(int argc, char **argv)
     yyparse();
     Visitor *visitors[] = {
         new PrettyPrintVisitor(),
-        new SymbolTableFillerVisitor(symtab_storage),
-        new DeclaredBeforeUseCheckerVisitor(symtab_storage),
+        new SymbolTableFillerVisitor(),
+        new DeclaredBeforeUseCheckerVisitor(),
     };
     try{
         for (auto visitor: visitors) {
