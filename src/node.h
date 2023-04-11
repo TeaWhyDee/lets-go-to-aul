@@ -1066,7 +1066,6 @@ public:
             field->visit(this);
         }
         for (auto method: node->methods) {
-            
             method->visit(this);
         }
     }
