@@ -919,8 +919,6 @@ class PrettyPrintVisitor : public Visitor {
         std::cout << ")";
     }
 };
-<<<<<<< HEAD
-=======
 
 class SymbolTableFillerVisitor : public Visitor {
 public:
@@ -1024,4 +1022,3 @@ public:
     virtual void visitNStructType(NStructType* node) { return; }
     virtual void visitNTypedVar(NTypedVar* node) { return; }
 };
->>>>>>> 387340b (Init commit)
