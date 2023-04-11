@@ -9,8 +9,6 @@ e1 = a + b * c + d
 
 function f(a: S, b: num) -> num
     b = "12345"
-    c: num = a + b
-    d: num = -c
 end
 
 

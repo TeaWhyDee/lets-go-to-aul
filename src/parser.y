@@ -144,8 +144,8 @@ stmt : var_decl
      | for_generic
     ;
 
-for_generic : KW_FOR ident_list KW_IN expr_list KW_DO block KW_END {
-            $$ = new NGenericForStatement(*$2, *$4, $6); }
+for_generic : KW_FOR ident_list KW_IN expr KW_DO block KW_END {
+            $$ = new NGenericForStatement(*$2, $4, $6); }
     ;
 
 for_numeric : KW_FOR ident OP_EQUAL expr OP_COMMA expr KW_DO block KW_END { 
@@ -244,7 +244,7 @@ binop : OP_PLUS
 unop : OP_MINUS
     ;
 
-typed_var : ident OP_COLON type_ident {$$ = new NDeclarationStatement($1, $3, new NExpression());}
+typed_var : ident OP_COLON type_ident {$$ = new NDeclarationStatement($1, $3);}
     ;
 
 typed_var_list: typed_var { $$ = new std::vector<NDeclarationStatement *>(); $$->push_back($1);}
@@ -286,8 +286,8 @@ typelist : type_ident { $$ = new std::vector<NType *>(); $$->push_back($1); }
     | typelist OP_COMMA type_ident { $$->push_back($3); }
     ;
 
-function_type: KW_FUNCTION OP_LBRACE typelist OP_RBRACE OP_ARROW typelist { $$ = new NFunctionType(NTypedVar::fromTypeList($3), $6); }
-    | KW_FUNCTION OP_LBRACE typelist OP_RBRACE { $$ = new NFunctionType(NTypedVar::fromTypeList($3), {}); }
+function_type: KW_FUNCTION OP_LBRACE typelist OP_RBRACE OP_ARROW typelist { $$ = new NFunctionType(NIdentifier::fromTypeList($3), $6); }
+    | KW_FUNCTION OP_LBRACE typelist OP_RBRACE { $$ = new NFunctionType(NIdentifier::fromTypeList($3), {}); }
     | KW_FUNCTION OP_LBRACE OP_RBRACE OP_ARROW typelist { $$ = new NFunctionType(nullptr, $5); }
     | KW_FUNCTION OP_LBRACE OP_RBRACE { $$ = new NFunctionType({}, {}); }
     ;
