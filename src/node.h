@@ -894,10 +894,32 @@ class TypeChecker : public Visitor {
     }
 
     virtual void visitNBinaryOperatorExpression(NBinaryOperatorExpression* node) {
+        /*
+        num: + - * / % ^ // & | ~ << >> ARE num, < > <= >= ARE bool
+        str: .. IS str, # IS num, < > <= >= ARE bool 
+        */
         std::cout << "BinaryOperatorExpression(";
         node->visit(this->prettyPrinter);
         std::cout << " has type: ";
-        // TODO: check if the types are correct
+
+        NNumType* leftNum = dynamic_cast<NNumType*>(node->lhs->type);
+        NStringType* leftStr = dynamic_cast<NStringType*>(node->lhs->type);
+        NNumType* rightNum = dynamic_cast<NNumType*>(node->rhs->type);
+        NStringType* rightStr = dynamic_cast<NStringType*>(node->rhs->type);
+        // TODO: check the operand type suitable for num or str
+
+        if (node->type == nullptr) {
+            std::cout << "TypeError: expression type is not known (cannot be approved)";
+        } else if (leftNum != nullptr && rightNum != nullptr) { 
+            // TODO: check the operator leads to a num or bool expression,
+            // then, check the expr type itself and if they are equal
+        } else if (leftStr != nullptr && rightStr != nullptr) {
+            // TODO: check the operator leads to a num, str or bool expression,
+            // then, check the expr type itself and if they are equal
+        } else {
+            std::cout << "TypeError: operand types are not equal or the binary operation is not supported";
+        }
+        
         std::cout << ")" << std::endl;
     }
 
