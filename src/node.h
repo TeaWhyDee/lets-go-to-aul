@@ -15,10 +15,11 @@ class NNum;
 class NNil;
 class NBool;
 class NString;
+class NDeclarationStatement;
+class NFunctionDeclaration;
 class NIdentifier;
 class NBinaryOperatorExpression;
 class NUnaryOperatorExpression;
-class NTableField;
 class NTableConstructor;
 class NWhileStatement;
 class NDoStatement;
@@ -26,17 +27,12 @@ class NRepeatUntilStatement;
 class NIfStatement;
 class NNumericForStatement;
 class NGenericForStatement;
-class NDeclarationStatement;
-class NAssignmentStatement ;
+class NAssignmentStatement;
 class NReturnStatement;
-class NTypeIdent;
-class NFunctionDeclaration;
 class NAccessKey;
 class NExpressionCall;
-class NFunctionArgument;
 class Visitor;
 class PrettyPrintVisitor;
-class NTypedVar;
 class NStructDeclaration;
 class StructBody;
 class NType;
@@ -54,8 +50,6 @@ typedef std::vector<NIdentifier*> IdentifierList;
 typedef std::vector<NVariableDeclaration*> VariableList;
 typedef std::pair<NExpression*, NBlock*> conditionBlock;
 typedef std::pair<NIdentifier*, NExpression*> keyvalPair;
-typedef std::vector<NFunctionArgument*> functionArguments;
-typedef std::vector<NTypedVar*> typedVarList;
 typedef std::vector<NType*> typeList;
 
 class Visitor {
@@ -69,19 +63,17 @@ class Visitor {
         NBinaryOperatorExpression* node) = 0;
     virtual void visitNUnaryOperatorExpression(
         NUnaryOperatorExpression* node) = 0;
-    virtual void visitNTableField(NTableField* node) = 0;
     virtual void visitNTableConstructor(NTableConstructor* node) = 0;
     virtual void visitNFunctionDeclaration(NFunctionDeclaration* node) = 0;
     virtual void visitNAccessKey(NAccessKey* node) = 0;
     virtual void visitNExpressionCall(NExpressionCall* node) = 0;
-    virtual void visitNFunctionArgument(NFunctionArgument* node) = 0;
     virtual void visitNWhileStatement(NWhileStatement* node) = 0;
-    virtual void visitNRepeatStatement(NRepeatUntilStatement* node) = 0;
+    virtual void visitNRepeatUntilStatement(NRepeatUntilStatement* node) = 0;
     virtual void visitNDoStatement(NDoStatement* node) = 0;
     virtual void visitNIfStatement(NIfStatement* node) = 0;
     virtual void visitNNumericForStatement(NNumericForStatement* node) = 0;
     virtual void visitNGenericForStatement(NGenericForStatement* node) = 0;
-    virtual void visitNAssignmentStatement(NAssignmentStatement * node) = 0;
+    virtual void visitNAssignmentStatement(NAssignmentStatement* node) = 0;
     virtual void visitNDeclarationStatement(NDeclarationStatement* node) = 0;
     virtual void visitNReturnStatement(NReturnStatement* node) = 0;
     virtual void visitNBlock(NBlock* node) = 0;
@@ -95,7 +87,6 @@ class Visitor {
     virtual void visitNTableType(NTableType* node) = 0;
     virtual void visitNFunctionType(NFunctionType* node) = 0;
     virtual void visitNStructType(NStructType* node) = 0;
-    virtual void visitNTypedVar(NTypedVar* node) = 0;
 };
 
 class Node {
@@ -115,15 +106,14 @@ class NExpression : public NStatement {
 class NBlock : public Node {
    public:
     StatementList statements;
-    // also possible expression for return statement
     NExpression* returnExpr;
 
-    NBlock() : statements({}), returnExpr(nullptr) {}
+    NBlock() : statements(StatementList()), returnExpr(nullptr) {}
 
     NBlock(StatementList statements, NExpression* returnExpr)
         : statements(statements), returnExpr(returnExpr) {}
 
-    NBlock(StatementList statements) : statements(statements) {}
+    NBlock(StatementList statements) : statements(statements), returnExpr(nullptr) {}
 
     virtual void visit(Visitor* v) { v->visitNBlock(this); }
 };
@@ -184,10 +174,10 @@ class NTableType : public NType {
 
 class NFunctionType : public NType {
    public:
-    typedVarList* argumentTypes;
+    IdentifierList* argumentTypes;
     typeList* returnTypes;
 
-    NFunctionType(typedVarList* argumentTypes, typeList* returnTypes) : argumentTypes(argumentTypes), returnTypes(returnTypes) {}
+    NFunctionType(IdentifierList* argumentTypes, typeList* returnTypes) : argumentTypes(argumentTypes), returnTypes(returnTypes) {}
 
     virtual void visit(Visitor* v) {
         v->visitNFunctionType(this);
@@ -197,13 +187,14 @@ class NFunctionType : public NType {
 class NStructType : public NType {
    public:
     NIdentifier* name;
-    typedVarList fields;
-    typedVarList methods;
-    NStructType(typedVarList fields, typedVarList methods) : fields(fields), methods(methods) {}
+    IdentifierList* fields;
+    IdentifierList* methods;
+    NStructType(IdentifierList* fields, IdentifierList* methods) : fields(fields), methods(methods) {}
 
-    NStructType(NIdentifier* name) : name(name), fields({}), methods({}) {}
+    NStructType(NIdentifier* name) : name(name), fields(nullptr), methods(nullptr) {}
 
-    virtual void visit(Visitor* v) {
+    virtual void
+    visit(Visitor* v) {
         v->visitNStructType(this);
     }
 };
@@ -243,6 +234,15 @@ class NIdentifier : public NExpression {
    public:
     std::string name;
     NIdentifier(const std::string* name) : name(*name) {}
+    NIdentifier(NType* type) : name("") { this->type = type; }
+
+    static IdentifierList* fromTypeList(typeList* types) {
+        IdentifierList* list = new IdentifierList();
+        for (auto type : *types) {
+            list->push_back(new NIdentifier(type));
+        }
+        return list;
+    }
 
     virtual void visit(Visitor* v) { v->visitNIdentifier(this); }
 };
@@ -267,22 +267,11 @@ class NUnaryOperatorExpression : public NExpression {
     virtual void visit(Visitor* v) { v->visitNUnaryOperatorExpression(this); }
 };
 
-class NTableField : public Node {
-   public:
-    NExpression* key;
-    NExpression* value;
-    NIdentifier* id;
-    NTableField(NExpression* key, NExpression* value, NIdentifier* id)
-        : key(key), value(value), id(id) {}
-
-    virtual void visit(Visitor* v) { v->visitNTableField(this); }
-};
-
 class NTableConstructor : public NExpression {
    public:
     // Two different ways to create a table
-    std::vector<keyvalPair*> keyvalPairList; // Either one of these
-    ExpressionList expressionList;           // or both are nullptr!!
+    std::vector<keyvalPair*> keyvalPairList;  // Either one of these
+    ExpressionList expressionList;            // or both are nullptr!!
     NTableConstructor() {}
 
     virtual void visit(Visitor* v) { v->visitNTableConstructor(this); }
@@ -305,7 +294,7 @@ class NRepeatUntilStatement : public NStatement {
     NRepeatUntilStatement(NExpression* condition, NBlock* block)
         : condition(condition), block(block) {}
 
-    virtual void visit(Visitor* v) { v->visitNRepeatStatement(this); }
+    virtual void visit(Visitor* v) { v->visitNRepeatUntilStatement(this); }
 };
 
 class NDoStatement : public NStatement {
@@ -344,34 +333,13 @@ class NNumericForStatement : public NStatement {
 class NGenericForStatement : public NStatement {
    public:
     IdentifierList identifiers;
-    ExpressionList expressions;
+    NExpression* expression;
     NBlock* block;
-    NGenericForStatement(IdentifierList identifiers, ExpressionList expressions,
+    NGenericForStatement(IdentifierList identifiers, NExpression* expression,
                          NBlock* block)
-        : identifiers(identifiers), expressions(expressions), block(block) {}
+        : identifiers(identifiers), expression(expression), block(block) {}
 
     virtual void visit(Visitor* v) { v->visitNGenericForStatement(this); }
-};
-
-class NTypedVar : public NStatement {
-   public:
-    NIdentifier* ident;
-    NType* type;
-
-    static typedVarList* fromTypeList(typeList* types) {
-        typedVarList* typedVarList = new std::vector<NTypedVar*>();
-        for (auto type : *types) {
-            typedVarList->push_back(new NTypedVar(type));
-        }
-        return typedVarList;
-    }
-
-    NTypedVar(NIdentifier* ident, NType* type)
-        : ident(ident), type(type) {}
-
-    NTypedVar(NType* type) : ident(nullptr), type(type) {}
-
-    virtual void visit(Visitor* v) { v->visitNTypedVar(this); }
 };
 
 class NReturnStatement : public NStatement {
@@ -388,11 +356,9 @@ class NAssignmentStatement : public NStatement {
     NType* type;
     NExpression* expression;
     NAssignmentStatement(NExpression* ident, NExpression* expression)
-        : ident(ident), type(nullptr), expression(expression) {}
+        : ident(ident), type(nullptr), expression(expression) { ident->type = type; }
 
-    NAssignmentStatement(NExpression* ident, NType* type,
-                          NExpression* expression)
-        : ident(ident), type(type), expression(expression) {}
+    NAssignmentStatement(NExpression* ident, NType* type, NExpression* expression) : ident(ident), type(type), expression(expression) { ident->type = type; }
 
     virtual void visit(Visitor* v) { v->visitNAssignmentStatement(this); }
 };
@@ -405,22 +371,29 @@ class NDeclarationStatement : public NStatement {
     NDeclarationStatement(NIdentifier* ident, NExpression* expression)
         : ident(ident), type(nullptr), expression(expression) {}
 
+    NDeclarationStatement(NIdentifier* ident, NType* type)
+        : ident(ident), type(type), expression(nullptr) {
+        this->ident->type = type;
+    }
+
     NDeclarationStatement(NIdentifier* ident, NType* type,
                           NExpression* expression)
-        : ident(ident), type(type), expression(expression) {}
+        : ident(ident), type(type), expression(expression) {
+        this->ident->type = type;
+    }
+
+    static IdentifierList* toIdentifierList(std::vector<NDeclarationStatement*>* declarations) {
+        if (declarations == nullptr) {
+            return nullptr;
+        }
+        IdentifierList* list = new IdentifierList();
+        for (auto declaration : *declarations) {
+            list->push_back(declaration->ident);
+        }
+        return list;
+    }
 
     virtual void visit(Visitor* v) { v->visitNDeclarationStatement(this); }
-};
-
-class NFunctionArgument : public NStatement {
-   public:
-    NIdentifier* id;
-    NIdentifier* type;
-
-    NFunctionArgument(NIdentifier* id, NIdentifier* type)
-        : id(id), type(type) {}
-
-    virtual void visit(Visitor* v) { v->visitNFunctionArgument(this); }
 };
 
 class NAccessKey : public NExpression {
@@ -449,8 +422,6 @@ class NExpressionCall : public NExpression {
 
 class NFunctionDeclaration : public NStatement {
    public:
-    //    TODO initialize function_type
-    NType* function_type;
     typeList* return_type;
     NIdentifier* id;
     std::vector<NDeclarationStatement*>* arguments;
@@ -464,15 +435,17 @@ class NFunctionDeclaration : public NStatement {
           id(id),
           arguments(arguments),
           block(block) {
-        this->function_type = fromFunctionDeclaration(arguments, return_type);
     }
 
-    NFunctionType* fromFunctionDeclaration(std::vector<NDeclarationStatement*>* arguments, typeList* returnTypes) {
-        typedVarList* argumentTypes = new typedVarList();
-        for (auto arg : *arguments) {
-            argumentTypes->push_back(new NTypedVar(arg->ident, arg->type));
+    static IdentifierList* toIdentifierList(std::vector<NFunctionDeclaration*>* declarations) {
+        if (declarations == nullptr) {
+            return nullptr;
         }
-        return new NFunctionType(argumentTypes, returnTypes);
+        IdentifierList* list = new IdentifierList();
+        for (auto declaration : *declarations) {
+            list->push_back(declaration->id);
+        }
+        return list;
     }
 
     virtual void visit(Visitor* v) { v->visitNFunctionDeclaration(this); }
@@ -551,16 +524,6 @@ class PrettyPrintVisitor : public Visitor {
         std::cout << ")";
     }
 
-    virtual void visitNTableField(NTableField* node) {
-        std::cout << "NTableField(id=";
-        node->id->visit(this);
-        std::cout << ", key=";
-        node->key->visit(this);
-        std::cout << ", value=";
-        node->value->visit(this);
-        std::cout << ")";
-    }
-
     virtual void visitNTableConstructor(NTableConstructor* node) {
         std::cout << "NTableConstructor(fields=[";
         for (auto field : node->keyvalPairList) {
@@ -581,22 +544,28 @@ class PrettyPrintVisitor : public Visitor {
     virtual void visitNFunctionDeclaration(NFunctionDeclaration* node) {
         std::cout << "NFunctionDeclaration(id=";
         node->id->visit(this);
-        std::cout << ", return_types=";
-        if (node->return_type != nullptr)
+        if (node->return_type != nullptr) {
+            std::cout << ", return_type=[";
             for (auto type : *node->return_type) {
                 type->visit(this);
-                std::cout << ", ";
+                if (type != node->return_type->back())
+                    std::cout << ", ";
             }
-        else
-            std::cout << "nothing";
+            std::cout << "]";
+        }
         std::cout << ", block=[\n\t";
         node->block->visit(this);
-        std::cout << "], arguments=[";
-        for (auto arg : *node->arguments) {
-            arg->visit(this);
-            if (arg != node->arguments->back()) std::cout << ", ";
+        std::cout << "]";
+        if (node->arguments != nullptr) {
+            std::cout << ", arguments=[";
+            for (auto arg : *node->arguments) {
+                arg->visit(this);
+                if (arg != node->arguments->back())
+                    std::cout << ", ";
+            }
+            std::cout << "])";
         }
-        std::cout << "])";
+        std::cout << ")";
     }
 
     virtual void visitNAccessKey(NAccessKey* node) {
@@ -618,14 +587,6 @@ class PrettyPrintVisitor : public Visitor {
         std::cout << "])";
     }
 
-    virtual void visitNFunctionArgument(NFunctionArgument* node) {
-        std::cout << "NFunctionArgument(id=";
-        node->id->visit(this);
-        std::cout << ", type=";
-        node->type->visit(this);
-        std::cout << ")";
-    }
-
     virtual void visitNWhileStatement(NWhileStatement* node) {
         std::cout << "NWhileStatement(condition=";
         node->condition->visit(this);
@@ -634,7 +595,7 @@ class PrettyPrintVisitor : public Visitor {
         std::cout << ")";
     }
 
-    virtual void visitNRepeatStatement(NRepeatUntilStatement* node) {
+    virtual void visitNRepeatUntilStatement(NRepeatUntilStatement* node) {
         std::cout << "NRepeatUntilStatement(condition=";
         node->condition->visit(this);
         std::cout << ", block=\n\t";
@@ -688,13 +649,8 @@ class PrettyPrintVisitor : public Visitor {
                 std::cout << ", ";
             }
         }
-        std::cout << "], expressions=[";
-        for (auto expr : node->expressions) {
-            expr->visit(this);
-            if (expr != node->expressions.back()) {
-                std::cout << ", ";
-            }
-        }
+        std::cout << "], expression=[";
+        node->expression->visit(this);
         std::cout << "], block=\n\t";
         node->block->visit(this);
         std::cout << ")";
@@ -721,8 +677,10 @@ class PrettyPrintVisitor : public Visitor {
             std::cout << ", type=";
             node->type->visit(this);
         }
-        std::cout << ", expr=";
-        node->expression->visit(this);
+        if (node->expression != nullptr) {
+            std::cout << ", expr=";
+            node->expression->visit(this);
+        }
         std::cout << ")";
     }
 
@@ -739,8 +697,7 @@ class PrettyPrintVisitor : public Visitor {
             stmt->visit(this);
             std::cout << std::endl;
         }
-
-        std::cout << "  ]";
+        std::cout << "\n  ]";
         if (node->returnExpr != nullptr) {
             std::cout << ",\n  returnExpr=";
             node->returnExpr->visit(this);
@@ -809,12 +766,594 @@ class PrettyPrintVisitor : public Visitor {
         // TODO: print struct type
         std::cout << "NStructType";
     }
+};
 
-    virtual void visitNTypedVar(NTypedVar* node) {
-        std::cout << "NTypedVar(id=";
-        node->ident->visit(this);
-        std::cout << ", type=";
-        node->type->visit(this);
-        std::cout << ")";
+class TypeChecker : public Visitor {
+   public:
+    bool isInsideFunction = false;
+    NType* functionReturnType = nullptr;
+    PrettyPrintVisitor* prettyPrinter;
+    TypeChecker(PrettyPrintVisitor* prettyPrinter) : prettyPrinter(prettyPrinter) {}
+
+    bool compareTypes(NType* lhs, NType* rhs) {
+        // since it is pointers to different objects, we need to check
+        // if they are pointers for the same class
+        if (lhs == nullptr || rhs == nullptr) {
+            if (lhs == nullptr && rhs == nullptr) {
+                return true;
+            }
+            return false;
+        }
+        if (typeid(*lhs) != typeid(*rhs)) {
+            return false;
+        }
+        // if it is a table type, we need to check the key and value types
+        if (typeid(*lhs) == typeid(NTableType)) {
+            return compareTableTypes(dynamic_cast<NTableType*>(lhs), dynamic_cast<NTableType*>(rhs));
+        } else if (typeid(*lhs) == typeid(NFunctionType)) {
+            return compareFunctionTypes(dynamic_cast<NFunctionType*>(lhs), dynamic_cast<NFunctionType*>(rhs));
+        } else if (typeid(*lhs) == typeid(NStructType)) {
+            return compareStructTypes(dynamic_cast<NStructType*>(lhs), dynamic_cast<NStructType*>(rhs));
+        }
+        // if it is not a table type, then it is a primitive type
+        // compare primitive types
+        if (typeid(*lhs) == typeid(NNumType)) {
+            return true;
+        } else if (typeid(*lhs) == typeid(NBoolType)) {
+            return true;
+        } else if (typeid(*lhs) == typeid(NStringType)) {
+            return true;
+        } else if (typeid(*lhs) == typeid(NNilType)) {
+            return true;
+        }
+        return false;
     }
+
+    bool compareFunctionTypes(const NFunctionType* t1, const NFunctionType* t2) {
+        if (t1 == nullptr || t2 == nullptr) {
+            return false;
+        }
+        // Compare the return types
+        if (t1->returnTypes == nullptr || t2->returnTypes == nullptr) {
+            // If one of them is null, then they are not the same
+            if (t1->returnTypes != t2->returnTypes) {
+                return false;
+            }
+        } else {
+            // If both of them are not null, then compare the types
+            if (t1->returnTypes->size() != t2->returnTypes->size()) {
+                return false;
+            } else {
+                for (int i = 0; i < t1->returnTypes->size(); ++i) {
+                    if (!compareTypes(t1->returnTypes->at(i), t2->returnTypes->at(i))) {
+                        return false;
+                    }
+                }
+            }
+        }
+        // Compare the argument types
+        if (t1->argumentTypes == nullptr || t2->argumentTypes == nullptr) {
+            // If one of them is null, then they are not the same
+            if (t1->argumentTypes != t2->argumentTypes) {
+                return false;
+            }
+        } else {
+            // If both of them are not null, then compare the types
+            if (t1->argumentTypes->size() != t2->argumentTypes->size()) {
+                return false;
+            } else {
+                for (int i = 0; i < t1->argumentTypes->size(); ++i) {
+                    if (!compareTypes(t1->argumentTypes->at(i)->type, t2->argumentTypes->at(i)->type)) {
+                        return false;
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
+    bool compareStructTypes(NStructType* t1, NStructType* t2) {
+        if (t1 == nullptr || t2 == nullptr) {
+            return false;
+        }
+        // here only check by name is needed, since only unique struct name defines a struct type
+        if (t1->name != t2->name || t1->name == nullptr || t2->name == nullptr) {
+            return false;
+        }
+        // TODO name should be checked in the symbol table and corresponding struct type should be obtained
+        return true;
+    }
+
+    bool compareTableTypes(NTableType* t1, NTableType* t2) {
+        if (t1 == nullptr || t2 == nullptr) {
+            return false;
+        }
+        // compare key types
+        if (!compareTypes(t1->keyType, t2->keyType)) {
+            return false;
+        }
+        // compare value types
+        if (!compareTypes(t1->valueType, t2->valueType)) {
+            return false;
+        }
+        return true;
+    }
+
+    virtual void visitNNum(NNum* node) {
+        node->type = new NNumType();
+    }
+
+    virtual void visitNBool(NBool* node) {
+        node->type = new NBoolType();
+    }
+
+    virtual void visitNString(NString* node) {
+        node->type = new NStringType();
+    }
+
+    virtual void visitNNil(NNil* node) {
+        node->type = new NNilType();
+    }
+
+    virtual void visitNDeclarationStatement(NDeclarationStatement* node) {
+        std::cout << "DeclarationStatement(" << std::endl;
+        std::cout << "lhs: " << node->ident->name;
+        // check if it is a declaration without an expression
+        if (node->expression == nullptr) {
+            if (node->type == nullptr) {
+                std::cout << "TypeError: type not specified, cannot be deduced(no expression)";
+            }
+            std::cout << ")\n"
+                      << std::endl;
+            return;
+        }
+
+        std::cout << std::endl
+                  << "rhs: ";
+        node->expression->visit(this);
+
+        node->expression->visit(this);
+        if (not compareTypes(node->ident->type, node->expression->type)) {
+            if (node->ident->type == nullptr and node->expression->type != nullptr) {
+                node->type = node->expression->type;
+                std::cout << "Deduced type: ";
+                node->type->visit(this->prettyPrinter);
+            } else {
+                std::cout << "TypeError: type mismatch, rhs type: ";
+                if (node->expression->type == nullptr) {
+                    std::cout << "not defined";
+                } else {
+                    node->expression->type->visit(this->prettyPrinter);
+                }
+                std::cout << ", but should be ";
+                node->ident->type->visit(this->prettyPrinter);
+            }
+        } else if (node->ident->type == nullptr) {
+            // both types are not defined
+            std::cout << "TypeError: both types are not defined";
+        } else {
+            std::cout << "Type approved, type: ";
+            node->ident->type->visit(this->prettyPrinter);
+        }
+        std::cout << ")" << std::endl;
+    }
+
+    virtual void visitNExpression(NExpression* node) {
+        std::cout << "Expression(";
+        node->visit(this->prettyPrinter);
+        std::cout << ", has type: ";
+        if (node->type == nullptr) {
+            std::cout << "TypeError: unknown expression(type unknown)";
+        } else {
+            node->type->visit(this->prettyPrinter);
+        }
+        std::cout << ")" << std::endl;
+    }
+
+    virtual void visitNIdentifier(NIdentifier* node) {
+        std::cout << "Identifier(";
+        node->visit(this->prettyPrinter);
+        std::cout << ", has type: ";
+        if (node->type == nullptr) {
+            std::cout << "UNKNOWN, check in the symbol table, or it is not declared";
+        } else {
+            node->type->visit(this->prettyPrinter);
+        }
+        std::cout << ")" << std::endl;
+    }
+
+    virtual void visitNBinaryOperatorExpression(NBinaryOperatorExpression* node) {
+        std::cout << "BinaryOperatorExpression(";
+        std::cout << " has type: ";
+        // TODO: check if the types are correct
+        std::cout << ")" << std::endl;
+    }
+
+    virtual void visitNUnaryOperatorExpression(NUnaryOperatorExpression* node) {
+        // TODO: check if the type is correct
+    }
+
+    virtual void visitNExpressionCall(NExpressionCall* node) {
+        std::cout << "ExpressionCall(";
+        node->visit(this->prettyPrinter);
+
+        if (node->expr == nullptr) {
+            std::cout << "TypeError: expression is not defined";
+            std::cout << ")" << std::endl;
+            return;
+        }
+        node->expr->visit(this);  // set type of the expression
+
+        //  check if the expression is a function
+        if (dynamic_cast<NFunctionType*>(node->expr->type) == nullptr) {
+            std::cout << "TypeError: expression is not a function";
+            std::cout << ")" << std::endl;
+            return;
+        }
+        auto functionType = dynamic_cast<NFunctionType*>(node->expr->type);
+
+        // check argument types
+        if (functionType->argumentTypes == nullptr || node->exprlist.empty()) {
+            // check if both is empty
+            if (functionType->argumentTypes != nullptr || not node->exprlist.empty()) {
+                std::cout << "TypeError: number of arguments is not correct";
+                std::cout << ")" << std::endl;
+                return;
+            }
+        } else {
+            // If the number of arguments is not 0, check the number of arguments and the types
+            if (functionType->argumentTypes->size() != node->exprlist.size()) {
+                std::cout << "TypeError: number of arguments is not correct";
+                std::cout << ")" << std::endl;
+                return;
+            } else {
+                for (int i = 0; i < functionType->argumentTypes->size(); i++) {
+                    node->exprlist.at(i)->visit(this);  // set type of the expression
+                    if (node->exprlist.at(i)->type == nullptr) {
+                        std::cout << "TypeError: argument type is not correct";
+                        std::cout << "At position " << i << " expected type: ";
+                        functionType->argumentTypes->at(i)->type->visit(this->prettyPrinter);
+                        std::cout << " but got type: UNKNOWN";
+                        std::cout << ")" << std::endl;
+                        return;
+                    }
+                    if (not compareTypes(functionType->argumentTypes->at(i)->type, node->exprlist.at(i)->type)) {
+                        std::cout << "TypeError: argument type is not correct";
+                        std::cout << "At position " << i << " expected type: ";
+                        functionType->argumentTypes->at(i)->type->visit(this->prettyPrinter);
+                        std::cout << " but got type: ";
+                        node->exprlist.at(i)->type->visit(this->prettyPrinter);
+                        std::cout << ")" << std::endl;
+                        return;
+                    }
+                }
+            }
+        }
+        // set type to the return type of the function
+        if (functionType->returnTypes != nullptr) {
+            // assign to the first element of the return type list (for now)
+            node->type = functionType->returnTypes->at(0);
+        } else {
+            // if the function does not return anything, set the type to nil
+            node->type = new NNilType();
+        }
+        std::cout << "Type approved, return type: ";
+        node->type->visit(this->prettyPrinter);
+        std::cout << ")" << std::endl;
+    }
+
+    void checkConditionalExpression(NExpression* expression) {
+        // check if type of expression->type pointer is pointer to class NBoolType
+        if (expression->type == nullptr) {
+            std::cout << "TypeError: expression type not known (cannot be approved)";
+        } else if (dynamic_cast<NBoolType*>(expression->type) == nullptr) {
+            std::cout << "TypeError: wrong type (condition is ";
+            expression->type->visit(this->prettyPrinter);
+            std::cout << " but should be bool)";
+        } else {
+            std::cout << "Type approved(bool)";
+        }
+    }
+
+    void checkConditionalBlockList(std::vector<conditionBlock*> conditionBlockList) {
+        for (auto conditionBlock : conditionBlockList) {
+            std::cout << "condition: ";
+            conditionBlock->first->visit(this);
+            checkConditionalExpression(conditionBlock->first);
+            std::cout << std::endl;
+        }
+    }
+
+    virtual void visitNIfStatement(NIfStatement* node) {
+        std::cout << "IfStatement(";
+        node->visit(this->prettyPrinter);
+        checkConditionalBlockList(node->conditionBlockList);
+        std::cout << ")" << std::endl;
+    }
+
+    virtual void visitNWhileStatement(NWhileStatement* node) {
+        std::cout << "WhileStatement(";
+        std::cout << "condition: ";
+        node->condition->visit(this);
+        node->visit(this->prettyPrinter);
+        checkConditionalExpression(node->condition);
+        std::cout << ")" << std::endl;
+    }
+
+    virtual void visitNRepeatUntilStatement(NRepeatUntilStatement* node) {
+        std::cout << "RepeatUntilStatement(";
+        node->visit(this->prettyPrinter);
+        std::cout << "condition: ";
+        node->condition->visit(this);
+        checkConditionalExpression(node->condition);
+        std::cout << ")" << std::endl;
+    }
+
+    virtual void visitNNumericForStatement(NNumericForStatement* node) {
+        std::cout << "NumericForStatement(";
+        if (node->start == nullptr || node->end == nullptr) {
+            std::cout << "TypeError: start or end is not defined";
+            std::cout << ")" << std::endl;
+            return;
+        }
+
+        if (node->step == nullptr) {
+            // if step is not defined, set it to 1
+            node->step = new NNum(1);
+        }
+        node->start->visit(this);
+        node->end->visit(this);
+        node->step->visit(this);
+
+        // check if the start, end and step are numbers
+        if (not compareTypes(node->start->type, new NNumType()) ||
+            not compareTypes(node->end->type, new NNumType()) ||
+            not compareTypes(node->step->type, new NNumType())) {
+            std::cout << "TypeError: start, end or step is not a number";
+            std::cout << ")" << std::endl;
+            return;
+        }
+        std::cout << ")" << std::endl;
+    }
+
+    virtual void visitNGenericForStatement(NGenericForStatement* node) {
+        std::cout << "GenericForStatement(";
+        // TODO: check if the type of the variable is correct
+    }
+
+    virtual void visitNReturnStatement(NReturnStatement* node) {
+        std::cout << "ReturnStatement(";
+        if (not this->isInsideFunction) {
+            std::cout << "TypeError: return statement is not in a function";
+            std::cout << ")" << std::endl;
+            return;
+        }
+        node->expression->visit(this);
+        if (not compareTypes(this->functionReturnType, node->expression->type)) {
+            std::cout << "TypeError: return type is not correct";
+            std::cout << ")" << std::endl;
+            return;
+        }
+        std::cout << "Type approved, return type: ";
+        node->expression->type->visit(this->prettyPrinter);
+        std::cout << ")" << std::endl;
+    }
+
+    virtual void visitNTableConstructor(NTableConstructor* node) {
+        std::cout << "TableConstructor(";
+        // TODO: check if the type of the table is correct
+        std::cout << ")" << std::endl;
+    }
+
+    virtual void visitNFunctionDeclaration(NFunctionDeclaration* node) {
+        this->isInsideFunction = true;
+        std::cout << "FunctionDeclaration(";
+        node->visit(this->prettyPrinter);
+        // create a function type for the function
+        auto arglist = NDeclarationStatement::toIdentifierList(node->arguments);
+        node->id->type = new NFunctionType(arglist, node->return_type);
+        // set the return type of the function for the return statement check
+        if (node->return_type != nullptr) {
+            this->functionReturnType = node->return_type->at(0);
+        } else {
+            this->functionReturnType = nullptr;
+        }
+        node->block->visit(this);
+        this->isInsideFunction = false;
+    }
+
+    virtual void visitNAccessKey(NAccessKey* node) {
+        std::cout << "\nAccessKey(";
+        node->visit(this->prettyPrinter);
+        std::cout << "\n key: ";
+        node->expr->visit(this);
+        if (node->expr->type == nullptr) {
+            std::cout << "TypeError: expression type not known (cannot be approved)";
+            std::cout << ")" << std::endl;
+            return;
+        }
+        // check if indexExpr is NAcessKey
+        if (dynamic_cast<NAccessKey*>(node->indexExpr) != nullptr) {
+        }
+        // check if the type of expr is a table
+        if (dynamic_cast<NTableType*>(node->expr->type) != nullptr) {
+            // check if table has the key
+            auto tableType = dynamic_cast<NTableType*>(node->expr->type);
+            node->indexExpr->visit(this);
+            if (not compareTypes(tableType->keyType, node->indexExpr->type)) {
+                std::cout << "TypeError: key type is not correct";
+                std::cout << ")" << std::endl;
+                return;
+            } else {
+                std::cout << "Type approved, key type: ";
+                node->indexExpr->type->visit(this->prettyPrinter);
+                std::cout << ")" << std::endl;
+                return;
+            }
+        } else if (dynamic_cast<NStructType*>(node->expr->type) != nullptr) {
+            // check if struct has the key
+            auto structType = dynamic_cast<NStructType*>(node->expr->type);
+            // if indexExpr is function call, check if the function in a struct
+            // if indexExpr is identifier, check if the identifier is a struct
+            if (dynamic_cast<NExpressionCall*>(node->indexExpr) != nullptr) {
+                auto functionCall = dynamic_cast<NExpressionCall*>(node->indexExpr);
+                if (functionCall == nullptr) {
+                    std::cout << "TypeError: function call is not correct";
+                    std::cout << ")" << std::endl;
+                    return;
+                }
+                // expression if a name of a function -> check if the function is in a struct
+                // cast functionCall->expr to NIdentifier
+                auto functionIdent = dynamic_cast<NIdentifier*>(functionCall->expr);
+                if (functionIdent == nullptr) {
+                    std::cout << "TypeError: function has no name";
+                    std::cout << ")" << std::endl;
+                    return;
+                }
+                // iterate over methods of the structType fields structType->field is a vector of NIdentifier
+                for (auto method : *structType->methods) {
+                    if (method->name == functionIdent->name) {
+                        // cast method->type to NFunctionType
+                        auto methodType = dynamic_cast<NFunctionType*>(method->type);
+                        // check if the function arguments are correct
+                        functionCall->expr->type = method->type;
+                        functionCall->visit(this);
+
+                        if (not compareTypes(functionCall->type, methodType->returnTypes->at(0))) {
+                            std::cout << "TypeError: return type is not correct, type check failed";
+                            std::cout << ")" << std::endl;
+                            return;
+                        } else {
+                            std::cout << "Type approved, return type: ";
+                            functionCall->type->visit(this->prettyPrinter);
+                            std::cout << ")" << std::endl;
+                            return;
+                        }
+                    }
+                }
+            } else if (dynamic_cast<NIdentifier*>(node->indexExpr) != nullptr) {
+                auto identifier = dynamic_cast<NIdentifier*>(node->indexExpr);
+                if (identifier == nullptr) {
+                    std::cout << "TypeError: identifier is not correct";
+                    std::cout << ")" << std::endl;
+                    return;
+                }
+
+                for (auto field : *structType->fields) {
+                    if (field->name == identifier->name) {
+                        node->indexExpr->type = field->type;
+                        node->indexExpr->visit(this);
+                        std::cout << "Type approved, identifier type: ";
+                        identifier->type->visit(this->prettyPrinter);
+                        std::cout << ")" << std::endl;
+                        return;
+                    }
+                }
+            } else {
+                std::cout << "TypeError: indexExpr is not a function call or identifier";
+                std::cout << ")" << std::endl;
+                return;
+            }
+        }
+        std::cout << "TypeError: expr is not a table or struct";
+        std::cout << ")" << std::endl;
+    }
+
+    virtual void
+    visitNDoStatement(NDoStatement* node) {
+        node->block->visit(this);
+    }
+
+    virtual void visitNAssignmentStatement(NAssignmentStatement* node) {
+        std::cout << "AssignmentStatement(";
+        node->visit(this->prettyPrinter);
+
+        std::cout << "lhs: ";
+        node->ident->visit(this);
+
+        std::cout << "rhs: ";
+        if (node->expression == nullptr) {
+            std::cout << "TypeError: rhs is not defined";
+            std::cout << ")" << std::endl;
+            return;
+        }
+
+        node->expression->visit(this);
+        if (not compareTypes(node->ident->type, node->expression->type)) {
+            if (node->ident->type == nullptr and node->expression->type != nullptr) {
+                node->type = node->expression->type;
+                std::cout << "Deduced type: ";
+                node->type->visit(this->prettyPrinter);
+            } else {
+                std::cout << "TypeError: type mismatch, rhs type: ";
+                if (node->expression->type == nullptr) {
+                    std::cout << "not defined";
+                } else {
+                    node->expression->type->visit(this->prettyPrinter);
+                }
+                std::cout << ", but should be ";
+                node->ident->type->visit(this->prettyPrinter);
+            }
+        } else if (node->ident->type == nullptr) {
+            // both types are not defined
+            std::cout << "TypeError: both types are not defined";
+        } else {
+            std::cout << "Type approved, type: ";
+            node->ident->type->visit(this->prettyPrinter);
+        }
+        std::cout << ")" << std::endl;
+    }
+
+    virtual void visitNBlock(NBlock* node) {
+        for (auto statement : node->statements) {
+            statement->visit(this);
+        }
+        if (node->returnExpr != nullptr) {
+            node->returnExpr->visit(this);
+        }
+    }
+
+    virtual void visitNStructDeclaration(NStructDeclaration* node) {
+        std::cout << "StructDeclaration(";
+        node->visit(this->prettyPrinter);
+        std::cout << "check type for methods" << std::endl;
+        for (auto method : node->methods) {
+            method->visit(this);
+        }
+        std::cout << "check type for fields" << std::endl;
+        for (auto field : node->fields) {
+            field->visit(this);
+        }
+        // make a struct type for the struct
+        auto fieldlist = NDeclarationStatement::toIdentifierList(&(node->fields));
+        auto methodlist = NFunctionDeclaration::toIdentifierList(&(node->methods));
+        node->id->type = new NStructType(fieldlist, methodlist);
+        std::cout << ")" << std::endl;
+    }
+
+    virtual void visitNType(NType* node) {
+    }
+
+    virtual void visitNStringType(NStringType* node) {
+    }
+
+    virtual void visitNBoolType(NBoolType* node) {
+    }
+
+    virtual void visitNNumType(NNumType* node) {
+    }
+
+    virtual void visitNNilType(NNilType* node) {
+    }
+
+    virtual void visitNTableType(NTableType* node) {
+    }
+
+    virtual void visitNFunctionType(NFunctionType* node) {
+    }
+
+    virtual void visitNStructType(NStructType* node) {
+    }
+
+    // TODO: add type checking for tables and structs(declaration, access, etc.)
 };
