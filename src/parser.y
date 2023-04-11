@@ -249,11 +249,7 @@ exp : expr OP_PLUS expr  {$$ = new NBinaryOperatorExpression($1, $2, $3);}
     | KW_NOT expr {$$ = new NUnaryOperatorExpression($1, $2);}
     ;
 
-<<<<<<< HEAD
-typed_var : ident OP_COLON type_ident {$$ = new NDeclarationStatement($1, $3);}
-=======
 typed_var : ident OP_COLON type_ident {$$ = new NDeclarationStatement($1, $3, new NExpression(), Position(@ident.first_line, @ident.first_column));}
->>>>>>> f973284 (Init commit)
     ;
 
 typed_var_list: typed_var { $$ = new std::vector<NDeclarationStatement *>(); $$->push_back($1);}

@@ -91,7 +91,6 @@ class Visitor {
     virtual void visitNTableType(NTableType* node) = 0;
     virtual void visitNFunctionType(NFunctionType* node) = 0;
     virtual void visitNStructType(NStructType* node) = 0;
-    virtual void visitNTypedVar(NTypedVar* node) = 0;
     virtual void cleanup() = 0;
 };
 
@@ -359,12 +358,12 @@ class NIdentifier : public NExpression {
     std::string name;
     Position position;
     NIdentifier(const std::string *name, Position position) : name(*name), position(position) {}
-    NIdentifier(NType* type, Position position) : name(""), position(position) { this->type = type; }
+    NIdentifier(NType* type) : name(""), position(Position(0, 0)) { this->type = type; }
 
     static IdentifierList* fromTypeList(typeList* types) {
         IdentifierList* list = new IdentifierList();
         for (auto type : *types) {
-            list->push_back(new NIdentifier(type, Position(0, 0)));
+            list->push_back(new NIdentifier(type));
         }
         return list;
     }
@@ -505,9 +504,24 @@ class NDeclarationStatement : public NStatement {
     NDeclarationStatement(
         NIdentifier* ident,
         NType* type,
-        NExpression* expression
-    ) : ident(ident), type(type), expression(expression), position(Position(0, 0)) {
+        NExpression* expression,
+        Position position
+    ) : ident(ident), type(type), expression(expression), position(position) {
         this->ident->type = type;
+    }
+
+    static IdentifierList *toIdentifierList(std::vector<NDeclarationStatement *> *declarations)
+    {
+        if (declarations == nullptr)
+        {
+            return nullptr;
+        }
+        IdentifierList *list = new IdentifierList();
+        for (auto declaration : *declarations)
+        {
+            list->push_back(declaration->ident);
+        }
+        return list;
     }
 
     virtual void visit(Visitor* v) { v->visitNDeclarationStatement(this); }
@@ -539,8 +553,6 @@ class NExpressionCall : public NExpression {
 
 class NFunctionDeclaration : public NStatement {
    public:
-    //    TODO initialize function_type
-    NType* function_type;
     typeList* return_type;
     NIdentifier* id;
     std::vector<NDeclarationStatement*>* arguments;
@@ -890,6 +902,7 @@ class PrettyPrintVisitor : public Visitor {
         // TODO: print struct type
         std::cout << "NStructType";
     }
+    virtual void cleanup() {}
 };
 
 class TypeChecker : public Visitor {
@@ -1401,8 +1414,6 @@ class TypeChecker : public Visitor {
             std::cout << ")" << std::endl;
             return;
         }
-    virtual void cleanup() {}
-
         node->expression->visit(this);
         if (not compareTypes(node->ident->type, node->expression->type)) {
             if (node->ident->type == nullptr and node->expression->type != nullptr) {
@@ -1480,6 +1491,9 @@ class TypeChecker : public Visitor {
     virtual void visitNStructType(NStructType* node) {
     }
 
+    virtual void cleanup() {
+    }
+
     // TODO: add type checking for tables and structs(declaration, access, etc.)
 };
 class SymbolTableFillerVisitor : public SymtabVisitor {
@@ -1508,8 +1522,6 @@ public:
         node->rhs->visit(this);
     }
 
-    virtual void visitNTableField(NTableField* node) {}
-
     virtual void visitNTableConstructor(NTableConstructor* node) {}
 
     virtual void visitNFunctionDeclaration(NFunctionDeclaration* node) {
@@ -1523,8 +1535,6 @@ public:
         node->block->visit(this);
         symtab_storage->symtab->scope_ended();
     }
-
-    virtual void visitNFunctionArgument(NFunctionArgument* node) {}
 
     virtual void visitNWhileStatement(NWhileStatement* node) {
         symtab_storage->symtab->scope_started();
@@ -1570,6 +1580,12 @@ public:
         symtab_storage->symtab->scope_ended();
     }
 
+    virtual void visitNRepeatUntilStatement(NRepeatUntilStatement* node) {
+        symtab_storage->symtab->scope_started();
+        node->block->visit(this);
+        symtab_storage->symtab->scope_ended();
+    }
+
     virtual void visitNDeclarationStatement(NDeclarationStatement* node) {
         SymbolTableEntry *entry = new SymbolTableEntry(node->ident->name, node->position);
         symtab_storage->symtab->declare(entry);
@@ -1609,7 +1625,6 @@ public:
     virtual void visitNTableType(NTableType* node) { return; }
     virtual void visitNFunctionType(NFunctionType* node) { return; }
     virtual void visitNStructType(NStructType* node) { return; }
-    virtual void visitNTypedVar(NTypedVar* node) { return; }
     virtual void visitNAccessKey(NAccessKey* node) {}
     virtual void visitNAssignmentStatement(NAssignmentStatement * node) { }
 
@@ -1685,8 +1700,6 @@ public:
         node->rhs->visit(this);
     }
 
-    virtual void visitNTableField(NTableField* node) {}
-
     virtual void visitNTableConstructor(NTableConstructor* node) {}
 
     virtual void visitNFunctionDeclaration(NFunctionDeclaration* node) {
@@ -1694,8 +1707,6 @@ public:
         node->block->visit(this);
         symtab_storage->symtab->exit_scope();
     }
-
-    virtual void visitNFunctionArgument(NFunctionArgument* node) {}
 
     virtual void visitNWhileStatement(NWhileStatement* node) {
         node->condition->visit(this);
@@ -1737,6 +1748,12 @@ public:
     }
 
     virtual void visitNGenericForStatement(NGenericForStatement* node) {
+        symtab_storage->symtab->enter_scope();
+        node->block->visit(this);
+        symtab_storage->symtab->exit_scope();
+    }
+    virtual void visitNRepeatUntilStatement(NRepeatUntilStatement* node) { 
+        node->condition->visit(this);
         symtab_storage->symtab->enter_scope();
         node->block->visit(this);
         symtab_storage->symtab->exit_scope();
@@ -1784,7 +1801,6 @@ public:
     virtual void visitNTableType(NTableType* node) { return; }
     virtual void visitNFunctionType(NFunctionType* node) { return; }
     virtual void visitNStructType(NStructType* node) { return; }
-    virtual void visitNTypedVar(NTypedVar* node) { return; }
     virtual void visitNAccessKey(NAccessKey* node) {}
     virtual void visitNAssignmentStatement(NAssignmentStatement * node) {}
 };
