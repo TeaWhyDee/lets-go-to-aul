@@ -10,12 +10,18 @@ int main(int argc, char **argv)
     yyparse();
     Visitor *visitors[] = {
         new PrettyPrintVisitor(),
-        new SymbolTableFillerVisitor(symtab_storage)
+        new SymbolTableFillerVisitor(symtab_storage),
+        new DeclaredBeforeUseCheckerVisitor(symtab_storage),
     };
-    for (auto visitor: visitors) {
-        std::cout << "visit " << visitor->name << std::endl;
-        programBlock->visit(visitor);
-        std::cout << std::endl;
+    try{
+        for (auto visitor: visitors) {
+            std::cout << "visit " << visitor->name << std::endl;
+            programBlock->visit(visitor);
+            std::cout << std::endl;
+            visitor->cleanup();
+        }
+    } catch (SemanticError* e) {
+        std::cout << "Semantic error: " << e->what() << std::endl;
     }
     return 0;
 }

@@ -264,8 +264,8 @@ function_decl : KW_FUNCTION ident OP_LBRACE typed_var_list OP_RBRACE OP_ARROW ty
     |  KW_FUNCTION ident OP_LBRACE typed_var_list OP_RBRACE block KW_END { $$ = new NFunctionDeclaration(nullptr, $ident, $typed_var_list, $block, Position(@ident.first_line, @ident.first_column));}
     |  KW_FUNCTION ident OP_LBRACE OP_RBRACE OP_ARROW typelist block KW_END { $$ = new NFunctionDeclaration($typelist, $ident, new std::vector<NDeclarationStatement*>(), $block, Position(@ident.first_line, @ident.first_column));}
     |  KW_FUNCTION ident OP_LBRACE OP_RBRACE block KW_END { $$ = new NFunctionDeclaration(nullptr, $ident, new std::vector<NDeclarationStatement*>(), $block, Position(@ident.first_line, @ident.first_column));}
-    |  KW_NEW OP_LBRACE OP_RBRACE block KW_END { $$ = new NFunctionDeclaration(nullptr, new NIdentifier(new std::string("new")), new std::vector<NDeclarationStatement*>(), $block, Position(@block.first_line, @block.first_column));}
-    |  KW_NEW OP_LBRACE typed_var_list OP_RBRACE block KW_END { $$ = new NFunctionDeclaration(nullptr, new NIdentifier(new std::string("new")), $typed_var_list, $block, Position(@block.first_line, @block.first_column));}
+    |  KW_NEW OP_LBRACE OP_RBRACE block KW_END { $$ = new NFunctionDeclaration(nullptr, new NIdentifier(new std::string("new"), Position(@KW_NEW.first_line, @KW_NEW.first_column)), new std::vector<NDeclarationStatement*>(), $block, Position(@block.first_line, @block.first_column));}
+    |  KW_NEW OP_LBRACE typed_var_list OP_RBRACE block KW_END { $$ = new NFunctionDeclaration(nullptr, new NIdentifier(new std::string("new"), Position(@KW_NEW.first_line, @KW_NEW.first_column)), $typed_var_list, $block, Position(@block.first_line, @block.first_column));}
     ;
 
 struct_decl : KW_STRUCT ident KW_END { $$ = new NStructDeclaration($ident, Position(@ident.first_line, @ident.first_column),new StructBody());}
@@ -284,7 +284,7 @@ type_ident: KW_STR { $$ = new NStringType(); }
     | KW_TABLE OP_LSQUARE_BRACE type_ident OP_COMMA type_ident OP_RSQUARE_BRACE { $$ = new NTableType($3, $5); }
     | KW_NIL { $$ = new NNilType(); }
     | function_type
-    | ID { $$ = new NStructType(new NIdentifier($1)); }
+    | ID { $$ = new NStructType(new NIdentifier($ID, Position(@ID.first_line, @ID.first_column))); }
     ;
 
 typelist : type_ident { $$ = new std::vector<NType *>(); $$->push_back($1); }
@@ -297,7 +297,7 @@ function_type: KW_FUNCTION OP_LBRACE typelist OP_RBRACE OP_ARROW typelist { $$ =
     | KW_FUNCTION OP_LBRACE OP_RBRACE { $$ = new NFunctionType({}, {}); }
     ;
 
-ident : ID { $$ = new NIdentifier($1); delete $1; }
+ident : ID { $$ = new NIdentifier($ID, Position(@ID.first_line, @ID.first_column)); delete $1; }
     ;
 %%
 
