@@ -202,6 +202,8 @@ access_member : access_member OP_LSQUARE_BRACE expr OP_RSQUARE_BRACE { $$ = new 
               /* | access_member OP_DOT function_call { $$ = new NExpressionCall($1, $3); } */
               | access_member OP_LBRACE OP_RBRACE {$$ = new NExpressionCall($1, std::vector<NExpression *>());}
               | access_member OP_LBRACE expr_list OP_RBRACE {$$ = new NExpressionCall($1, *$3);}
+              | KW_SELF { std::string* str = new std::string("self");
+                            $$ = new NIdentifier(str); }
               | ident
               | function_call
     ;
