@@ -8,17 +8,10 @@ extern int yyparse();
 
 int main(int argc, char** argv) {
     yyparse();
-<<<<<<< HEAD
     auto pretty_print_visitor = new PrettyPrintVisitor();
-    auto type_checker = new TypeChecker(pretty_print_visitor);
-
-    std::cout << "\n\n-----------Type check-----------" << std::endl;
-    programBlock->visit(type_checker);
-    std::cout << "-----------Pretty print-----------" << std::endl;
-    programBlock->visit(pretty_print_visitor);
-=======
     Visitor *visitors[] = {
-        new PrettyPrintVisitor(),
+        new TypeChecker(pretty_print_visitor),
+        pretty_print_visitor,
         new SymbolTableFillerVisitor(),
         new DeclaredBeforeUseCheckerVisitor(),
     };
@@ -32,6 +25,5 @@ int main(int argc, char** argv) {
     } catch (SemanticError* e) {
         std::cout << "Semantic error: " << e->what() << std::endl;
     }
->>>>>>> f973284 (Init commit)
     return 0;
 }
