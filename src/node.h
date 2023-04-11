@@ -510,15 +510,12 @@ class NDeclarationStatement : public NStatement {
         this->ident->type = type;
     }
 
-    static IdentifierList *toIdentifierList(std::vector<NDeclarationStatement *> *declarations)
-    {
-        if (declarations == nullptr)
-        {
+    static IdentifierList *toIdentifierList(std::vector<NDeclarationStatement *> *declarations) {
+        if (declarations == nullptr) {
             return nullptr;
         }
         IdentifierList *list = new IdentifierList();
-        for (auto declaration : *declarations)
-        {
+        for (auto declaration : *declarations) {
             list->push_back(declaration->ident);
         }
         return list;
@@ -1414,6 +1411,7 @@ class TypeChecker : public Visitor {
             std::cout << ")" << std::endl;
             return;
         }
+
         node->expression->visit(this);
         if (not compareTypes(node->ident->type, node->expression->type)) {
             if (node->ident->type == nullptr and node->expression->type != nullptr) {
