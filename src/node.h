@@ -178,18 +178,12 @@ public:
         this->children.push_back(child);
         extern SymbolTableStorage *symtab_storage;
         symtab_storage->symtab = child;
-        std::cout << "parent: " << this << std::endl;
-        std::cout << "child: " << child << std::endl;
-        std::cout << "symtab: " << symtab_storage->symtab << std::endl;
     }
 
     virtual void scope_ended() {
         // current symbol table is the parent
         std::cout << "Scope ended" << std::endl;
         symtab_storage->symtab = symtab_storage->symtab->parent;
-        std::cout << "child: " << symtab_storage->symtab << std::endl;
-        std::cout << "child: " << symtab_storage->symtab->parent << std::endl;
-        std::cout << "symtab: " << symtab_storage->symtab << std::endl;
     }
 };
 
@@ -592,11 +586,12 @@ class StructBody {
 class NStructDeclaration : public NStatement {
    public:
     NIdentifier* id;
+    Position position;
     std::vector<NDeclarationStatement*> fields;
     std::vector<NFunctionDeclaration*> methods;
 
-    NStructDeclaration(NIdentifier* id, StructBody* body)
-        : id(id), fields(body->fields), methods(body->methods) {}
+    NStructDeclaration(NIdentifier* id, Position position, StructBody* body)
+        : id(id), position(position), fields(body->fields), methods(body->methods) {}
 
     virtual void visit(Visitor* v) { v->visitNStructDeclaration(this); }
 };
@@ -979,6 +974,8 @@ public:
         for (auto block : node->conditionBlockList) {
             block->second->visit(this);
         }
+
+        node->elseBlock->visit(this);
     }
 
     virtual void visitNNumericForStatement(NNumericForStatement* node) {
@@ -1009,7 +1006,15 @@ public:
     virtual void visitNExpression(NExpression* node) { return; }
 
     virtual void visitNStructDeclaration(NStructDeclaration* node) {
-        std::cout << "FIXME: Add struct declaration to symbol table" << std::endl;
+        SymbolTableEntry *entry = new SymbolTableEntry(node->id->name, node->position);
+        this->symtab_storage->symtab->declare(entry);
+        this->symtab_storage->symtab->scope_started();
+        for (auto field: node->fields) {
+            field->visit(this);
+        }
+        for (auto method: node->methods) {
+            method->visit(this);
+        }
     }
     virtual void visitNExpressionCall(NExpressionCall* node) { return; }
     virtual void visitNType(NType* node) { return; }
@@ -1021,4 +1026,6 @@ public:
     virtual void visitNFunctionType(NFunctionType* node) { return; }
     virtual void visitNStructType(NStructType* node) { return; }
     virtual void visitNTypedVar(NTypedVar* node) { return; }
+    virtual void visitNAccessKey(NAccessKey* node) {}
+    virtual void visitNAssignmentStatement(NAssignmentStatement * node) { }
 };

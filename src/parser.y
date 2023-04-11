@@ -268,8 +268,8 @@ function_decl : KW_FUNCTION ident OP_LBRACE typed_var_list OP_RBRACE OP_ARROW ty
     |  KW_NEW OP_LBRACE typed_var_list OP_RBRACE block KW_END { $$ = new NFunctionDeclaration(nullptr, new NIdentifier(new std::string("new")), $typed_var_list, $block, Position(@block.first_line, @block.first_column));}
     ;
 
-struct_decl : KW_STRUCT ident KW_END { $$ = new NStructDeclaration($ident, new StructBody());}
-        |  KW_STRUCT ident struct_body KW_END { $$ = new NStructDeclaration($ident, $struct_body);}
+struct_decl : KW_STRUCT ident KW_END { $$ = new NStructDeclaration($ident, Position(@ident.first_line, @ident.first_column),new StructBody());}
+        |  KW_STRUCT ident struct_body KW_END { $$ = new NStructDeclaration($ident, Position(@ident.first_line, @ident.first_column), $struct_body);}
     ;
 
 struct_body : typed_var { $$ = new StructBody(); $$->fields.push_back($1);}
