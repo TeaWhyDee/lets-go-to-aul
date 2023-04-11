@@ -11,7 +11,7 @@ test: flex
 
 bison:
 	# bison --graph -Wcounterexamples -d -o parser.cpp parser.y;
-	bison -Wcounterexamples -d -o parser.cpp parser.y;
+	bison -Wall -d -o parser.cpp parser.y;
 
 report:
 	bison --report all -Wcounterexamples -d -o parser.cpp parser.y;

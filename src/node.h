@@ -972,10 +972,16 @@ public:
 
     virtual void visitNIfStatement(NIfStatement* node) {
         for (auto block : node->conditionBlockList) {
+            symtab_storage->symtab->scope_started();
             block->second->visit(this);
+            symtab_storage->symtab->scope_ended();
         }
 
-        node->elseBlock->visit(this);
+        if (node->elseBlock != nullptr) {
+            symtab_storage->symtab->scope_started();
+            node->elseBlock->visit(this);
+            symtab_storage->symtab->scope_ended();
+        }
     }
 
     virtual void visitNNumericForStatement(NNumericForStatement* node) {
