@@ -896,7 +896,7 @@ class TypeChecker : public Visitor {
     virtual void visitNBinaryOperatorExpression(NBinaryOperatorExpression* node) {
         /*
         num: + - * / % ^ // & | ~ << >> ARE num, < > <= >= ARE bool
-        str: .. IS str, # IS num, < > <= >= ARE bool 
+        str: .. IS str, < > <= >= ARE bool 
         */
         std::cout << "BinaryOperatorExpression(";
         node->visit(this->prettyPrinter);
@@ -920,6 +920,31 @@ class TypeChecker : public Visitor {
             std::cout << "TypeError: operand types are not equal or the binary operation is not supported";
         }
         
+        std::cout << ")" << std::endl;
+    }
+
+    virtual void visitNUnaryOperatorExpression(NUnaryOperatorExpression* node) {
+        /*
+        num: - ~ ARE num
+        str: # IS num
+        */
+        std::cout << "UnaryOperatorExpression(";
+        node->visit(this->prettyPrinter);
+        std::cout << " has type: ";
+
+        NNumType* numExpr = dynamic_cast<NNumType*>(node->rhs->type);
+        NStringType* strExpr = dynamic_cast<NStringType*>(node->rhs->type);
+
+        if (node->type == nullptr) {
+            std::cout << "TypeError: expression type is not known (cannot be approved)";
+        } else if (numExpr != nullptr) {
+            // TODO: the expr is num, check the num operands
+        } else if (strExpr == nullptr) {
+            // TODO: the expr is str, check the str operands
+        } else {
+            std::cout << "TypeError: the unary operation is not supported";
+        }
+
         std::cout << ")" << std::endl;
     }
 
