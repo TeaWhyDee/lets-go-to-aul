@@ -1191,13 +1191,62 @@ class TypeChecker : public Visitor {
 
     virtual void visitNBinaryOperatorExpression(NBinaryOperatorExpression* node) {
         std::cout << "BinaryOperatorExpression(";
-        std::cout << " has type: ";
-        // TODO: check if the types are correct
+        node->visit(this->prettyPrinter);
+        node->lhs->visit(this);
+        node->rhs->visit(this);
+        if (node->lhs->type != nullptr and compareTypes(node->lhs->type, node->rhs->type)) {
+            node->type = node->lhs->type;
+            std::cout << "Type approved, type: ";
+            node->type->visit(this->prettyPrinter);
+        } else {
+            std::cout << "TypeError: type mismatch, lhs type: ";
+            if (node->lhs->type == nullptr) {
+                std::cout << "not defined";
+            } else {
+                node->lhs->type->visit(this->prettyPrinter);
+            }
+            std::cout << ", rhs type: ";
+            if (node->rhs->type == nullptr) {
+                std::cout << "not defined";
+            } else {
+                node->rhs->type->visit(this->prettyPrinter);
+            }
+            std::cout << ", but should be the same";
+            std::cout << ")" << std::endl;
+            return;
+        }
+        // // TODO: checkNNumType* leftNum = dynamic_cast<NNumType*>(node->lhs->type);
+        // NStringType* leftStr = dynamic_cast<NStringType*>(node->lhs->type);
+        // NNumType* rightNum = dynamic_cast<NNumType*>(node->rhs->type);
+        // NStringType* rightStr = dynamic_cast<NStringType*>(node->rhs->type);
+        // // TODO: check the operand type suitable for num or str
+
+        // if (node->type == nullptr) {
+        //     std::cout << "TypeError: expression type is not known (cannot be approved)";
+        // } else if (leftNum != nullptr && rightNum != nullptr) {
+        //     // TODO: check the operator leads to a num or bool expression,
+        //     // then, check the expr type itself and if they are equal
+        // } else if (leftStr != nullptr && rightStr != nullptr) {
+        //     // TODO: check the operator leads to a num, str or bool expression,
+        //     // then, check the expr type itself and if they are equal
+        // } else {
+        //     std::cout << "TypeError: operand types are not equal or the binary operation is not supported";
+        // }
+
         std::cout << ")" << std::endl;
     }
 
-    virtual void visitNUnaryOperatorExpression(NUnaryOperatorExpression* node) {
-        // TODO: check if the type is correct
+    virtual void
+    visitNUnaryOperatorExpression(NUnaryOperatorExpression* node) {
+        std::cout << "UnaryOperatorExpression(";
+        node->visit(this->prettyPrinter);
+        node->rhs->visit(this);
+        if (node->rhs->type != nullptr) {
+            node->type = node->rhs->type;
+        } else {
+            std::cout << "TypeError: type mismatch, rhs type is not defined)" << std::endl;
+            return;
+        }
     }
 
     virtual void visitNExpressionCall(NExpressionCall* node) {
