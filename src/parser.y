@@ -203,7 +203,8 @@ access_member : access_member OP_LSQUARE_BRACE expr OP_RSQUARE_BRACE { $$ = new 
               | access_member OP_LBRACE OP_RBRACE {$$ = new NExpressionCall($1, std::vector<NExpression *>());}
               | access_member OP_LBRACE expr_list OP_RBRACE {$$ = new NExpressionCall($1, *$3);}
               | KW_SELF { std::string* str = new std::string("self");
-                            $$ = new NIdentifier(str); }
+            //   hotfix for position, should be fixed later
+                            $$ = new NIdentifier(str, Position(0, 0)); }
               | ident
               | function_call
     ;
@@ -251,7 +252,7 @@ exp : expr OP_PLUS expr  {$$ = new NBinaryOperatorExpression($1, $2, $3);}
     | KW_NOT expr {$$ = new NUnaryOperatorExpression($1, $2);}
     ;
 
-typed_var : ident OP_COLON type_ident {$$ = new NDeclarationStatement($1, $3, new NExpression(), Position(@ident.first_line, @ident.first_column));}
+typed_var : ident OP_COLON type_ident {$$ = new NDeclarationStatement($1, $3, nullptr, Position(@ident.first_line, @ident.first_column));}
     ;
 
 typed_var_list: typed_var { $$ = new std::vector<NDeclarationStatement *>(); $$->push_back($1);}
