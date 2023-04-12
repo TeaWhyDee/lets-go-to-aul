@@ -2,6 +2,8 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <string.h>
+#include <algorithm>
 
 // #include <llvm/IR/Value.h>
 
