@@ -55,6 +55,29 @@ typedef std::pair<NExpression*, NBlock*> conditionBlock;
 typedef std::pair<NIdentifier*, NExpression*> keyvalPair;
 typedef std::vector<NType*> typeList;
 
+typedef enum {
+    ADD = 0,
+    SUBSTRACT = 1,
+    MULTIPLY = 2,
+    DIVIDE = 3,
+    POWER = 4,
+    FLOOR_DIVIDE = 5,
+    MODULO = 6,
+    LESS_THAN = 7,
+    GREATER_THAN = 8,
+    LESS_THAN_OR_EQUAL = 9,
+    GREATER_THAN_OR_EQUAL = 10,
+    EQUAL = 11,
+    NOT_EQUAL = 12,
+    AND = 13,
+    OR = 14,
+} BinOpType;
+
+typedef enum {
+    MINUS = 0,
+    NOT = 1,
+} UnOpType;
+
 class Visitor {
    public:
     std::string name;
@@ -372,9 +395,9 @@ class NIdentifier : public NExpression {
 class NBinaryOperatorExpression : public NExpression {
    public:
     NExpression* lhs;
-    int op;
+    BinOpType op;
     NExpression* rhs;
-    NBinaryOperatorExpression(NExpression* lhs, int op, NExpression* rhs)
+    NBinaryOperatorExpression(NExpression* lhs, BinOpType op, NExpression* rhs)
         : lhs(lhs), op(op), rhs(rhs) {}
 
     virtual void visit(Visitor* v) { v->visitNBinaryOperatorExpression(this); }
@@ -382,9 +405,9 @@ class NBinaryOperatorExpression : public NExpression {
 
 class NUnaryOperatorExpression : public NExpression {
    public:
-    int op;
+    UnOpType op;
     NExpression* rhs;
-    NUnaryOperatorExpression(int op, NExpression* rhs) : op(op), rhs(rhs) {}
+    NUnaryOperatorExpression(UnOpType op, NExpression* rhs) : op(op), rhs(rhs) {}
 
     virtual void visit(Visitor* v) { v->visitNUnaryOperatorExpression(this); }
 };
@@ -642,13 +665,84 @@ class PrettyPrintVisitor : public Visitor {
         std::cout << "NBinaryOperatorExpression";
         std::cout << "(lhs=";
         node->lhs->visit(this);
-        std::cout << ", op=" << node->op << ", rhs=";
+        std::cout << ", op=";
+        printBinaryOperator(node->op);
+        std::cout << ", rhs=";
         node->rhs->visit(this);
         std::cout << ")";
     }
 
+    void printBinaryOperator(BinOpType op) {
+        switch (op) {
+            case BinOpType::ADD:
+                std::cout << "+";
+                break;
+            case BinOpType::SUBSTRACT:
+                std::cout << "-";
+                break;
+            case BinOpType::MULTIPLY:
+                std::cout << "*";
+                break;
+            case BinOpType::DIVIDE:
+                std::cout << "/";
+                break;
+            case BinOpType::MODULO:
+                std::cout << "%";
+                break;
+            case BinOpType::POWER:
+                std::cout << "^";
+                break;
+            case BinOpType::EQUAL:
+                std::cout << "==";
+                break;
+            case BinOpType::NOT_EQUAL:
+                std::cout << "~=";
+                break;
+            case BinOpType::LESS_THAN:
+                std::cout << "<";
+                break;
+            case BinOpType::LESS_THAN_OR_EQUAL:
+                std::cout << "<=";
+                break;
+            case BinOpType::GREATER_THAN:
+                std::cout << ">";
+                break;
+            case BinOpType::GREATER_THAN_OR_EQUAL:
+                std::cout << ">=";
+                break;
+            case BinOpType::AND:
+                std::cout << "and";
+                break;
+            case BinOpType::OR:
+                std::cout << "or";
+                break;
+            case BinOpType::FLOOR_DIVIDE:
+                std::cout << "//";
+                break;
+            default:
+                std::cout << "unknown";
+                break;
+        }
+    }
+
+    void printUnaryOperator(UnOpType op) {
+        switch (op) {
+            case UnOpType::MINUS:
+                std::cout << "-";
+                break;
+            case UnOpType::NOT:
+                std::cout << "not";
+                break;
+            default:
+                std::cout << "unknown";
+                break;
+        }
+    }
+
     virtual void visitNUnaryOperatorExpression(NUnaryOperatorExpression* node) {
-        std::cout << "NUnaryOperatorExpression(op=" << node->op << ", rhs=";
+        std::cout << "NUnaryOperatorExpression(op=";
+        printUnaryOperator(node->op);
+        std::cout << ", rhs=";
         node->rhs->visit(this);
         std::cout << ")";
     }
