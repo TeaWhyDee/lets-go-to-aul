@@ -1195,9 +1195,6 @@ class TypeChecker : public Visitor {
         node->lhs->visit(this);
         node->rhs->visit(this);
         if (node->lhs->type != nullptr and compareTypes(node->lhs->type, node->rhs->type)) {
-            node->type = node->lhs->type;
-            std::cout << "Type approved, type: ";
-            node->type->visit(this->prettyPrinter);
         } else {
             std::cout << "TypeError: type mismatch, lhs type: ";
             if (node->lhs->type == nullptr) {
@@ -1215,23 +1212,63 @@ class TypeChecker : public Visitor {
             std::cout << ")" << std::endl;
             return;
         }
-        // // TODO: checkNNumType* leftNum = dynamic_cast<NNumType*>(node->lhs->type);
-        // NStringType* leftStr = dynamic_cast<NStringType*>(node->lhs->type);
-        // NNumType* rightNum = dynamic_cast<NNumType*>(node->rhs->type);
-        // NStringType* rightStr = dynamic_cast<NStringType*>(node->rhs->type);
-        // // TODO: check the operand type suitable for num or str
+        // possible operators for num:
+        // +, -, *, /, %, ^, ==, ~=, <, <=, >, >=
+        // BinOpType.ADD, BinOpType.SUBSTRACT, BinOpType.MULTIPLY, BinOpType.DIVIDE, BinOpType.MODULO, BinOpType.POWER, BinOpType.EQUAL, BinOpType.NOT_EQUAL, BinOpType.LESS, BinOpType.LESS_EQUAL, BinOpType.GREATER, BinOpType.GREATER_EQUAL
+        auto num_allowed_ops = std::vector<BinOpType>{BinOpType::ADD, BinOpType::SUBSTRACT,
+                                                      BinOpType::MULTIPLY, BinOpType::DIVIDE,
+                                                      BinOpType::MODULO, BinOpType::POWER, BinOpType::EQUAL,
+                                                      BinOpType::NOT_EQUAL, BinOpType::LESS_THAN, BinOpType::LESS_THAN_OR_EQUAL,
+                                                      BinOpType::GREATER_THAN, BinOpType::GREATER_THAN_OR_EQUAL};
+        // possible operators for string:
+        // ==, ~=, <, <=, >, >=
+        auto str_allowed_ops = std::vector<BinOpType>{BinOpType::EQUAL,
+                                                      BinOpType::NOT_EQUAL, BinOpType::LESS_THAN, BinOpType::LESS_THAN_OR_EQUAL,
+                                                      BinOpType::GREATER_THAN, BinOpType::GREATER_THAN_OR_EQUAL};
+        // possible operators for bool:
+        // and, or, ==, ~=, <, <=, >, >=
+        auto bool_allowed_ops = std::vector<BinOpType>{BinOpType::AND, BinOpType::OR,
+                                                       BinOpType::EQUAL, BinOpType::NOT_EQUAL,
+                                                       BinOpType::LESS_THAN, BinOpType::LESS_THAN_OR_EQUAL,
+                                                       BinOpType::GREATER_THAN, BinOpType::GREATER_THAN_OR_EQUAL};
 
-        // if (node->type == nullptr) {
-        //     std::cout << "TypeError: expression type is not known (cannot be approved)";
-        // } else if (leftNum != nullptr && rightNum != nullptr) {
-        //     // TODO: check the operator leads to a num or bool expression,
-        //     // then, check the expr type itself and if they are equal
-        // } else if (leftStr != nullptr && rightStr != nullptr) {
-        //     // TODO: check the operator leads to a num, str or bool expression,
-        //     // then, check the expr type itself and if they are equal
-        // } else {
-        //     std::cout << "TypeError: operand types are not equal or the binary operation is not supported";
-        // }
+        // logical operators
+        auto logical_ops = std::vector<BinOpType>{BinOpType::AND, BinOpType::OR, BinOpType::EQUAL, BinOpType::NOT_EQUAL, BinOpType::LESS_THAN, BinOpType::LESS_THAN_OR_EQUAL, BinOpType::GREATER_THAN, BinOpType::GREATER_THAN_OR_EQUAL};
+        auto is_logical_op = std::find(logical_ops.begin(), logical_ops.end(), node->op) != logical_ops.end();
+        // check if lhs->type is NNumType
+        if (dynamic_cast<NNumType*>(node->lhs->type) != nullptr) {
+            // check if the operator is in the list of possible operators
+            if (std::find(num_allowed_ops.begin(), num_allowed_ops.end(), node->op) == num_allowed_ops.end()) {
+                std::cout << "TypeError: operator " << node->op << " is not allowed for type num" << std::endl;
+                return;
+            }
+        }
+
+        // check if lhs->type is NStringType
+        if (dynamic_cast<NStringType*>(node->lhs->type) != nullptr) {
+            // check if the operator is in the list of possible operators
+            if (std::find(str_allowed_ops.begin(), str_allowed_ops.end(), node->op) == str_allowed_ops.end()) {
+                std::cout << "TypeError: operator " << node->op << " is not allowed for type string" << std::endl;
+                return;
+            }
+        }
+
+        // check if lhs->type is NBoolType
+        if (dynamic_cast<NBoolType*>(node->lhs->type) != nullptr) {
+            // check if the operator is in the list of possible operators
+            if (std::find(bool_allowed_ops.begin(), bool_allowed_ops.end(), node->op) == bool_allowed_ops.end()) {
+                std::cout << "TypeError: operator " << node->op << " is not allowed for type bool" << std::endl;
+                return;
+            }
+        }
+
+        std::cout << "Type approved, type: ";
+        if (is_logical_op) {
+            node->type = new NBoolType();
+        } else {
+            node->type = node->lhs->type;
+        }
+        node->type->visit(this->prettyPrinter);
 
         std::cout << ")" << std::endl;
     }
@@ -1242,11 +1279,34 @@ class TypeChecker : public Visitor {
         node->visit(this->prettyPrinter);
         node->rhs->visit(this);
         if (node->rhs->type != nullptr) {
-            node->type = node->rhs->type;
+            node->type = new NBoolType();
         } else {
             std::cout << "TypeError: type mismatch, rhs type is not defined)" << std::endl;
             return;
         }
+
+        // possible operators for num:
+        auto num_allowed_ops = std::vector<UnOpType>{UnOpType::MINUS};
+        // possible operators for bool:
+        auto bool_allowed_ops = std::vector<UnOpType>{UnOpType::NOT};
+        // check if rhs->type is NNumType
+        if (dynamic_cast<NNumType*>(node->rhs->type) != nullptr) {
+            // check if the operator is in the list of possible operators
+            if (std::find(num_allowed_ops.begin(), num_allowed_ops.end(), node->op) == num_allowed_ops.end()) {
+                std::cout << "TypeError: operator " << node->op << " is not allowed for type num" << std::endl;
+                return;
+            }
+        } else if (dynamic_cast<NBoolType*>(node->rhs->type) != nullptr) {
+            // check if the operator is in the list of possible operators
+            if (std::find(bool_allowed_ops.begin(), bool_allowed_ops.end(), node->op) == bool_allowed_ops.end()) {
+                std::cout << "TypeError: operator " << node->op << " is not allowed for type bool" << std::endl;
+                return;
+            }
+        } else {
+            std::cout << "TypeError: operator " << node->op << " is not allowed for type " << node->rhs->type << std::endl;
+            return;
+        }
+        std::cout << ")" << std::endl;
     }
 
     virtual void visitNExpressionCall(NExpressionCall* node) {
