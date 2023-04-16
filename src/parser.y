@@ -59,8 +59,6 @@
     NFunctionType *function_type;
 
     int token;
-    int binop;
-    int unop;
 }
 
 /* Define our terminal symbols (tokens). This should
@@ -104,15 +102,6 @@
 %type <struct_body> struct_body
 %type <ident_list> ident_list 
 %type <struct_decl> struct_decl
-%type <struct_body> struct_body
-/* %type <stmt> stmt var_decl func_decl */
-/* %type <token> comparison */
-/* %type <expr> numeric expr  */
-/* %type <varvec> func_decl_args */
-/* %type <exprvec> call_args */
-/* %type <block> program stmts block */
-%type <function_type> function_type
-%type <typelist> typelist
 %type <table_constructor> table_constructor
 %type <keyval_pair_list> keyval_pair_list
 %type <keyval_pair> keyval_pair
@@ -312,11 +301,3 @@ function_type: KW_FUNCTION OP_LBRACE typelist OP_RBRACE OP_ARROW typelist { $$ =
 ident : ID { $$ = new NIdentifier($ID, Position(@ID.first_line, @ID.first_column)); delete $1; }
     ;
 %%
-
-/* type_table: KW_STR { $$ = new NIdentifier(new std::string("str")); } */
-/*     | KW_BOOL { $$ = new NIdentifier(new std::string("bool")); } */
-/*     | KW_NUM { $$ = new NIdentifier(new std::string("num")); } */
-/*     | KW_NIL { $$ = new NIdentifier(new std::string("nil")); } */
-/*     | KW_FUNCTION { $$ = new NIdentifier(new std::string("function")); } */
-/*     | ID { $$ = new NIdentifier(yylval.string); } */
-/*     ; */
