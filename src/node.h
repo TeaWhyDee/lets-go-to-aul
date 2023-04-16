@@ -12,7 +12,6 @@ class NStatement;
 class NExpression;
 class NVariableDeclaration;
 class Node;
-class NStatement;
 class NBlock;
 class NNum;
 class NNil;
@@ -270,7 +269,6 @@ public:
 class Node {
    public:
     virtual ~Node() {}
-    // virtual llvm::Value* codeGen(CodeGenContext* context) { }
     virtual void visit(Visitor* v) = 0;
 };
 
