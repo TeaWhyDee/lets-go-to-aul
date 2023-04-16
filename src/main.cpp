@@ -9,11 +9,12 @@ extern int yyparse();
 int main(int argc, char** argv) {
     yyparse();
     auto pretty_print_visitor = new PrettyPrintVisitor();
-    Visitor* visitors[] = {
-        new TypeChecker(pretty_print_visitor),
+    Visitor *visitors[] = {
         pretty_print_visitor,
+        // new TypeDeducer(),
         new SymbolTableFillerVisitor(),
         new DeclaredBeforeUseCheckerVisitor(),
+        new TypeChecker(pretty_print_visitor),
     };
     try {
         for (auto visitor : visitors) {
