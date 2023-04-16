@@ -479,7 +479,8 @@ class NUnaryOperatorExpression : public NExpression {
    public:
     UnOpType op;
     NExpression* rhs;
-    NUnaryOperatorExpression(UnOpType op, NExpression* rhs) : op(op), rhs(rhs) {}
+    Position position;
+    NUnaryOperatorExpression(UnOpType op, NExpression *rhs, Position position) : op(op), rhs(rhs), position(position) {}
 
     virtual void visit(Visitor* v) { v->visitNUnaryOperatorExpression(this); }
 };
@@ -1956,7 +1957,7 @@ class DeclaredBeforeUseCheckerVisitor : public SymtabVisitor {
                 std::cout << node->position.lineno << ":" << node->position.colno << ")" << std::endl;
                 if (entry->position.lineno < node->position.lineno) {
                     std::cout << entry->name << " ok" << std::endl;
-                    return;
+                    return entry;
                 }
             }
         }
