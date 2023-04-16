@@ -96,12 +96,12 @@
 %type <unop> unop
 %type <typed_var> typed_var
 %type <typed_var_list> typed_var_list
-%type <expr_list> expr_list 
-%type <ident_list> ident_list 
+%type <expr_list> expr_list
+%type <ident_list> ident_list
 %type <struct_decl> struct_decl
 %type <struct_body> struct_body
-%type <ident_list> ident_list 
-%type <struct_decl> struct_decl
+%type <function_type> function_type
+%type <typelist> typelist
 %type <table_constructor> table_constructor
 %type <keyval_pair_list> keyval_pair_list
 %type <keyval_pair> keyval_pair
@@ -232,22 +232,23 @@ term : L_NUM { $$ = new NNum(atof($1->c_str())); delete $1; }
      | L_STRING { $$ = new NString(*$1);}
     ;
 
-exp : expr OP_PLUS expr  {$$ = new NBinaryOperatorExpression($1, $2, $3, Position(@1.first_line, @1.first_column));}
-    | expr OP_MINUS expr {$$ = new NBinaryOperatorExpression($1, $2, $3, Position(@1.first_line, @1.first_column));}
-    | expr OP_STAR expr {$$ = new NBinaryOperatorExpression($1, $2, $3, Position(@1.first_line, @1.first_column));}
-    | expr OP_SLASHSLASH expr {$$ = new NBinaryOperatorExpression($1, $2, $3, Position(@1.first_line, @1.first_column));}
-    | expr OP_SLASH expr {$$ = new NBinaryOperatorExpression($1, $2, $3, Position(@1.first_line, @1.first_column));}
-    | expr OP_PERCENT expr {$$ = new NBinaryOperatorExpression($1, $2, $3, Position(@1.first_line, @1.first_column));}
-    | expr OP_EQUALEQUAL expr {$$ = new NBinaryOperatorExpression($1, $2, $3, Position(@1.first_line, @1.first_column));}
-    | expr OP_MORE expr {$$ = new NBinaryOperatorExpression($1, $2, $3, Position(@1.first_line, @1.first_column));}
-    | expr OP_LESS expr {$$ = new NBinaryOperatorExpression($1, $2, $3, Position(@1.first_line, @1.first_column));}
-    | expr OP_MOREEQ expr {$$ = new NBinaryOperatorExpression($1, $2, $3, Position(@1.first_line, @1.first_column));}
-    | expr OP_LESS expr {$$ = new NBinaryOperatorExpression($1, $2, $3, Position(@1.first_line, @1.first_column));}
-    | expr KW_AND expr {$$ = new NBinaryOperatorExpression($1, $2, $3, Position(@1.first_line, @1.first_column));}
-    | expr KW_OR expr {$$ = new NBinaryOperatorExpression($1, $2, $3, Position(@1.first_line, @1.first_column));}
-    | expr OP_CARET expr {$$ = new NBinaryOperatorExpression($1, $2, $3, Position(@1.first_line, @1.first_column));}
-    | OP_MINUS expr {$$ = new NUnaryOperatorExpression($1, $2);} %prec UMINUS
-    | KW_NOT expr {$$ = new NUnaryOperatorExpression($1, $2);}
+exp : expr OP_PLUS expr  {$$ = new NBinaryOperatorExpression($1, BinOpType::ADD, $3, Position(@1.first_line, @1.first_column));}
+    | expr OP_MINUS expr {$$ = new NBinaryOperatorExpression($1, BinOpType::SUBSTRACT, $3, Position(@1.first_line, @1.first_column));}
+    | expr OP_STAR expr {$$ = new NBinaryOperatorExpression($1, BinOpType::MULTIPLY, $3, Position(@1.first_line, @1.first_column));}
+    | expr OP_SLASHSLASH expr {$$ = new NBinaryOperatorExpression($1, BinOpType::FLOOR_DIVIDE, $3, Position(@1.first_line, @1.first_column));}
+    | expr OP_SLASH expr {$$ = new NBinaryOperatorExpression($1, BinOpType::DIVIDE, $3, Position(@1.first_line, @1.first_column));}
+    | expr OP_PERCENT expr {$$ = new NBinaryOperatorExpression($1, BinOpType::MODULO, $3, Position(@1.first_line, @1.first_column));}
+    | expr OP_EQUALEQUAL expr {$$ = new NBinaryOperatorExpression($1, BinOpType::EQUAL, $3, Position(@1.first_line, @1.first_column));}
+    | expr OP_NOTEQUAL expr {$$ = new NBinaryOperatorExpression($1, BinOpType::NOT_EQUAL, $3, Position(@1.first_line, @1.first_column));}
+    | expr OP_MORE expr {$$ = new NBinaryOperatorExpression($1, BinOpType::GREATER_THAN, $3, Position(@1.first_line, @1.first_column));}
+    | expr OP_LESS expr {$$ = new NBinaryOperatorExpression($1, BinOpType::LESS_THAN, $3, Position(@1.first_line, @1.first_column));}
+    | expr OP_MOREEQ expr {$$ = new NBinaryOperatorExpression($1, BinOpType::GREATER_THAN_OR_EQUAL, $3, Position(@1.first_line, @1.first_column));}
+    | expr OP_LESS expr {$$ = new NBinaryOperatorExpression($1, BinOpType::LESS_THAN_OR_EQUAL, $3, Position(@1.first_line, @1.first_column));}
+    | expr KW_AND expr {$$ = new NBinaryOperatorExpression($1, BinOpType::AND, $3, Position(@1.first_line, @1.first_column));}
+    | expr KW_OR expr {$$ = new NBinaryOperatorExpression($1, BinOpType::OR, $3, Position(@1.first_line, @1.first_column));}
+    | expr OP_CARET expr {$$ = new NBinaryOperatorExpression($1, BinOpType::POWER, $3, Position(@1.first_line, @1.first_column));}
+    | OP_MINUS expr {$$ = new NUnaryOperatorExpression(UnOpType::MINUS, $2);} %prec UMINUS
+    | KW_NOT expr {$$ = new NUnaryOperatorExpression(UnOpType::NOT, $2);}
     ;
 
 typed_var : ident OP_COLON type_ident {$$ = new NDeclarationStatement($1, $3, nullptr, Position(@ident.first_line, @ident.first_column));}
