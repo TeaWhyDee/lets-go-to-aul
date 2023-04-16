@@ -247,8 +247,8 @@ exp : expr OP_PLUS expr  {$$ = new NBinaryOperatorExpression($1, BinOpType::ADD,
     | expr KW_AND expr {$$ = new NBinaryOperatorExpression($1, BinOpType::AND, $3, Position(@1.first_line, @1.first_column));}
     | expr KW_OR expr {$$ = new NBinaryOperatorExpression($1, BinOpType::OR, $3, Position(@1.first_line, @1.first_column));}
     | expr OP_CARET expr {$$ = new NBinaryOperatorExpression($1, BinOpType::POWER, $3, Position(@1.first_line, @1.first_column));}
-    | OP_MINUS expr {$$ = new NUnaryOperatorExpression(UnOpType::MINUS, $2);} %prec UMINUS
-    | KW_NOT expr {$$ = new NUnaryOperatorExpression(UnOpType::NOT, $2);}
+    | OP_MINUS expr {$$ = new NUnaryOperatorExpression(UnOpType::MINUS, $2, Position(@1.first_line, @1.first_column));} %prec UMINUS
+    | KW_NOT expr {$$ = new NUnaryOperatorExpression(UnOpType::NOT, $2, Position(@1.first_line, @1.first_column));}
     ;
 
 typed_var : ident OP_COLON type_ident {$$ = new NDeclarationStatement($1, $3, nullptr, Position(@ident.first_line, @ident.first_column));}
