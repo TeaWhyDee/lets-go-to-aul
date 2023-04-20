@@ -1,9 +1,14 @@
+#include <algorithm>
+#include <cctype>
+#include <cstdio>
+#include <cstdlib>
 #include <iostream>
+#include <map>
+#include <memory>
 #include <sstream>
 #include <string>
-#include <vector>
 #include <string.h>
-#include <algorithm>
+#include <vector>
 
 // #include <llvm/IR/Value.h>
 
@@ -434,7 +439,7 @@ class NStructType : public NType {
 
 class NNum : public NExpression {
    public:
-    long double value;
+    double value;
     NNum(long double value) : value(value) { this->type = new NNumType(); }
 
     virtual void visit(Visitor* v) { v->visitNNum(this); }
@@ -1941,6 +1946,232 @@ class DeclaredBeforeUseCheckerVisitor : public SymtabVisitor {
     }
 
     virtual void visitNNum(NNum* node) {}
+
+    virtual void visitNNil(NNil* node) {}
+
+    virtual void visitNBool(NBool* node) {}
+
+    virtual void visitNString(NString* node) {}
+
+    virtual SymbolTableEntry* check_symtab(NIdentifier *node, SymbolTable *symtab) {
+        for (auto entry : symtab->entries)
+        {
+            if (entry->name == node->name) {
+                std::cout << entry->name << "(";
+                std::cout << entry->position.lineno << ":" << entry->position.colno << "-";
+                std::cout << node->position.lineno << ":" << node->position.colno << ")" << std::endl;
+                if (entry->position.lineno < node->position.lineno) {
+                    std::cout << entry->name << " ok" << std::endl;
+                    return entry;
+                }
+            }
+        }
+        if (symtab->parent != nullptr) {
+            return check_symtab(node, symtab->parent);
+        } else {
+            throw new SemanticError("Identifier " + node->name + " not found", node->position);
+        }
+    }
+
+    virtual void visitNIdentifier(NIdentifier* node) {
+        // temporary try-catch just to print the line
+        // do smth with it, it's impossible to compile it later
+        try {
+            check_symtab(node, symtab_storage->symtab);
+        } catch (SemanticError* e) {
+            std::cout << e->what() << std::endl;
+        }
+    }
+
+    virtual void visitNBinaryOperatorExpression(NBinaryOperatorExpression* node) {
+        node->lhs->visit(this);
+        node->rhs->visit(this);
+    }
+
+    virtual void visitNUnaryOperatorExpression(NUnaryOperatorExpression* node) {
+        node->rhs->visit(this);
+    }
+
+    virtual void visitNTableConstructor(NTableConstructor* node) {}
+
+    virtual void visitNFunctionDeclaration(NFunctionDeclaration* node) {
+        if (node->arguments == nullptr) {
+            std::cerr << "Arguments are null for function " << node->id->name << std::endl;
+            return;
+        }
+        for(auto arg: *node->arguments) {
+            if (arg->type == nullptr) {
+                std::cerr << "Argument type is null for ";
+                std::cerr << node->id->name << ":" << arg->ident->name << std::endl;
+                return;
+            }
+            arg->type->visit(this);
+        }
+
+        symtab_storage->symtab->enter_scope();
+        node->block->visit(this);
+        symtab_storage->symtab->exit_scope();
+
+        if (node->return_type == nullptr) {
+            std::cerr << "Return type is null for function " << node->id->name << std::endl;
+            return;
+        }
+        for (auto return_type : *node->return_type) {
+            if (return_type == nullptr) {
+                std::cerr << "Return type is null for function " << node->id->name << std::endl;
+                return;
+            }
+            return_type->visit(this);
+        }
+    }
+
+    virtual void visitNWhileStatement(NWhileStatement* node) {
+        node->condition->visit(this);
+        node->block->visit(this);
+    }
+
+    virtual void visitNRepeatStatement(NRepeatUntilStatement* node) {
+        node->condition->visit(this);
+        node->block->visit(this);
+    }
+
+    virtual void visitNDoStatement(NDoStatement* node) {
+        node->block->visit(this);
+    }
+
+    virtual void visitNIfStatement(NIfStatement* node) {
+        for (auto block : node->conditionBlockList) {
+            symtab_storage->symtab->enter_scope();
+            block->second->visit(this);
+            symtab_storage->symtab->exit_scope();
+        }
+
+        if (node->elseBlock != nullptr) {
+            symtab_storage->symtab->enter_scope();
+            node->elseBlock->visit(this);
+            symtab_storage->symtab->exit_scope();
+        }
+    }
+
+    virtual void visitNNumericForStatement(NNumericForStatement* node) {
+        node->start->visit(this);
+        node->end->visit(this);
+        if (node->step != nullptr) {
+            node->step->visit(this);
+        }
+        symtab_storage->symtab->enter_scope();
+        node->block->visit(this);
+        symtab_storage->symtab->exit_scope();
+    }
+
+    virtual void visitNGenericForStatement(NGenericForStatement* node) {
+        symtab_storage->symtab->enter_scope();
+        node->block->visit(this);
+        symtab_storage->symtab->exit_scope();
+    }
+    virtual void visitNRepeatUntilStatement(NRepeatUntilStatement* node) {
+        node->condition->visit(this);
+        symtab_storage->symtab->enter_scope();
+        node->block->visit(this);
+        symtab_storage->symtab->exit_scope();
+    }
+
+    virtual void visitNDeclarationStatement(NDeclarationStatement* node) {
+        if (node->type != nullptr)
+            node->type->visit(this);
+        if (node->expression != nullptr)
+            node->expression->visit(this);
+    }
+
+    virtual void visitNReturnStatement(NReturnStatement* node) {
+        node->expression->visit(this);
+    }
+
+    virtual void visitNBlock(NBlock* node) {
+        for (auto stmt : node->statements) {
+            stmt->visit(this);
+        }
+
+        if (node->returnExpr != nullptr) {
+            node->returnExpr->visit(this);
+        }
+    }
+
+    virtual void visitNExpression(NExpression* node) {}
+
+    virtual void visitNStructDeclaration(NStructDeclaration* node) {
+        symtab_storage->symtab->enter_scope();
+        for (auto field : node->fields) {
+            field->visit(this);
+        }
+        for(auto method : node->methods) {
+            std::cout << "method " << method->id->name << std::endl;
+            method->visit(this);
+        }
+        symtab_storage->symtab->exit_scope();
+    }
+    virtual void visitNExpressionCall(NExpressionCall* node) {
+        node->expr->visit(this);
+        for (auto expr : node->exprlist) {
+            expr->visit(this);
+        }
+    }
+    virtual void visitNType(NType* node) { return; }
+    virtual void visitNStringType(NStringType* node) { return; }
+    virtual void visitNNumType(NNumType* node) { return; }
+    virtual void visitNBoolType(NBoolType* node) { return; }
+    virtual void visitNNilType(NNilType* node) { return; }
+    virtual void visitNTableType(NTableType* node) { return; }
+    virtual void visitNFunctionType(NFunctionType* node) { return; }
+    virtual void visitNStructType(NStructType* node) {
+        try {
+            auto entry = this->check_symtab(node->name, symtab_storage->symtab);
+            if (entry == nullptr) {
+                throw new SemanticError("Entry for type " + node->name->name + " is None", node->name->position);
+            }
+
+            if (typeid(entry->type) != typeid(NStructType *)) {
+                std::string type = "unknown";
+                if (entry->type != nullptr) {
+                    type = std::string(*entry->type);
+                }
+                throw new SemanticError("Type " + node->name->name + " is not a struct: " + type, node->name->position);
+            }
+
+        } catch(SemanticError *e) {
+            std::cout << e->what() << std::endl;
+        }
+    }
+    virtual void visitNAccessKey(NAccessKey* node) {}
+    virtual void visitNAssignmentStatement(NAssignmentStatement* node) {}
+};
+
+#include "llvm/ADT/APFloat.h"
+#include "llvm/ADT/STLExtras.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Type.h"
+#include "llvm/IR/Verifier.h"
+
+static std::unique_ptr<llvm::LLVMContext> TheContext;
+static std::unique_ptr<llvm::Module> TheModule;
+static std::unique_ptr<llvm::IRBuilder<>> Builder;
+static std::map<std::string, llvm::Value *> NamedValues;
+
+class CodeGenVisitor : public SymtabVisitor {
+   public:
+    CodeGenVisitor() {
+        this->name = "Code Generation Visitor";
+    }
+
+    virtual void visitNNum(NNum* node) {
+        llvm::ConstantFP::get(*TheContext, llvm::APFloat(node->value));
+    }
 
     virtual void visitNNil(NNil* node) {}
 
