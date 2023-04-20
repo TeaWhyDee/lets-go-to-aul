@@ -1,4 +1,7 @@
-all: clean lex.cpp bison parser
+all: clean lex.cpp bison codegen
+
+codegen:
+	g++ -Wall -g -o parser parser.cpp lex.cpp main.cpp $(llvm-config --cxxflags --ldflags --libs core);
 
 parser:
 	g++ -Wall -g -std=c++11 -o parser parser.cpp lex.cpp main.cpp

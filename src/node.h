@@ -2170,7 +2170,11 @@ class CodeGenVisitor : public SymtabVisitor {
     }
 
     virtual void visitNNum(NNum* node) {
-        llvm::ConstantFP::get(*TheContext, llvm::APFloat(node->value));
+        llvm::Value *ir = llvm::ConstantFP::get(*TheContext, llvm::APFloat(node->value));
+
+        fprintf(stderr, "Read top-level expression:");
+        ir->print(llvm::errs());
+        fprintf(stderr, "\n");
     }
 
     virtual void visitNNil(NNil* node) {}

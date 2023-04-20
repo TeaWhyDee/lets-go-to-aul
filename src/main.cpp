@@ -26,5 +26,17 @@ int main(int argc, char** argv) {
     } catch (SemanticError* e) {
         std::cout << "Semantic error: " << e->what() << std::endl;
     }
+
+    TheContext = std::make_unique<llvm::LLVMContext>();
+    TheModule = std::make_unique<llvm::Module>("codegen ", *TheContext);
+    Builder = std::make_unique<llvm::IRBuilder<>>(*TheContext);
+
+    auto visitor = new CodeGenVisitor();
+    std::cout << "\n\n------------------" << visitor->name << "------------------" << std::endl;
+    programBlock->visit(visitor);
+    visitor->cleanup();
+
+    TheModule->print(llvm::errs(), nullptr);
+
     return 0;
 }
