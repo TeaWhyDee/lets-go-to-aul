@@ -27,16 +27,17 @@ int main(int argc, char** argv) {
         std::cout << "Semantic error: " << e->what() << std::endl;
     }
 
-    TheContext = std::make_unique<llvm::LLVMContext>();
-    TheModule = std::make_unique<llvm::Module>("codegen ", *TheContext);
-    Builder = std::make_unique<llvm::IRBuilder<>>(*TheContext);
+
+    //
+    // verifyFunction(*function);
+    // module->print(llvm::outs(), nullptr);
 
     auto visitor = new CodeGenVisitor();
     std::cout << "\n\n------------------" << visitor->name << "------------------" << std::endl;
     programBlock->visit(visitor);
-    visitor->cleanup();
-
-    TheModule->print(llvm::errs(), nullptr);
+    // visitor->cleanup();
+    
+    visitor->module->print(llvm::errs(), nullptr);
 
     return 0;
 }

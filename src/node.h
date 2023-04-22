@@ -10,6 +10,18 @@
 #include <string.h>
 #include <vector>
 
+#include "llvm/ADT/APFloat.h"
+#include "llvm/ADT/STLExtras.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Type.h"
+#include "llvm/IR/Verifier.h"
+
 // #include <llvm/IR/Value.h>
 
 class CodeGenContext;
@@ -275,6 +287,7 @@ class Node {
    public:
     virtual ~Node() {}
     virtual void visit(Visitor* v) = 0;
+    // virtual llvm::Value *codegen() = 0;
 };
 
 class NStatement : public Node {};
@@ -298,6 +311,10 @@ class NBlock : public Node {
     NBlock(StatementList statements) : statements(statements), returnExpr(nullptr) {}
 
     virtual void visit(Visitor* v) { v->visitNBlock(this); }
+
+    // virtual llvm::Value *codegen() {
+    //     return nullptr;
+    // }
 };
 
 class NIdentifier : public NExpression {
@@ -2146,35 +2163,33 @@ class DeclaredBeforeUseCheckerVisitor : public SymtabVisitor {
     virtual void visitNAssignmentStatement(NAssignmentStatement* node) {}
 };
 
-#include "llvm/ADT/APFloat.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Type.h"
-#include "llvm/IR/Verifier.h"
-
-static std::unique_ptr<llvm::LLVMContext> TheContext;
-static std::unique_ptr<llvm::Module> TheModule;
-static std::unique_ptr<llvm::IRBuilder<>> Builder;
-static std::map<std::string, llvm::Value *> NamedValues;
+using namespace llvm;
 
 class CodeGenVisitor : public SymtabVisitor {
    public:
+    llvm::LLVMContext* context;
+    llvm::Module* module;
+    llvm::IRBuilder<>* builder;
+    std::map<std::string, llvm::Value *> NamedValues;
+
     CodeGenVisitor() {
         this->name = "Code Generation Visitor";
+        this->context = new llvm::LLVMContext();
+        this->module = new llvm::Module("Main", *context);
+        this->builder = new llvm::IRBuilder<>(*context);
+
+        Type* voidType = Type::getVoidTy(*context);
+        FunctionType* functionType = FunctionType::get(voidType, false);
+        Function* func_main = Function::Create(functionType, GlobalValue::ExternalLinkage, "main", module);
+
+        BasicBlock* block_main = BasicBlock::Create(*context, "entry", func_main);
+        this->builder->SetInsertPoint(block_main);
     }
 
     virtual void visitNNum(NNum* node) {
-        llvm::Value *ir = llvm::ConstantFP::get(*TheContext, llvm::APFloat(node->value));
-
-        fprintf(stderr, "Read top-level expression:");
+        llvm::Value *ir = llvm::ConstantFP::get(*context, llvm::APFloat(node->value));
         ir->print(llvm::errs());
-        fprintf(stderr, "\n");
+        // TODO
     }
 
     virtual void visitNNil(NNil* node) {}
@@ -2225,34 +2240,74 @@ class CodeGenVisitor : public SymtabVisitor {
     virtual void visitNTableConstructor(NTableConstructor* node) {}
 
     virtual void visitNFunctionDeclaration(NFunctionDeclaration* node) {
+        std::string name = node->id->name;
+
+        Type* return_type = builder->getVoidTy();
+
+        if (node->return_type != nullptr) {
+            for (auto return_type : *node->return_type) {
+                if (return_type == nullptr) {
+                    std::cerr << "Return type is null for function " << node->id->name << std::endl;
+                    break;
+                }
+                // printf("\n%s", ((std::string)*return_type).c_str());
+                // TODO: GET RETURN TYPES HAHA
+            }
+            return_type = builder->getFloatTy(); // TEMP
+        }
+
+        std::vector<Type*> parameter_types;
         if (node->arguments == nullptr) {
-            std::cerr << "Arguments are null for function " << node->id->name << std::endl;
-            return;
+            parameter_types = std::vector<Type*>(1, builder->getVoidTy());
         }
-        for(auto arg: *node->arguments) {
-            if (arg->type == nullptr) {
-                std::cerr << "Argument type is null for ";
-                std::cerr << node->id->name << ":" << arg->ident->name << std::endl;
-                return;
+        else {
+            parameter_types = std::vector<Type*>();
+            for(auto arg: *node->arguments) {
+                if (arg->type == nullptr) {
+                    std::cerr << "Argument type is null for ";
+                    std::cerr << node->id->name << ":" << arg->ident->name << std::endl;
+                    return;
+                }
+                // TODO GET TYPE
+                Type* type = builder->getFloatTy();
+                parameter_types.push_back(type);
             }
-            arg->type->visit(this);
         }
 
-        symtab_storage->symtab->enter_scope();
-        node->block->visit(this);
-        symtab_storage->symtab->exit_scope();
+        FunctionType* functionType = FunctionType::get(return_type, parameter_types, false);
+        Function* function = Function::Create(functionType, GlobalValue::ExternalLinkage, name, module);
+        BasicBlock* block = BasicBlock::Create(*context, name, function);
+        this->builder->SetInsertPoint(block);
+        
 
-        if (node->return_type == nullptr) {
-            std::cerr << "Return type is null for function " << node->id->name << std::endl;
-            return;
-        }
-        for (auto return_type : *node->return_type) {
-            if (return_type == nullptr) {
-                std::cerr << "Return type is null for function " << node->id->name << std::endl;
-                return;
-            }
-            return_type->visit(this);
-        }
+        // if (node->arguments == nullptr) {
+        //     std::cerr << "Arguments are null for function " << node->id->name << std::endl;
+        //     return;
+        // }
+        // for(auto arg: *node->arguments) {
+        //     if (arg->type == nullptr) {
+        //         std::cerr << "Argument type is null for ";
+        //         std::cerr << node->id->name << ":" << arg->ident->name << std::endl;
+        //         return;
+        //     }
+        //     arg->type->visit(this);
+        // }
+        //
+        // symtab_storage->symtab->enter_scope();
+        // node->block->visit(this);
+        // symtab_storage->symtab->exit_scope();
+        //
+        // if (node->return_type == nullptr) {
+        //     std::cerr << "Return type is null for function " << node->id->name << std::endl;
+        //     return;
+        // }
+        // for (auto return_type : *node->return_type) {
+        //     if (return_type == nullptr) {
+        //         std::cerr << "Return type is null for function " << node->id->name << std::endl;
+        //         return;
+        //     }
+        //     return_type->visit(this);
+        // }
     }
 
     virtual void visitNWhileStatement(NWhileStatement* node) {
