@@ -1,3 +1,5 @@
+- LLVM doc index (enjoy)  
+    https://llvm.org/doxygen/namespacellvm.html
 
 - Basic Info  
     https://llvm.org/docs/tutorial/MyFirstLanguageFrontend/LangImpl03.html
