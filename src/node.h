@@ -294,6 +294,7 @@ class NStatement : public Node {};
 
 class NExpression : public NStatement {
    public:
+    llvm::Value* llvm_value = nullptr;
     NType* type = nullptr;
     virtual void visit(Visitor* v) { v->visitNExpression(this); }
 };
@@ -2188,8 +2189,8 @@ class CodeGenVisitor : public SymtabVisitor {
 
     virtual void visitNNum(NNum* node) {
         llvm::Value *ir = llvm::ConstantFP::get(*context, llvm::APFloat(node->value));
-        ir->print(llvm::errs());
-        // TODO
+        // ir->print(llvm::errs());
+        node->llvm_value = ir;
     }
 
     virtual void visitNNil(NNil* node) {}
@@ -2219,8 +2220,6 @@ class CodeGenVisitor : public SymtabVisitor {
     }
 
     virtual void visitNIdentifier(NIdentifier* node) {
-        // temporary try-catch just to print the line
-        // do smth with it, it's impossible to compile it later
         try {
             check_symtab(node, symtab_storage->symtab);
         } catch (SemanticError* e) {
@@ -2276,9 +2275,19 @@ class CodeGenVisitor : public SymtabVisitor {
 
         FunctionType* functionType = FunctionType::get(return_type, parameter_types, false);
         Function* function = Function::Create(functionType, GlobalValue::ExternalLinkage, name, module);
+        for(auto arg: *node->arguments) {
+            if (arg->type == nullptr) {
+                std::cerr << "Argument type is null for ";
+                std::cerr << node->id->name << ":" << arg->ident->name << std::endl;
+                return;
+            }
+            // TODO NAME PARAMETERS
+            // function->getArg(0)->setName("a");
+        }
+
         BasicBlock* block = BasicBlock::Create(*context, name, function);
         this->builder->SetInsertPoint(block);
-        
+        node->block->visit(this);
 
         // if (node->arguments == nullptr) {
         //     std::cerr << "Arguments are null for function " << node->id->name << std::endl;
