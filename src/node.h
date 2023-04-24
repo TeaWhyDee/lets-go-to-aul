@@ -390,10 +390,10 @@ class NTableType : public NType {
 
 class NFunctionType : public NType {
    public:
-    IdentifierList* argumentTypes;
+    IdentifierList* arguments;
     typeList* returnTypes;
 
-    NFunctionType(IdentifierList* argumentTypes, typeList* returnTypes) : argumentTypes(argumentTypes), returnTypes(returnTypes) {}
+    NFunctionType(IdentifierList* arguments, typeList* returnTypes) : arguments(arguments), returnTypes(returnTypes) {}
 
     virtual void visit(Visitor* v) {
         v->visitNFunctionType(this);
@@ -401,7 +401,7 @@ class NFunctionType : public NType {
 
     virtual operator std::string() const {
         std::string result = "function(";
-        for (auto arg: *argumentTypes) {
+        for (auto arg: *arguments) {
             result += std::string(*arg->type) + ", ";
         }
         result += ") -> (";
@@ -670,6 +670,10 @@ class NFunctionDeclaration : public NStatement {
             list->push_back(declaration->id);
         }
         return list;
+    }
+
+    NType *get_type() {
+        return new NFunctionType(NDeclarationStatement::toIdentifierList(this->arguments), this->return_type);
     }
 
     virtual void visit(Visitor* v) { v->visitNFunctionDeclaration(this); }
@@ -1072,6 +1076,11 @@ public:
 
     SemanticError(std::string message, Position position) : message(message), position(position) {}
 
+    SemanticError(const char *message, Position position) : position(position) {
+        this->message = std::string(message);
+        this->position = position;
+    }
+
     virtual const char* what() const throw() {
         std::stringstream *ss = new std::stringstream();
         *ss << message << " at " << position.lineno << ":" << position.colno;
@@ -1091,22 +1100,26 @@ class TypeChecker : public SymtabVisitor {
         // since it is pointers to different objects, we need to check
         // if they are pointers for the same class
         if (lhs == nullptr || rhs == nullptr) {
-            if (lhs == nullptr && rhs == nullptr) {
-                return true;
-            }
+            std::cout << "One of the types are null" << std::endl;
             return false;
         }
         if (typeid(*lhs) != typeid(*rhs)) {
             return false;
         }
+
         // if it is a table type, we need to check the key and value types
         if (typeid(*lhs) == typeid(NTableType)) {
             return compareTableTypes(dynamic_cast<NTableType*>(lhs), dynamic_cast<NTableType*>(rhs));
-        } else if (typeid(*lhs) == typeid(NFunctionType)) {
+        }
+
+        if (typeid(*lhs) == typeid(NFunctionType)) {
             return compareFunctionTypes(dynamic_cast<NFunctionType*>(lhs), dynamic_cast<NFunctionType*>(rhs));
-        } else if (typeid(*lhs) == typeid(NStructType)) {
+        }
+
+        if (typeid(*lhs) == typeid(NStructType)) {
             return compareStructTypes(dynamic_cast<NStructType*>(lhs), dynamic_cast<NStructType*>(rhs));
         }
+
         // if it is not a table type, then it is a primitive type
         // compare primitive types
         if (typeid(*lhs) == typeid(NNumType)) {
@@ -1118,6 +1131,8 @@ class TypeChecker : public SymtabVisitor {
         } else if (typeid(*lhs) == typeid(NNilType)) {
             return true;
         }
+        auto msg = typeid(*lhs).name();
+        throw SemanticError(msg, Position(-1, -1));
         return false;
     }
 
@@ -1144,18 +1159,18 @@ class TypeChecker : public SymtabVisitor {
             }
         }
         // Compare the argument types
-        if (t1->argumentTypes == nullptr || t2->argumentTypes == nullptr) {
+        if (t1->arguments == nullptr || t2->arguments == nullptr) {
             // If one of them is null, then they are not the same
-            if (t1->argumentTypes != t2->argumentTypes) {
+            if (t1->arguments != t2->arguments) {
                 return false;
             }
         } else {
             // If both of them are not null, then compare the types
-            if (t1->argumentTypes->size() != t2->argumentTypes->size()) {
+            if (t1->arguments->size() != t2->arguments->size()) {
                 return false;
             } else {
-                for (int i = 0; i < t1->argumentTypes->size(); ++i) {
-                    if (!compareTypes(t1->argumentTypes->at(i)->type, t2->argumentTypes->at(i)->type)) {
+                for (int i = 0; i < t1->arguments->size(); ++i) {
+                    if (!compareTypes(t1->arguments->at(i)->type, t2->arguments->at(i)->type)) {
                         return false;
                     }
                 }
@@ -1227,29 +1242,40 @@ class TypeChecker : public SymtabVisitor {
                   << "rhs: ";
         node->expression->visit(this);
 
-        if (not compareTypes(node->ident->type, node->expression->type)) {
-            if (node->ident->type == nullptr and node->expression->type != nullptr) {
-                node->type = node->expression->type;
-                std::cout << "Deduced type: ";
-                node->type->visit(this->prettyPrinter);
-            } else {
-                std::cout << "TypeError: type mismatch, rhs type: ";
-                if (node->expression->type == nullptr) {
-                    std::cout << "not defined";
-                } else {
-                    node->expression->type->visit(this->prettyPrinter);
-                }
-                std::cout << ", but should be ";
-                node->ident->type->visit(this->prettyPrinter);
-            }
-        } else if (node->ident->type == nullptr) {
-            // both types are not defined
-            std::cout << "TypeError: both types are not defined";
-        } else {
+        if (compareTypes(node->ident->type, node->expression->type)) {
             std::cout << "Type approved, type: ";
             node->ident->type->visit(this->prettyPrinter);
+            std::cout << ")" << std::endl;
+            return;
         }
-        std::cout << ")" << std::endl;
+
+        if (node->ident->type == nullptr and node->expression->type == nullptr) {
+            std::cout << "Both types are not defined";
+            std::cout << ")" << std::endl;
+            return;
+        }
+
+        if (node->ident->type == nullptr and node->expression->type != nullptr) {
+            node->type = node->expression->type;
+            std::cout << "Deduced type: ";
+            node->type->visit(this->prettyPrinter);
+            SymbolTableEntry *entry = symtab_storage->symtab->lookup(node->ident->name, node->position.lineno + 1, true);
+            if (entry == nullptr) {
+                throw SemanticError("Entry '" + node->ident->name + "' is not defined", node->position);
+            }
+            entry->type = node->expression->type;
+            std::cout << ")" << std::endl;
+            return;
+        }
+
+        std::cout << "TypeError: type mismatch, rhs type: ";
+        if (node->expression->type == nullptr) {
+            std::cout << "not defined";
+        } else {
+            node->expression->type->visit(this->prettyPrinter);
+        }
+        std::cout << ", but should be ";
+        node->ident->type->visit(this->prettyPrinter);
     }
 
     virtual void visitNExpression(NExpression* node) {
@@ -1267,24 +1293,16 @@ class TypeChecker : public SymtabVisitor {
     virtual void visitNIdentifier(NIdentifier* node) {
         std::cout << "Identifier(";
         node->visit(this->prettyPrinter);
-        std::cout << ", has type: ";
-        if (node->type == nullptr) {
-            std::cout << "UNKNOWN, check in the symbol table, or it is not declared";
-        } else {
-            node->type->visit(this->prettyPrinter);
-        }
-        std::cout << "UNKNOWN, check in the symbol table" << std::endl;
         SymbolTableEntry *entry = symtab_storage->symtab->lookup(node->name, node->position.lineno, true);
         if (entry == nullptr) {
-            std::cout << "TypeError: identifier " << node->name << " not defined" << std::endl;
-            return;
+            throw SemanticError("TypeError: identifier " + node->name + " not defined", node->position);
         }
         if (entry->type == nullptr) {
-            std::cout << "TypeError: identifier " << node->name << " TYPE not defined" << std::endl;
-            return;
+            throw SemanticError("TypeError: identifier " + node->name + " TYPE not defined", node->position);
         }
         node->type = entry->type;
-        node->type->visit(this->prettyPrinter);
+        std::cout << "type=";
+        entry->type->visit(this->prettyPrinter);
         std::cout << ")" << std::endl;
     }
 
@@ -1428,34 +1446,34 @@ class TypeChecker : public SymtabVisitor {
         auto functionType = dynamic_cast<NFunctionType*>(node->expr->type);
 
         // check argument types
-        if (functionType->argumentTypes == nullptr || node->exprlist.empty()) {
+        if (functionType->arguments == nullptr || node->exprlist.empty()) {
             // check if both is empty
-            if (functionType->argumentTypes != nullptr || not node->exprlist.empty()) {
+            if (functionType->arguments != nullptr || not node->exprlist.empty()) {
                 std::cout << "TypeError: number of arguments is not correct";
                 std::cout << ")" << std::endl;
                 return;
             }
         } else {
             // If the number of arguments is not 0, check the number of arguments and the types
-            if (functionType->argumentTypes->size() != node->exprlist.size()) {
+            if (functionType->arguments->size() != node->exprlist.size()) {
                 std::cout << "TypeError: number of arguments is not correct";
                 std::cout << ")" << std::endl;
                 return;
             } else {
-                for (int i = 0; i < functionType->argumentTypes->size(); i++) {
+                for (int i = 0; i < functionType->arguments->size(); i++) {
                     node->exprlist.at(i)->visit(this);  // set type of the expression
                     if (node->exprlist.at(i)->type == nullptr) {
                         std::cout << "TypeError: argument type is not correct";
                         std::cout << "At position " << i << " expected type: ";
-                        functionType->argumentTypes->at(i)->type->visit(this->prettyPrinter);
+                        functionType->arguments->at(i)->visit(this->prettyPrinter);
                         std::cout << " but got type: UNKNOWN";
                         std::cout << ")" << std::endl;
                         return;
                     }
-                    if (not compareTypes(functionType->argumentTypes->at(i)->type, node->exprlist.at(i)->type)) {
+                    if (not compareTypes(functionType->arguments->at(i)->type, node->exprlist.at(i)->type)) {
                         std::cout << "TypeError: argument type is not correct";
                         std::cout << "At position " << i << " expected type: ";
-                        functionType->argumentTypes->at(i)->type->visit(this->prettyPrinter);
+                        functionType->arguments->at(i)->visit(this->prettyPrinter);
                         std::cout << " but got type: ";
                         node->exprlist.at(i)->type->visit(this->prettyPrinter);
                         std::cout << ")" << std::endl;
@@ -1480,14 +1498,17 @@ class TypeChecker : public SymtabVisitor {
     void checkConditionalExpression(NExpression* expression) {
         // check if type of expression->type pointer is pointer to class NBoolType
         if (expression->type == nullptr) {
-            std::cout << "TypeError: expression type not known (cannot be approved)";
-        } else if (dynamic_cast<NBoolType*>(expression->type) == nullptr) {
-            std::cout << "TypeError: wrong type (condition is ";
-            expression->type->visit(this->prettyPrinter);
-            std::cout << " but should be bool)";
-        } else {
-            std::cout << "Type approved(bool)";
+            throw SemanticError("TypeError: expression type not known (cannot be approved)", Position(-1, -1));
         }
+
+        if (dynamic_cast<NBoolType*>(expression->type) != nullptr) {
+            std::cout << "Type approved(bool)";
+            return;
+        }
+        std::cout << "TypeError: wrong type (condition is ";
+        expression->type->visit(this->prettyPrinter);
+        std::cout << " but should be bool)";
+        throw SemanticError("TypeError: conditional expression", Position(-1, -1));
     }
 
     void checkConditionalBlockList(std::vector<conditionBlock*> conditionBlockList) {
@@ -1831,7 +1852,7 @@ class SymbolTableFillerVisitor : public SymtabVisitor {
         symtab_storage->symtab->scope_started();
         for(auto arg: *node->arguments) {
             symtab_storage->symtab->declare(
-                new SymbolTableEntry(arg->ident->name, arg->type, Position(node->position)),
+                new SymbolTableEntry(arg->ident->name, nullptr, Position(node->position)),
                 false
             );
         }
@@ -1891,7 +1912,7 @@ class SymbolTableFillerVisitor : public SymtabVisitor {
     }
 
     virtual void visitNDeclarationStatement(NDeclarationStatement* node) {
-        SymbolTableEntry *entry = new SymbolTableEntry(node->ident->name, node->type, node->position);
+        SymbolTableEntry *entry = new SymbolTableEntry(node->ident->name, nullptr, node->position);
         symtab_storage->symtab->declare(entry, true);
     }
 
@@ -1910,8 +1931,17 @@ class SymbolTableFillerVisitor : public SymtabVisitor {
     virtual void visitNExpression(NExpression* node) { return; }
 
     virtual void visitNStructDeclaration(NStructDeclaration* node) {
-        SymbolTableEntry *entry = new SymbolTableEntry(node->id->name, new NStructType(node->id), node->position);
+        IdentifierList *field_idents = new IdentifierList();
+        IdentifierList *method_idents = new IdentifierList();
+        for (auto field_ident: node->fields)
+            field_idents->push_back(field_ident->ident);
+        for (auto method_ident: node->methods)
+            method_idents->push_back(method_ident->id);
+
+        auto type_entity = new NStructType(field_idents, method_idents);
+        SymbolTableEntry *entry = new SymbolTableEntry(node->id->name, type_entity, node->position);
         symtab_storage->symtab->declare(entry, true);
+
         symtab_storage->symtab->scope_started(false);
         for (auto field: node->fields) {
             field->visit(this);
@@ -2014,7 +2044,7 @@ class DeclaredBeforeUseCheckerVisitor : public SymtabVisitor {
         for (auto return_type : *node->return_type) {
             if (return_type == nullptr) {
                 std::cerr << "Return type is null for function " << node->id->name << std::endl;
-                return;
+                continue;
             }
             return_type->visit(this);
         }
