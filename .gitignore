@@ -10,3 +10,4 @@ src/bison
 .vscode
 parser.output
 parser.dSYM
+Session.vim
