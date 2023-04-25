@@ -2334,14 +2334,29 @@ class CodeGenVisitor : public SymtabVisitor {
     }
 
     virtual void visitNIfStatement(NIfStatement* node) {
+        // create then and else blocks. 
+        // where do we get the "function" instance?
+        BasicBlock* thenBlock = BasicBlock::Create(*context, "thenBlock", function);
+        BasicBlock* elseBlock = BasicBlock::Create(*context, "elseBlock", function);
+
         for (auto block : node->conditionBlockList) {
             symtab_storage->symtab->enter_scope();
+            // visit the condition
+            // TODO how to take its Value* like here:
+            // Value* condition = builder.CreateICmpSGT(arg, value33, "compare.result");
+            block->first->visit(this);
+            // create the condition branch
+            this->builder->CreateCondBr(condition, thenBlock, elseBlock);
+            // set the insert point to thenBlock
+            this->builder->SetInsertPoint(thenBlock);
             block->second->visit(this);
             symtab_storage->symtab->exit_scope();
         }
 
         if (node->elseBlock != nullptr) {
             symtab_storage->symtab->enter_scope();
+            // set the insert point to elseBlock
+            this->builder->SetInsertPoint(elseBlock);
             node->elseBlock->visit(this);
             symtab_storage->symtab->exit_scope();
         }
