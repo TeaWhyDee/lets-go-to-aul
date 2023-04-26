@@ -1,5 +1,25 @@
 a = 3
 b = 4
 c = a + b
-d = "123"
+g = "123"
+f: num = g
+d: str = "123"
 e = a + d
+
+k: num = "123"
+
+
+struct S
+    x: num
+end
+
+s1: S = S()
+
+function f(a: num) -> num
+    b = 123
+    c = a + b
+    return c
+end
+
+f("123")
+f(123)
