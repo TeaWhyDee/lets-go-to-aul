@@ -2171,6 +2171,7 @@ class CodeGenVisitor : public SymtabVisitor {
     llvm::LLVMContext* context;
     llvm::Module* module;
     llvm::IRBuilder<>* builder;
+    llvm::Function* main;
     std::map<std::string, llvm::Value *> NamedValues;
 
     CodeGenVisitor() {
@@ -2182,6 +2183,8 @@ class CodeGenVisitor : public SymtabVisitor {
         Type* voidType = Type::getVoidTy(*context);
         FunctionType* functionType = FunctionType::get(voidType, false);
         Function* func_main = Function::Create(functionType, GlobalValue::ExternalLinkage, "main", module);
+
+        this->main = func_main;
 
         BasicBlock* block_main = BasicBlock::Create(*context, "entry", func_main);
         this->builder->SetInsertPoint(block_main);
@@ -2336,15 +2339,16 @@ class CodeGenVisitor : public SymtabVisitor {
     virtual void visitNIfStatement(NIfStatement* node) {
         // create then and else blocks. 
         // where do we get the "function" instance?
-        BasicBlock* thenBlock = BasicBlock::Create(*context, "thenBlock", function);
-        BasicBlock* elseBlock = BasicBlock::Create(*context, "elseBlock", function);
+        BasicBlock* thenBlock = BasicBlock::Create(*context, "thenBlock", main);
+        BasicBlock* elseBlock = BasicBlock::Create(*context, "elseBlock", main);
 
         for (auto block : node->conditionBlockList) {
             symtab_storage->symtab->enter_scope();
             // visit the condition
             // TODO how to take its Value* like here:
-            // Value* condition = builder.CreateICmpSGT(arg, value33, "compare.result");
+            // Value* condition = builder->CreateICmpSGT(arg, value33, "compare.result");
             block->first->visit(this);
+            Value* condition = block->first->llvm_value;
             // create the condition branch
             this->builder->CreateCondBr(condition, thenBlock, elseBlock);
             // set the insert point to thenBlock
