@@ -1623,7 +1623,25 @@ class TypeChecker : public SymtabVisitor {
 
     virtual void visitNGenericForStatement(NGenericForStatement* node) {
         std::cout << "GenericForStatement(";
-        // TODO: check if the type of the variable is correct
+
+        // check if identifiers are defined and there are 2 of them
+        if (node->identifiers.size() != 2) {
+            std::cout << "TypeError: there should be 2 identifiers";
+            std::cout << ")" << std::endl;
+            throw SemanticError("TypeError: there should be 2 identifiers", Position(-1, -1));
+            return;
+        }
+
+        // check if the expression list type is a table
+        node->expression->visit(this);
+        if (dynamic_cast<NTableType*>(node->expression->type) == nullptr) {
+            std::cout << "TypeError: expression is not a table";
+            std::cout << ")" << std::endl;
+            throw SemanticError("TypeError: expression is not a table", Position(-1, -1));
+            return;
+        }
+        node->block->visit(this);
+        std::cout << ")" << std::endl;
     }
 
     virtual void visitNReturnStatement(NReturnStatement* node) {
