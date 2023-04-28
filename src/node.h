@@ -2345,8 +2345,6 @@ class CodeGenVisitor : public SymtabVisitor {
         for (auto block : node->conditionBlockList) {
             symtab_storage->symtab->enter_scope();
             // visit the condition
-            // TODO how to take its Value* like here:
-            // Value* condition = builder->CreateICmpSGT(arg, value33, "compare.result");
             block->first->visit(this);
             Value* condition = block->first->llvm_value;
             // create the condition branch
