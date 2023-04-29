@@ -2341,96 +2341,49 @@ class CodeGenVisitor : public SymtabVisitor {
     }
 
     virtual void visitNIfStatement(NIfStatement* node) {
-        // Dan
-        // int i = 0;
-        // std::vector<BasicBlock*> blocks;
-        // std::vector<BasicBlock*> else_blocks;
-        // // Create all blocks (so that they are in order)
-        // for (auto block : node->conditionBlockList) {
-        //     std::string block_name = "if.then" + std::to_string(i);
-        //     std::string elseblock_name = "if.else" + std::to_string(i);
-        //     BasicBlock* then_block = BasicBlock::Create(*context, block_name, current_function);
-        //     BasicBlock* else_block = BasicBlock::Create(*context, elseblock_name, current_function);
-        //     blocks.push_back(then_block);
-        //     else_blocks.push_back(else_block);
-        //     i++;
-        // }
-        // BasicBlock* end_block = BasicBlock::Create(*context, "if.end", current_function);
-        //
-        // for (int i = 0; i < node->conditionBlockList.size(); i++) {
-        //     auto condition_block = node->conditionBlockList[i];
-        //     auto then_block = blocks[i];
-        //     auto else_block = else_blocks[i];
-        //
-        //     // symtab_storage->symtab->enter_scope();
-        //     condition_block->first->visit(this);
-        //     Value* condition = condition_block->first->llvm_value;
-        //     this->builder->CreateCondBr(condition, then_block, else_block);
-        //
-        //     this->builder->SetInsertPoint(then_block);
-        //     condition_block->second->visit(this);
-        //
-        //     // symtab_storage->symtab->exit_scope();
-        //     builder->CreateBr(end_block);
-        //     this->builder->SetInsertPoint(else_block);
-        // }
-        //
-        // auto last_else_block = else_blocks[else_blocks.size()-1];
-        // end Dan
-
-
-        // create then and else blocks. 
-        // where do we get the "function" instance?
-        // old thenBlock 
-        // BasicBlock* thenBlock = BasicBlock::Create(*context, "thenBlock", main);
-
-        // create a list of then blocks for each "if"
-        std::vector<BasicBlock*> thenBlocks(node->conditionBlockList.size());
-        for (int i = 0; i < node->conditionBlockList.size(); ++i) {
-            thenBlocks[i] = BasicBlock::Create(*context, "thenBlock" + std::to_string(i), main);
+        int i = 0;
+        std::vector<BasicBlock*> blocks;
+        std::vector<BasicBlock*> else_blocks;
+        // Create all blocks (so that they are in order)
+        for (auto block : node->conditionBlockList) {
+            std::string block_name = "if.then" + std::to_string(i);
+            std::string elseblock_name = "if.else" + std::to_string(i);
+            BasicBlock* then_block = BasicBlock::Create(*context, block_name, current_function);
+            BasicBlock* else_block = BasicBlock::Create(*context, elseblock_name, current_function);
+            blocks.push_back(then_block);
+            else_blocks.push_back(else_block);
+            i++;
         }
-        BasicBlock* elseBlock = BasicBlock::Create(*context, "elseBlock", main);
+        BasicBlock* end_block = BasicBlock::Create(*context, "if.end", current_function);
 
-        for (int i = 0; i < node->conditionBlockList.size(); ++i) {
+        for (int i = 0; i < node->conditionBlockList.size(); i++) {
+            auto condition_block = node->conditionBlockList[i];
+            auto then_block = blocks[i];
+            auto else_block = else_blocks[i];
+
+            // symtab_storage->symtab->enter_scope();
+            condition_block->first->visit(this);
+            Value* condition = condition_block->first->llvm_value;
+            this->builder->CreateCondBr(condition, then_block, else_block);
+
+            this->builder->SetInsertPoint(then_block);
+            condition_block->second->visit(this);
+
+            // symtab_storage->symtab->exit_scope();
+            builder->CreateBr(end_block);
+            this->builder->SetInsertPoint(else_block);
+        }
+
+        auto last_else_block = else_blocks[else_blocks.size()-1];
+
+        if (node->elseBlock != nullptr) {
             symtab_storage->symtab->enter_scope();
-            auto block = node->conditionBlockList[i];
-            // visit the condition, and obtain its llvm value
-            block->first->visit(this);
-            Value* condition = block->first->llvm_value;
-            if (i < node->conditionBlockList.size()-1) {
-                // if the condition is not the last, refer to the next if as "else" statement
-                this->builder->CreateCondBr(condition, thenBlocks[i], thenBlocks[i+1]);
-            } else {
-                // if the condition is the last, refer to the last else block as "else" statement
-                this->builder->CreateCondBr(condition, thenBlocks[i], elseBlock);
-            }
-            this->builder->SetInsertPoint(thenBlocks[i]);
-            block->second->visit(this);
+            // set the insert point to elseBlock
+            this->builder->SetInsertPoint(last_else_block);
+            node->elseBlock->visit(this);
             symtab_storage->symtab->exit_scope();
         }
-
-        // for (auto block : node->conditionBlockList) {
-        //     symtab_storage->symtab->enter_scope();
-        //     // visit the condition
-        //     block->first->visit(this);
-        //     Value* condition = block->first->llvm_value;
-        //     // create the condition branch
-        //     this->builder->CreateCondBr(condition, thenBlock, elseBlock);
-        //     // set the insert point to thenBlock
-        //     this->builder->SetInsertPoint(thenBlock);
-        //     block->second->visit(this);
-        //     symtab_storage->symtab->exit_scope();
-        // }
-
-        // DAN
-        // if (node->elseBlock != nullptr) {
-        //     symtab_storage->symtab->enter_scope();
-        //     // set the insert point to elseBlock
-        //     this->builder->SetInsertPoint(last_else_block);
-        //     node->elseBlock->visit(this);
-        //     symtab_storage->symtab->exit_scope();
-        // }
-        // builder->CreateBr(end_block);
+        builder->CreateBr(end_block);
     }
 
     virtual void visitNNumericForStatement(NNumericForStatement* node) {
