@@ -2385,24 +2385,24 @@ class CodeGenVisitor : public SymtabVisitor {
         // BasicBlock* thenBlock = BasicBlock::Create(*context, "thenBlock", main);
 
         // create a list of then blocks for each "if"
-        std::vector<BasicBlock*> thenBlocks(node->conditionBlockList.size);
-        for (int i = 0; i < node->conditionBlockList.size; ++i) {
+        std::vector<BasicBlock*> thenBlocks(node->conditionBlockList.size());
+        for (int i = 0; i < node->conditionBlockList.size(); ++i) {
             thenBlocks[i] = BasicBlock::Create(*context, "thenBlock" + std::to_string(i), main);
         }
         BasicBlock* elseBlock = BasicBlock::Create(*context, "elseBlock", main);
 
-        for (int i = 0; i < node->conditionBlockList.size; ++i) {
+        for (int i = 0; i < node->conditionBlockList.size(); ++i) {
             symtab_storage->symtab->enter_scope();
             auto block = node->conditionBlockList[i];
             // visit the condition, and obtain its llvm value
             block->first->visit(this);
             Value* condition = block->first->llvm_value;
-            if (i < node->conditionBlockList.size-1) {
+            if (i < node->conditionBlockList.size()-1) {
                 // if the condition is not the last, refer to the next if as "else" statement
-                this->builder->CreateCondBr(condition, thenBlocks[i], thenBlocks[i+1])
+                this->builder->CreateCondBr(condition, thenBlocks[i], thenBlocks[i+1]);
             } else {
                 // if the condition is the last, refer to the last else block as "else" statement
-                this->builder->CreateCondBr(condition, thenBlocks[i], elseBlock)
+                this->builder->CreateCondBr(condition, thenBlocks[i], elseBlock);
             }
             this->builder->SetInsertPoint(thenBlocks[i]);
             block->second->visit(this);
