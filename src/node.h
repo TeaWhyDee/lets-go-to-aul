@@ -2164,7 +2164,34 @@ class DeclaredBeforeUseCheckerVisitor : public SymtabVisitor {
     virtual void visitNAssignmentStatement(NAssignmentStatement* node) {}
 };
 
+// ========================================
+//             LLVM CodeGen
+// ========================================
+
 using namespace llvm;
+
+typedef enum {
+    BOOL = 0,
+    NUM = 1,
+    STR = 2,
+    TABLE = 3,
+    FUNC = 4,
+    STRUCT = 5,
+} Type;
+
+class LLVMType : public Node {
+public:
+    virtual operator std::string() const = 0;
+};
+
+class LLVMStringType : public LLVMType {
+   public:
+    LLVMStringType() {}
+
+    virtual operator std::string() const {
+        return "string";
+    }
+};
 
 class CodeGenVisitor : public SymtabVisitor {
    public:
