@@ -9,3 +9,4 @@ src/parser.hpp
 src/bison
 .vscode
 parser.output
+parser.dSYM

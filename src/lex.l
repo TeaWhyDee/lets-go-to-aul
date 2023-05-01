@@ -63,6 +63,7 @@ std::string errortext = std::string();
 %x COMMENT_BRACKETS
 %x STRING_NOESCAPE
 
+/* \]=*\]              { errortext = "Unexpected closing square bracket."; return ERROR;} */
 %%
 <STARTUP>{ 
     ^[^\n]* { linebuf = std::string(yytext); BEGIN(INITIAL); yyless(0); }
@@ -91,6 +92,13 @@ std::string errortext = std::string();
   .                 {ADD_STR};
 }
 
+\(           {return OP_LBRACE ;}
+\)           {return OP_RBRACE ;}
+\{           {return OP_LCURLY_BRACE ;}
+\}           {return OP_RCURLY_BRACE ;}
+\[           {return OP_LSQUARE_BRACE ;}
+\]           {return OP_RSQUARE_BRACE ;}
+
 \[=*\[              { NEW_STR; str_bracketlen = std::string(yytext).length(); BEGIN(STRING_NOESCAPE); }
 <STRING_NOESCAPE>{
   "\n"              {str += "\n";}
@@ -110,7 +118,6 @@ std::string errortext = std::string();
 
 [ \t]+
 [\"\']              { NEW_STR; str_init=yytext; BEGIN(STRING); }
-\]=*\]              { errortext = "Unexpected closing square bracket."; return ERROR;}
 [0-9]+[.]?[0-9]*   {SAVE_TOKEN; return L_NUM ;}
 [-][>]       {return OP_ARROW ;}
 [+]          {return OP_PLUS ;}
@@ -120,15 +127,14 @@ std::string errortext = std::string();
 [/]          {return OP_SLASH ;}
 [\%]         {return OP_PERCENT ;}
 [#]          {return OP_HASH ;}
+[\^]          {return OP_CARET ;}
 [=][=]       {return OP_EQUALEQUAL ;}
 [~][=]       {return OP_NOTEQUAL ;}
-[<][=]       {return OP_LESSTHAN ;}
-[>][=]       {return OP_LARGERTHAN ;}
+[<][=]       {return OP_LESSEQ ;}
+[>][=]       {return OP_MOREEQ ;}
 [<]          {return OP_LESS ;}
 [>]          {return OP_MORE ;}
 [=]          {return OP_EQUAL ;}
-\(           {return OP_LBRACE ;}
-\)           {return OP_RBRACE ;}
 [;]          {return OP_SEMICOLON ;}
 [:]          {return OP_COLON ;}
 [,]          {return OP_COMMA ;}
