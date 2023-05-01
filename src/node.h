@@ -146,10 +146,11 @@ class SymbolTable {
     SymbolTable* parent;
     std::vector<SymbolTable*> children;
     std::vector<SymbolTableEntry*> entries;
-    bool check_parent = false;
+    bool check_parent = true;
 
     virtual SymbolTableEntry* lookup_here(std::string name, int above_lineno) = 0;
     virtual SymbolTableEntry* lookup(std::string name, int above_lineno, bool check_parent = false) = 0;
+    virtual SymbolTableEntry* lookup_or_throw(std::string name, int above_lineno, bool check_parent = true) = 0;
     virtual SymbolTableEntry* declare(SymbolTableEntry* entry, bool check_parent = false) = 0;
     virtual void scope_started(bool check_parent = true) = 0;
     virtual void scope_ended() = 0;
@@ -174,6 +175,26 @@ class SymtabVisitor : public Visitor {
             symtab_storage->symtab = symtab_storage->symtab->parent;
         }
         symtab_storage->symtab->prepare_for_next_run();
+    }
+};
+
+class SemanticError : public std::exception {
+   public:
+    std::string message;
+    Position position;
+
+    SemanticError(std::string message, Position position) : message(message), position(position) {}
+
+    SemanticError(const char* message, Position position) : position(position) {
+        this->message = std::string(message);
+        this->position = position;
+    }
+
+    virtual const char* what() const throw() {
+        std::stringstream* ss = new std::stringstream();
+        *ss << message << " at " << position.lineno << ":" << position.colno;
+        const char* cstr = strdup(ss->str().c_str());
+        return cstr;
     }
 };
 
@@ -209,6 +230,14 @@ class ScopedSymbolTable : public SymbolTable {
         } while (symtab->parent != nullptr and (symtab = symtab->parent) and check);
 
         return nullptr;
+    }
+
+    virtual SymbolTableEntry* lookup_or_throw(std::string name, int above_lineno, bool check_parent = false) {
+        auto result = this->lookup(name, above_lineno, check_parent);
+        if (result == nullptr) {
+            throw SemanticError(name + " is not defined around", Position(above_lineno, 0));
+        }
+        return result;
     }
 
     virtual SymbolTableEntry* lookup(SymbolTableEntry* entry, bool check_parent = false) {
@@ -1070,26 +1099,6 @@ class PrettyPrintVisitor : public Visitor {
     virtual void cleanup() {}
 };
 
-class SemanticError : public std::exception {
-   public:
-    std::string message;
-    Position position;
-
-    SemanticError(std::string message, Position position) : message(message), position(position) {}
-
-    SemanticError(const char* message, Position position) : position(position) {
-        this->message = std::string(message);
-        this->position = position;
-    }
-
-    virtual const char* what() const throw() {
-        std::stringstream* ss = new std::stringstream();
-        *ss << message << " at " << position.lineno << ":" << position.colno;
-        const char* cstr = strdup(ss->str().c_str());
-        return cstr;
-    }
-};
-
 class TypeChecker : public SymtabVisitor {
    public:
     bool isInsideFunction = false;
@@ -1243,10 +1252,7 @@ class TypeChecker : public SymtabVisitor {
                   << "rhs: ";
         node->expression->visit(this);
 
-        auto entry = symtab_storage->symtab->lookup(node->ident->name, node->position.lineno + 1, true);
-        if (entry == nullptr) {
-            throw SemanticError(node->ident->name + " not defined", node->position);
-        }
+        auto entry = symtab_storage->symtab->lookup_or_throw(node->ident->name, node->position.lineno + 1, true);
         entry->type = node->expression->type;
 
         if (compareTypes(node->ident->type, node->expression->type)) {
@@ -1300,7 +1306,7 @@ class TypeChecker : public SymtabVisitor {
         std::cout << "Identifier(";
         node->visit(this->prettyPrinter);
         std::cout << ",";
-        SymbolTableEntry* entry = symtab_storage->symtab->lookup(node->name, node->position.lineno, true);
+        SymbolTableEntry* entry = symtab_storage->symtab->lookup_or_throw(node->name, node->position.lineno, true);
         if (entry == nullptr) {
             throw SemanticError("TypeError: identifier " + node->name + " not defined", node->position);
         }
@@ -1511,11 +1517,8 @@ class TypeChecker : public SymtabVisitor {
         bool is_ident_call = dynamic_cast<NIdentifier*>(node->expr) != nullptr;
         if (is_ident_call) {
             NIdentifier* ident = dynamic_cast<NIdentifier*>(node->expr);
-            auto entry = symtab_storage->symtab->lookup(ident->name, ident->position.lineno);
+            auto entry = symtab_storage->symtab->lookup_or_throw(ident->name, ident->position.lineno);
             entry->type->visit(this->prettyPrinter);
-            if (entry == nullptr) {
-                throw SemanticError("Cannot find identifier " + ident->name, ident->position);
-            }
             node->expr->type = entry->type;
             is_function = dynamic_cast<NFunctionType*>(node->expr->type) != nullptr;
             is_struct = dynamic_cast<NStructType*>(node->expr->type) != nullptr;
@@ -1754,9 +1757,9 @@ class TypeChecker : public SymtabVisitor {
         } else {
             this->functionReturnType = nullptr;
         }
-        symtab_storage->symtab->scope_started();
+        symtab_storage->symtab->enter_scope();
         node->block->visit(this);
-        symtab_storage->symtab->scope_ended();
+        symtab_storage->symtab->exit_scope();
         this->isInsideFunction = false;
     }
 
@@ -2093,7 +2096,7 @@ class SymbolTableFillerVisitor : public SymtabVisitor {
         SymbolTableEntry* entry = new SymbolTableEntry(node->id->name, type_entity, node->position);
         symtab_storage->symtab->declare(entry, true);
 
-        symtab_storage->symtab->scope_started(false);
+        symtab_storage->symtab->scope_started();
         for (auto field : node->fields) {
             field->visit(this);
         }
