@@ -2170,28 +2170,44 @@ class DeclaredBeforeUseCheckerVisitor : public SymtabVisitor {
 
 using namespace llvm;
 
-// typedef enum {
-//     BOOL = 0,
-//     NUM = 1,
-//     STR = 2,
-//     TABLE = 3,
-//     FUNC = 4,
-//     STRUCT = 5,
-// } Type;
-
-class LLVMType : public Node {
+class LLVMType {
 public:
     virtual operator std::string() const = 0;
+    virtual llvm::Type *getLlvmType(LLVMContext *ctx) = 0;
 };
 
 class LLVMStringType : public LLVMType {
    public:
     LLVMStringType() {}
 
-    virtual operator std::string() const {
+    llvm::Type *getLlvmType(LLVMContext *ctx) {
+        return llvm::PointerType::getInt8PtrTy(*ctx);
+    }
+
+    operator std::string() const {
         return "string";
     }
 };
+
+class LLVMNumType : public LLVMType {
+   public:
+    LLVMNumType() {}
+
+    llvm::Type *getLlvmType(LLVMContext *ctx) {
+        return llvm::Type::getFloatTy(*ctx);
+    }
+
+    operator std::string() const {
+        return "num";
+    }
+};
+
+LLVMType *str_to_llvmtype(NType* type) {
+    std::string str = static_cast<std::string>(*type);
+    if (str =="string") {
+        return new LLVMStringType();
+    }
+}
 
 class CodeGenVisitor : public SymtabVisitor {
    public:
@@ -2217,15 +2233,28 @@ class CodeGenVisitor : public SymtabVisitor {
         this->builder->SetInsertPoint(block_main);
     }
 
+
+    //     llvm::IntegerType *IntType::getLlvmType(Context *ctx) {
+    //     return llvm::Type::getInt32Ty(*ctx->getContext());
+    // }
+    //
+    // llvm::Value *IntType::generateValue(Context *ctx, int val) {
+    //     return ctx->getBuilder()->getInt32(val);
+    // }
+    
     virtual void visitNNum(NNum* node) {
-        llvm::Value *ir = llvm::ConstantFP::get(*context, llvm::APFloat(node->value));
-        // ir->print(llvm::errs());
+        llvm::Type *ty = str_to_llvmtype(node->type)->getLlvmType(context);
+        auto ir =  llvm::ConstantFP::get(*context, llvm::APFloat(node->value));
         node->llvm_value = ir;
     }
 
-    virtual void visitNNil(NNil* node) {}
+    virtual void visitNNil(NNil* node) {
+        
+    }
 
-    virtual void visitNBool(NBool* node) {}
+    virtual void visitNBool(NBool* node) {
+        
+    }
 
     virtual void visitNString(NString* node) {
         
