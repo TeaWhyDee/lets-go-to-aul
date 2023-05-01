@@ -2207,7 +2207,6 @@ class CodeGenVisitor : public SymtabVisitor {
         this->builder->SetInsertPoint(block_main);
     }
 
-
     //     llvm::IntegerType *IntType::getLlvmType(Context *ctx) {
     //     return llvm::Type::getInt32Ty(*ctx->getContext());
     // }
