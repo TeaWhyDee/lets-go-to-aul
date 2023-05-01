@@ -2170,14 +2170,14 @@ class DeclaredBeforeUseCheckerVisitor : public SymtabVisitor {
 
 using namespace llvm;
 
-typedef enum {
-    BOOL = 0,
-    NUM = 1,
-    STR = 2,
-    TABLE = 3,
-    FUNC = 4,
-    STRUCT = 5,
-} Type;
+// typedef enum {
+//     BOOL = 0,
+//     NUM = 1,
+//     STR = 2,
+//     TABLE = 3,
+//     FUNC = 4,
+//     STRUCT = 5,
+// } Type;
 
 class LLVMType : public Node {
 public:
@@ -2227,34 +2227,36 @@ class CodeGenVisitor : public SymtabVisitor {
 
     virtual void visitNBool(NBool* node) {}
 
-    virtual void visitNString(NString* node) {}
-
-    virtual SymbolTableEntry* check_symtab(NIdentifier *node, SymbolTable *symtab) {
-        for (auto entry : symtab->entries)
-        {
-            if (entry->name == node->name) {
-                std::cout << entry->name << "(";
-                std::cout << entry->position.lineno << ":" << entry->position.colno << "-";
-                std::cout << node->position.lineno << ":" << node->position.colno << ")" << std::endl;
-                if (entry->position.lineno < node->position.lineno) {
-                    std::cout << entry->name << " ok" << std::endl;
-                    return entry;
-                }
-            }
-        }
-        if (symtab->parent != nullptr) {
-            return check_symtab(node, symtab->parent);
-        } else {
-            throw new SemanticError("Identifier " + node->name + " not found", node->position);
-        }
+    virtual void visitNString(NString* node) {
+        
     }
 
+    // virtual SymbolTableEntry* check_symtab(NIdentifier *node, SymbolTable *symtab) {
+    //     for (auto entry : symtab->entries)
+    //     {
+    //         if (entry->name == node->name) {
+    //             std::cout << entry->name << "(";
+    //             std::cout << entry->position.lineno << ":" << entry->position.colno << "-";
+    //             std::cout << node->position.lineno << ":" << node->position.colno << ")" << std::endl;
+    //             if (entry->position.lineno < node->position.lineno) {
+    //                 std::cout << entry->name << " ok" << std::endl;
+    //                 return entry;
+    //             }
+    //         }
+    //     }
+    //     if (symtab->parent != nullptr) {
+    //         return check_symtab(node, symtab->parent);
+    //     } else {
+    //         throw new SemanticError("Identifier " + node->name + " not found", node->position);
+    //     }
+    // }
+
     virtual void visitNIdentifier(NIdentifier* node) {
-        try {
-            check_symtab(node, symtab_storage->symtab);
-        } catch (SemanticError* e) {
-            std::cout << e->what() << std::endl;
-        }
+        // try {
+        //     check_symtab(node, symtab_storage->symtab);
+        // } catch (SemanticError* e) {
+        //     std::cout << e->what() << std::endl;
+        // }
     }
 
     virtual void visitNBinaryOperatorExpression(NBinaryOperatorExpression* node) {
@@ -2271,7 +2273,7 @@ class CodeGenVisitor : public SymtabVisitor {
     virtual void visitNFunctionDeclaration(NFunctionDeclaration* node) {
         std::string name = node->id->name;
 
-        Type* return_type = builder->getVoidTy();
+        llvm::Type* return_type = builder->getVoidTy();
 
         if (node->return_type != nullptr) {
             for (auto return_type : *node->return_type) {
@@ -2462,23 +2464,23 @@ class CodeGenVisitor : public SymtabVisitor {
     virtual void visitNTableType(NTableType* node) { return; }
     virtual void visitNFunctionType(NFunctionType* node) { return; }
     virtual void visitNStructType(NStructType* node) {
-        try {
-            auto entry = this->check_symtab(node->name, symtab_storage->symtab);
-            if (entry == nullptr) {
-                throw new SemanticError("Entry for type " + node->name->name + " is None", node->name->position);
-            }
-
-            if (typeid(entry->type) != typeid(NStructType *)) {
-                std::string type = "unknown";
-                if (entry->type != nullptr) {
-                    type = std::string(*entry->type);
-                }
-                throw new SemanticError("Type " + node->name->name + " is not a struct: " + type, node->name->position);
-            }
-
-        } catch(SemanticError *e) {
-            std::cout << e->what() << std::endl;
-        }
+        // try {
+        //     auto entry = this->check_symtab(node->name, symtab_storage->symtab);
+        //     if (entry == nullptr) {
+        //         throw new SemanticError("Entry for type " + node->name->name + " is None", node->name->position);
+        //     }
+        //
+        //     if (typeid(entry->type) != typeid(NStructType *)) {
+        //         std::string type = "unknown";
+        //         if (entry->type != nullptr) {
+        //             type = std::string(*entry->type);
+        //         }
+        //         throw new SemanticError("Type " + node->name->name + " is not a struct: " + type, node->name->position);
+        //     }
+        //
+        // } catch(SemanticError *e) {
+        //     std::cout << e->what() << std::endl;
+        // }
     }
     virtual void visitNAccessKey(NAccessKey* node) {}
     virtual void visitNAssignmentStatement(NAssignmentStatement* node) {}
