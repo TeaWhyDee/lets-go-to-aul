@@ -1,4 +1,4 @@
-a -- line comment (already implemented)
+code=1 -- line comment (already implemented)
 
 --[[
     im comment
@@ -7,15 +7,15 @@ a -- line comment (already implemented)
 --[==[
     im comment
     --]]
-]==] =
-     2
+]==] code=2
+     code=3
 -- ]]
 
-b=2
+code=4
 
 --[[
     im comment
 ]]
 
 --[[
-c=3
+code=5

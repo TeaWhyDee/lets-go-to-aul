@@ -1,7 +1,7 @@
-function f(a: S, b: num) -> num
-  b = "12345"
-  c: int = a + b
-  d: num = -c
+function f(a: num, b: num) -> num
+  b = 2
+  c: num = a + b
+  -- d: num = -c
   return 1
 end
 
