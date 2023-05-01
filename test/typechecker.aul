@@ -21,8 +21,16 @@ function f(a: num) -> num
     return c
 end
 
-f("123")
+-- f("123")
 f(123)
 
 
 a = 3
+
+function sqrt(a: str) -> str
+    return a + "sqrt"
+end
+
+
+-- a: int = sqrt("123")
+a: str = sqrt("123")

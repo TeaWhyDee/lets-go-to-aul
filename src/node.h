@@ -1342,10 +1342,10 @@ class TypeChecker : public SymtabVisitor {
                                                       BinOpType::NOT_EQUAL, BinOpType::LESS_THAN, BinOpType::LESS_THAN_OR_EQUAL,
                                                       BinOpType::GREATER_THAN, BinOpType::GREATER_THAN_OR_EQUAL};
         // possible operators for string:
-        // ==, ~=, <, <=, >, >=
+        // ==, ~=, <, <=, >, >=, +
         auto str_allowed_ops = std::vector<BinOpType>{BinOpType::EQUAL,
                                                       BinOpType::NOT_EQUAL, BinOpType::LESS_THAN, BinOpType::LESS_THAN_OR_EQUAL,
-                                                      BinOpType::GREATER_THAN, BinOpType::GREATER_THAN_OR_EQUAL};
+                                                      BinOpType::GREATER_THAN, BinOpType::GREATER_THAN_OR_EQUAL, BinOpType::ADD};
         // possible operators for bool:
         // and, or, ==, ~=, <, <=, >, >=
         auto bool_allowed_ops = std::vector<BinOpType>{BinOpType::AND, BinOpType::OR,
@@ -1463,16 +1463,16 @@ class TypeChecker : public SymtabVisitor {
                         functionType->arguments->at(i)->visit(this->prettyPrinter);
                         std::cout << " but got type: UNKNOWN";
                         std::cout << ")" << std::endl;
-                        return;
+                        throw SemanticError("TypeError for function args", Position(0, 0));
                     }
                     if (not compareTypes(functionType->arguments->at(i)->type, node->exprlist.at(i)->type)) {
-                        std::cout << "TypeError: argument type is not correct";
-                        std::cout << "At position " << i << " expected type: ";
+                        std::cout << "TypeError: argument type is not correct ";
+                        std::cout << "at position " << i << " expected type: ";
                         functionType->arguments->at(i)->type->visit(this->prettyPrinter);
                         std::cout << " but got type: ";
                         node->exprlist.at(i)->type->visit(this->prettyPrinter);
                         std::cout << ")" << std::endl;
-                        return;
+                        throw SemanticError("TypeError for function args", Position(0, 0));
                     }
                 }
             }
@@ -1514,7 +1514,7 @@ class TypeChecker : public SymtabVisitor {
             auto entry = symtab_storage->symtab->lookup(ident->name, ident->position.lineno);
             entry->type->visit(this->prettyPrinter);
             if (entry == nullptr) {
-                throw SemanticError("Cannot find identifier" + ident->name, ident->position);
+                throw SemanticError("Cannot find identifier " + ident->name, ident->position);
             }
             node->expr->type = entry->type;
             is_function = dynamic_cast<NFunctionType*>(node->expr->type) != nullptr;
@@ -1526,7 +1526,7 @@ class TypeChecker : public SymtabVisitor {
 
         if (is_function) {
             this->visitFunctionCall(node);
-            node->type = dynamic_cast<NFunctionType*>(node->expr->type);
+            node->type = dynamic_cast<NFunctionType*>(node->expr->type)->returnTypes->at(0);
         } else if (is_struct) {
             this->visitStructCall(node);
             node->type = dynamic_cast<NStructType*>(node->expr->type);
