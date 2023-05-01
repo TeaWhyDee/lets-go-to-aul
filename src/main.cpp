@@ -26,5 +26,13 @@ int main(int argc, char** argv) {
     } catch (SemanticError* e) {
         std::cout << "Semantic error: " << e->what() << std::endl;
     }
+
+    auto visitor = new CodeGenVisitor();
+    std::cout << "\n\n------------------" << visitor->name << "------------------" << std::endl;
+    programBlock->visit(visitor);
+    // visitor->cleanup();
+    
+    visitor->module->print(llvm::errs(), nullptr);
+
     return 0;
 }
