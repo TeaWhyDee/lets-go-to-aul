@@ -11,8 +11,8 @@ int main(int argc, char** argv) {
     auto pretty_print_visitor = new PrettyPrintVisitor();
     Visitor *visitors[] = {
         pretty_print_visitor,
-        // new TypeDeducer(),
         new SymbolTableFillerVisitor(),
+        // new TypeDeducer(),
         new DeclaredBeforeUseCheckerVisitor(),
         new TypeChecker(pretty_print_visitor),
     };
