@@ -27,11 +27,6 @@ int main(int argc, char** argv) {
         std::cout << "Semantic error: " << e->what() << std::endl;
     }
 
-
-    //
-    // verifyFunction(*function);
-    // module->print(llvm::outs(), nullptr);
-
     auto visitor = new CodeGenVisitor();
     std::cout << "\n\n------------------" << visitor->name << "------------------" << std::endl;
     programBlock->visit(visitor);
