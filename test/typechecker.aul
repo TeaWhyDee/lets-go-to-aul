@@ -2,11 +2,11 @@ a = 3
 b = 4
 c = a + b
 g = "123"
-f: num = g
+-- f: num = g
 d: str = "123"
-e = a + d
+-- e = a + d
 
-k: num = "123"
+-- k: num = "123"
 
 
 struct S
@@ -23,3 +23,6 @@ end
 
 f("123")
 f(123)
+
+
+a = 3

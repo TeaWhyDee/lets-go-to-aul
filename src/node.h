@@ -584,14 +584,13 @@ class NAssignmentStatement : public NStatement {
 class NDeclarationStatement : public NStatement {
    public:
     NIdentifier* ident;
-    NType* type;
     NExpression* expression;
     Position position;
     NDeclarationStatement(NIdentifier* ident, NExpression* expression, Position position)
-        : ident(ident), type(nullptr), expression(expression), position(position) {}
+        : ident(ident), expression(expression), position(position) {}
 
     NDeclarationStatement(NIdentifier* ident, NType* type)
-        : ident(ident), type(type), expression(nullptr), position(Position(0, 0)) {
+        : ident(ident), expression(nullptr), position(Position(0, 0)) {
         this->ident->type = type;
     }
 
@@ -599,7 +598,7 @@ class NDeclarationStatement : public NStatement {
         NIdentifier* ident,
         NType* type,
         NExpression* expression,
-        Position position) : ident(ident), type(type), expression(expression), position(position) {
+        Position position) : ident(ident), expression(expression), position(position) {
         this->ident->type = type;
     }
 
@@ -972,9 +971,9 @@ class PrettyPrintVisitor : public Visitor {
         std::cout << "NDeclarationStatement(ident=";
         node->ident->visit(this);
         std::string type = "`To be deduced`";
-        if (node->type != nullptr) {
+        if (node->ident->type != nullptr) {
             std::cout << ", type=";
-            node->type->visit(this);
+            node->ident->type->visit(this);
         }
         if (node->expression != nullptr) {
             std::cout << ", expr=";
@@ -1244,6 +1243,12 @@ class TypeChecker : public SymtabVisitor {
                   << "rhs: ";
         node->expression->visit(this);
 
+        auto entry = symtab_storage->symtab->lookup(node->ident->name, node->position.lineno + 1, true);
+        if (entry == nullptr) {
+            throw SemanticError(node->ident->name + " not defined", node->position);
+        }
+        entry->type = node->expression->type;
+
         if (compareTypes(node->ident->type, node->expression->type)) {
             std::cout << "Type approved, type: ";
             node->ident->type->visit(this->prettyPrinter);
@@ -1258,14 +1263,9 @@ class TypeChecker : public SymtabVisitor {
         }
 
         if (node->ident->type == nullptr and node->expression->type != nullptr) {
-            node->type = node->expression->type;
             std::cout << "Deduced type: ";
-            node->type->visit(this->prettyPrinter);
-            SymbolTableEntry* entry = symtab_storage->symtab->lookup(node->ident->name, node->position.lineno + 1, true);
-            if (entry == nullptr) {
-                throw SemanticError("Entry '" + node->ident->name + "' is not defined", node->position);
-            }
-            entry->type = node->expression->type;
+            node->ident->type = node->expression->type;
+            node->ident->type->visit(this->prettyPrinter);
             std::cout << ")" << std::endl;
             return;
         }
@@ -1280,7 +1280,7 @@ class TypeChecker : public SymtabVisitor {
         node->ident->type->visit(this->prettyPrinter);
         std::cout << std::endl
                   << ")" << std::endl;
-        throw SemanticError("Type mismatch" + node->ident->name, node->position);
+        throw SemanticError("Type mismatch: " + node->ident->name, node->position);
     }
 
     virtual void visitNExpression(NExpression* node) {
@@ -1318,20 +1318,19 @@ class TypeChecker : public SymtabVisitor {
         node->visit(this->prettyPrinter);
         node->lhs->visit(this);
         node->rhs->visit(this);
-        if (node->lhs->type == nullptr or not compareTypes(node->lhs->type, node->rhs->type)) {
+        if (node->lhs->type == nullptr) {
+            throw SemanticError("lhs type not defined", node->position);
+        }
+        if (node->rhs->type == nullptr) {
+            throw SemanticError("rhs type not defined", node->position);
+        }
+
+        if (not compareTypes(node->lhs->type, node->rhs->type)) {
             std::cout << "TypeError: type mismatch, lhs type: ";
-            if (node->lhs->type == nullptr) {
-                std::cout << "not defined";
-            } else {
-                node->lhs->type->visit(this->prettyPrinter);
-            }
+            node->lhs->type->visit(this->prettyPrinter);
             std::cout << ", rhs type: ";
-            if (node->rhs->type == nullptr) {
-                std::cout << "not defined";
-            } else {
-                node->rhs->type->visit(this->prettyPrinter);
-            }
-            std::cout << ", but should be the same and not null)" << std::endl;
+            node->rhs->type->visit(this->prettyPrinter);
+            std::cout << ", but should be the same)" << std::endl;
             throw SemanticError("Binary operator type mismatch", node->position);
         }
         // possible operators for num:
@@ -1755,7 +1754,9 @@ class TypeChecker : public SymtabVisitor {
         } else {
             this->functionReturnType = nullptr;
         }
+        symtab_storage->symtab->scope_started();
         node->block->visit(this);
+        symtab_storage->symtab->scope_ended();
         this->isInsideFunction = false;
     }
 
@@ -1920,16 +1921,20 @@ class TypeChecker : public SymtabVisitor {
     virtual void visitNStructDeclaration(NStructDeclaration* node) {
         std::cout << "StructDeclaration(";
         node->visit(this->prettyPrinter);
-        for (auto method : node->methods) {
+        symtab_storage->symtab->scope_started();
+        for (auto method : node->methods)
+        {
             method->visit(this);
         }
         for (auto field : node->fields) {
             field->visit(this);
         }
+        symtab_storage->symtab->scope_ended();
         // make a struct type for the struct
         auto fieldlist = NDeclarationStatement::toIdentifierList(&(node->fields));
         auto methodlist = NFunctionDeclaration::toIdentifierList(&(node->methods));
-        node->id->type = new NStructType(new NIdentifier(&node->id->name, node->position), fieldlist, methodlist);
+        auto struct_type = new NStructType(new NIdentifier(&node->id->name, node->position), fieldlist, methodlist);
+        node->id->type = struct_type;
         std::cout << ")" << std::endl;
     }
 
@@ -2170,12 +2175,12 @@ class DeclaredBeforeUseCheckerVisitor : public SymtabVisitor {
             return;
         }
         for (auto arg : *node->arguments) {
-            if (arg->type == nullptr) {
+            if (arg->ident->type == nullptr) {
                 std::cerr << "Argument type is null for ";
                 std::cerr << node->id->name << ":" << arg->ident->name << std::endl;
                 return;
             }
-            arg->type->visit(this);
+            arg->ident->type->visit(this);
         }
 
         symtab_storage->symtab->enter_scope();
@@ -2247,8 +2252,8 @@ class DeclaredBeforeUseCheckerVisitor : public SymtabVisitor {
     }
 
     virtual void visitNDeclarationStatement(NDeclarationStatement* node) {
-        if (node->type != nullptr)
-            node->type->visit(this);
+        if (node->ident->type != nullptr)
+            node->ident->type->visit(this);
         if (node->expression != nullptr)
             node->expression->visit(this);
     }
