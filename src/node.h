@@ -2170,44 +2170,18 @@ class DeclaredBeforeUseCheckerVisitor : public SymtabVisitor {
 
 using namespace llvm;
 
-class LLVMType {
-public:
-    virtual operator std::string() const = 0;
-    virtual llvm::Type *getLlvmType(LLVMContext *ctx) = 0;
-};
-
-class LLVMStringType : public LLVMType {
-   public:
-    LLVMStringType() {}
-
-    llvm::Type *getLlvmType(LLVMContext *ctx) {
+class LLVMTypes {
+  public:
+    static llvm::Type *str_type(LLVMContext *ctx) {
         return llvm::PointerType::getInt8PtrTy(*ctx);
     }
-
-    operator std::string() const {
-        return "string";
-    }
-};
-
-class LLVMNumType : public LLVMType {
-   public:
-    LLVMNumType() {}
-
-    llvm::Type *getLlvmType(LLVMContext *ctx) {
+    static llvm::Type *num_type(LLVMContext *ctx) {
         return llvm::Type::getFloatTy(*ctx);
     }
-
-    operator std::string() const {
-        return "num";
+    static llvm::Type *bool_type(LLVMContext *ctx) {
+        return llvm::IntegerType::getInt1Ty(*ctx);
     }
 };
-
-LLVMType *str_to_llvmtype(NType* type) {
-    std::string str = static_cast<std::string>(*type);
-    if (str =="string") {
-        return new LLVMStringType();
-    }
-}
 
 class CodeGenVisitor : public SymtabVisitor {
    public:
@@ -2243,22 +2217,22 @@ class CodeGenVisitor : public SymtabVisitor {
     // }
     
     virtual void visitNNum(NNum* node) {
-        llvm::Type *ty = str_to_llvmtype(node->type)->getLlvmType(context);
-        auto ir =  llvm::ConstantFP::get(*context, llvm::APFloat(node->value));
-        node->llvm_value = ir;
-    }
-
-    virtual void visitNNil(NNil* node) {
+        // llvm::Type *ty = LLVMTypes::num_type(context);
         
+        node->llvm_value = llvm::ConstantFP::get(*context, llvm::APFloat(node->value));
     }
 
     virtual void visitNBool(NBool* node) {
-        
+        // llvm::Type *ty = LLVMTypes::bool_type(context);
+
+        node->llvm_value = builder->getInt1(node->value);
     }
 
     virtual void visitNString(NString* node) {
         
     }
+
+    virtual void visitNNil(NNil* node) { }
 
     // virtual SymbolTableEntry* check_symtab(NIdentifier *node, SymbolTable *symtab) {
     //     for (auto entry : symtab->entries)
