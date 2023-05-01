@@ -1,7 +1,13 @@
-f()
+function f(a: num) -> num
+    return 3
+end
 
-f(a, b, c)
+a = 3
 
-f(f(1, 2, 3), g(f(1, 2, 3)))
-
-a = f() + g()
+struct S
+    b: num
+    function g() -> num
+        f(3)
+        a = 5
+    end
+end
