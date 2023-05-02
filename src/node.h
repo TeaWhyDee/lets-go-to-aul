@@ -2345,14 +2345,10 @@ class DeclaredBeforeUseCheckerVisitor : public SymtabVisitor {
     virtual void visitNAssignmentStatement(NAssignmentStatement* node) {}
 };
 
-// ========================================
-//             LLVM CodeGen
-// ========================================
-
 using namespace llvm;
 
 class LLVMTypes {
-  public:
+public:
     static llvm::Type *str_type(LLVMContext *ctx) {
         return llvm::PointerType::getInt8PtrTy(*ctx);
     }
@@ -2388,68 +2384,103 @@ class CodeGenVisitor : public SymtabVisitor {
         this->builder->SetInsertPoint(block_main);
     }
 
-
-    //     llvm::IntegerType *IntType::getLlvmType(Context *ctx) {
-    //     return llvm::Type::getInt32Ty(*ctx->getContext());
-    // }
-    //
-    // llvm::Value *IntType::generateValue(Context *ctx, int val) {
-    //     return ctx->getBuilder()->getInt32(val);
-    // }
-    
     virtual void visitNNum(NNum* node) {
-        // llvm::Type *ty = LLVMTypes::num_type(context);
-        
-        node->llvm_value = llvm::ConstantFP::get(*context, llvm::APFloat(node->value));
+        llvm::Value *ir = llvm::ConstantFP::get(*context, llvm::APFloat(node->value));
+        // ir->print(llvm::errs());
+        node->llvm_value = ir;
     }
 
     virtual void visitNBool(NBool* node) {
-        // llvm::Type *ty = LLVMTypes::bool_type(context);
-
         node->llvm_value = builder->getInt1(node->value);
     }
 
     virtual void visitNString(NString* node) {
-        
+
     }
 
-    virtual void visitNNil(NNil* node) { }
+    virtual void visitNNil(NNil* node) {
 
-    // virtual SymbolTableEntry* check_symtab(NIdentifier *node, SymbolTable *symtab) {
-    //     for (auto entry : symtab->entries)
-    //     {
-    //         if (entry->name == node->name) {
-    //             std::cout << entry->name << "(";
-    //             std::cout << entry->position.lineno << ":" << entry->position.colno << "-";
-    //             std::cout << node->position.lineno << ":" << node->position.colno << ")" << std::endl;
-    //             if (entry->position.lineno < node->position.lineno) {
-    //                 std::cout << entry->name << " ok" << std::endl;
-    //                 return entry;
-    //             }
-    //         }
-    //     }
-    //     if (symtab->parent != nullptr) {
-    //         return check_symtab(node, symtab->parent);
-    //     } else {
-    //         throw new SemanticError("Identifier " + node->name + " not found", node->position);
-    //     }
-    // }
+    }
 
     virtual void visitNIdentifier(NIdentifier* node) {
-        // try {
-        //     check_symtab(node, symtab_storage->symtab);
-        // } catch (SemanticError* e) {
-        //     std::cout << e->what() << std::endl;
-        // }
+
     }
 
     virtual void visitNBinaryOperatorExpression(NBinaryOperatorExpression* node) {
         node->lhs->visit(this);
         node->rhs->visit(this);
+
+        switch (node->op) {
+            case BinOpType::ADD:
+                std::cout << "+";
+                node->llvm_value = this->builder->CreateFAdd(node->lhs->llvm_value, node->rhs->llvm_value);
+                break;
+            case BinOpType::SUBSTRACT:
+                std::cout << "-";
+                node->llvm_value = this->builder->CreateFSub(node->lhs->llvm_value, node->rhs->llvm_value);
+                break;
+            case BinOpType::MULTIPLY:
+                std::cout << "*";
+                node->llvm_value = this->builder->CreateFMul(node->lhs->llvm_value, node->rhs->llvm_value);
+                break;
+            case BinOpType::DIVIDE:
+                std::cout << "/";
+                node->llvm_value = this->builder->CreateSDiv(node->lhs->llvm_value, node->rhs->llvm_value);
+                break;
+            case BinOpType::MODULO:
+                std::cout << "%";
+                node->llvm_value = this->builder->CreateSRem(node->lhs->llvm_value, node->rhs->llvm_value);
+                break;
+            case BinOpType::POWER:
+                std::cout << "^";
+                //??
+                break;
+            case BinOpType::EQUAL:
+                std::cout << "==";
+                node->llvm_value = this->builder->CreateFCmpUEQ(node->lhs->llvm_value, node->rhs->llvm_value);
+                break;
+            case BinOpType::NOT_EQUAL:
+                std::cout << "~=";
+                node->llvm_value = this->builder->CreateFCmpUNE(node->lhs->llvm_value, node->rhs->llvm_value);
+                break;
+            case BinOpType::LESS_THAN:
+                std::cout << "<";
+                node->llvm_value = this->builder->CreateFCmpULT(node->lhs->llvm_value, node->rhs->llvm_value);
+                break;
+            case BinOpType::LESS_THAN_OR_EQUAL:
+                std::cout << "<=";
+                node->llvm_value = this->builder->CreateFCmpULE(node->lhs->llvm_value, node->rhs->llvm_value);
+                break;
+            case BinOpType::GREATER_THAN:
+                std::cout << ">";
+                node->llvm_value = this->builder->CreateFCmpUGT(node->lhs->llvm_value, node->rhs->llvm_value);
+                break;
+            case BinOpType::GREATER_THAN_OR_EQUAL:
+                std::cout << ">=";
+                node->llvm_value = this->builder->CreateFCmpUGE(node->lhs->llvm_value, node->rhs->llvm_value);
+                break;
+            case BinOpType::AND:
+                std::cout << "and";
+                node->llvm_value = this->builder->CreateLogicalAnd(node->lhs->llvm_value, node->rhs->llvm_value);
+                break;
+            case BinOpType::OR:
+                std::cout << "or";
+                node->llvm_value = this->builder->CreateLogicalOr(node->lhs->llvm_value, node->rhs->llvm_value);
+                break;
+            case BinOpType::FLOOR_DIVIDE:
+                std::cout << "//";
+                node->llvm_value = this->builder->CreateFDiv(node->lhs->llvm_value, node->rhs->llvm_value);
+                break;
+            default:
+                throw SemanticError("Unknown binary operator", node->position);
+        }
     }
 
     virtual void visitNUnaryOperatorExpression(NUnaryOperatorExpression* node) {
         node->rhs->visit(this);
+        Value *OperandV = node->rhs->llvm_value;
+        // Function *func = Function::Create(std::string("unary") + std::to_string(node->op));
+        // node->llvm_value = this->builder->CreateCall(func, OperandV, "unop");
     }
 
     virtual void visitNTableConstructor(NTableConstructor* node) {}
@@ -2457,7 +2488,7 @@ class CodeGenVisitor : public SymtabVisitor {
     virtual void visitNFunctionDeclaration(NFunctionDeclaration* node) {
         std::string name = node->id->name;
 
-        llvm::Type* return_type = builder->getVoidTy();
+        Type* return_type = builder->getVoidTy();
 
         if (node->return_type != nullptr) {
             for (auto return_type : *node->return_type) {
@@ -2478,11 +2509,11 @@ class CodeGenVisitor : public SymtabVisitor {
         else {
             parameter_types = std::vector<Type*>();
             for(auto arg: *node->arguments) {
-                // if (arg->type == nullptr) {
-                //     std::cerr << "Argument type is null for ";
-                //     std::cerr << node->id->name << ":" << arg->ident->name << std::endl;
-                //     return;
-                // }
+                if (arg->ident->type == nullptr) {
+                    std::cerr << "Argument type is null for ";
+                    std::cerr << node->id->name << ":" << arg->ident->name << std::endl;
+                    return;
+                }
                 // TODO GET TYPE
                 Type* type = builder->getFloatTy();
                 parameter_types.push_back(type);
@@ -2492,11 +2523,11 @@ class CodeGenVisitor : public SymtabVisitor {
         FunctionType* functionType = FunctionType::get(return_type, parameter_types, false);
         Function* function = Function::Create(functionType, GlobalValue::ExternalLinkage, name, module);
         for(auto arg: *node->arguments) {
-            // if (arg->type == nullptr) {
-            //     std::cerr << "Argument type is null for ";
-            //     std::cerr << node->id->name << ":" << arg->ident->name << std::endl;
-            //     return;
-            // }
+            if (arg->ident->type == nullptr) {
+                std::cerr << "Argument type is null for ";
+                std::cerr << node->id->name << ":" << arg->ident->name << std::endl;
+                return;
+            }
             // TODO NAME PARAMETERS
             // function->getArg(0)->setName("a");
         }
@@ -2601,7 +2632,7 @@ class CodeGenVisitor : public SymtabVisitor {
     }
 
     virtual void visitNDeclarationStatement(NDeclarationStatement* node) {
-        if (node->inden->type != nullptr)
+        if (node->ident->type != nullptr)
             node->ident->type->visit(this);
         if (node->expression != nullptr)
             node->expression->visit(this);
@@ -2648,23 +2679,20 @@ class CodeGenVisitor : public SymtabVisitor {
     virtual void visitNTableType(NTableType* node) { return; }
     virtual void visitNFunctionType(NFunctionType* node) { return; }
     virtual void visitNStructType(NStructType* node) {
-        // try {
-        //     auto entry = this->check_symtab(node->name, symtab_storage->symtab);
-        //     if (entry == nullptr) {
-        //         throw new SemanticError("Entry for type " + node->name->name + " is None", node->name->position);
-        //     }
-        //
-        //     if (typeid(entry->type) != typeid(NStructType *)) {
-        //         std::string type = "unknown";
-        //         if (entry->type != nullptr) {
-        //             type = std::string(*entry->type);
-        //         }
-        //         throw new SemanticError("Type " + node->name->name + " is not a struct: " + type, node->name->position);
-        //     }
-        //
-        // } catch(SemanticError *e) {
-        //     std::cout << e->what() << std::endl;
-        // }
+        try {
+            auto entry = symtab_storage->symtab->lookup_or_throw(node->name->name, node->name->position.lineno);
+
+            if (typeid(entry->type) != typeid(NStructType *)) {
+                std::string type = "unknown";
+                if (entry->type != nullptr) {
+                    type = std::string(*entry->type);
+                }
+                throw new SemanticError("Type " + node->name->name + " is not a struct: " + type, node->name->position);
+            }
+
+        } catch(SemanticError *e) {
+            std::cout << e->what() << std::endl;
+        }
     }
     virtual void visitNAccessKey(NAccessKey* node) {}
     virtual void visitNAssignmentStatement(NAssignmentStatement* node) {}
