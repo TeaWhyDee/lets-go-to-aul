@@ -2391,7 +2391,7 @@ class CodeGenVisitor : public SymtabVisitor {
     }
 
     virtual void visitNBool(NBool* node) {
-
+        node->llvm_value = builder->getInt1(node->value);
     }
 
     virtual void visitNString(NString* node) {
