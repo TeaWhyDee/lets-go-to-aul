@@ -2601,8 +2601,8 @@ class CodeGenVisitor : public SymtabVisitor {
     }
 
     virtual void visitNDeclarationStatement(NDeclarationStatement* node) {
-        if (node->type != nullptr)
-            node->type->visit(this);
+        if (node->inden->type != nullptr)
+            node->ident->type->visit(this);
         if (node->expression != nullptr)
             node->expression->visit(this);
     }
