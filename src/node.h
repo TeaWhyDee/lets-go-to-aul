@@ -150,6 +150,7 @@ class SymbolTableEntry {
     std::string name;
     NType* type;
     Position position;
+    llvm::Value* value;
     int usages;
 
     SymbolTableEntry(
@@ -319,11 +320,13 @@ class Node {
     // virtual llvm::Value *codegen() = 0;
 };
 
-class NStatement : public Node {};
+class NStatement : public Node {
+public:
+    llvm::Value* llvm_value = nullptr;
+};
 
 class NExpression : public NStatement {
    public:
-    llvm::Value* llvm_value = nullptr;
     NType* type = nullptr;
     virtual void visit(Visitor* v) { v->visitNExpression(this); }
 };
@@ -2403,7 +2406,8 @@ class CodeGenVisitor : public SymtabVisitor {
     }
 
     virtual void visitNIdentifier(NIdentifier* node) {
-
+        auto entry = symtab_storage->symtab->lookup_or_throw(node->name, node->position.lineno + 1);
+        node->llvm_value = entry->value;
     }
 
     virtual void visitNBinaryOperatorExpression(NBinaryOperatorExpression* node) {
@@ -2412,63 +2416,48 @@ class CodeGenVisitor : public SymtabVisitor {
 
         switch (node->op) {
             case BinOpType::ADD:
-                std::cout << "+";
                 node->llvm_value = this->builder->CreateFAdd(node->lhs->llvm_value, node->rhs->llvm_value);
                 break;
             case BinOpType::SUBSTRACT:
-                std::cout << "-";
                 node->llvm_value = this->builder->CreateFSub(node->lhs->llvm_value, node->rhs->llvm_value);
                 break;
             case BinOpType::MULTIPLY:
-                std::cout << "*";
                 node->llvm_value = this->builder->CreateFMul(node->lhs->llvm_value, node->rhs->llvm_value);
                 break;
             case BinOpType::DIVIDE:
-                std::cout << "/";
                 node->llvm_value = this->builder->CreateSDiv(node->lhs->llvm_value, node->rhs->llvm_value);
                 break;
             case BinOpType::MODULO:
-                std::cout << "%";
                 node->llvm_value = this->builder->CreateSRem(node->lhs->llvm_value, node->rhs->llvm_value);
                 break;
             case BinOpType::POWER:
-                std::cout << "^";
                 //??
                 break;
             case BinOpType::EQUAL:
-                std::cout << "==";
                 node->llvm_value = this->builder->CreateFCmpUEQ(node->lhs->llvm_value, node->rhs->llvm_value);
                 break;
             case BinOpType::NOT_EQUAL:
-                std::cout << "~=";
                 node->llvm_value = this->builder->CreateFCmpUNE(node->lhs->llvm_value, node->rhs->llvm_value);
                 break;
             case BinOpType::LESS_THAN:
-                std::cout << "<";
                 node->llvm_value = this->builder->CreateFCmpULT(node->lhs->llvm_value, node->rhs->llvm_value);
                 break;
             case BinOpType::LESS_THAN_OR_EQUAL:
-                std::cout << "<=";
                 node->llvm_value = this->builder->CreateFCmpULE(node->lhs->llvm_value, node->rhs->llvm_value);
                 break;
             case BinOpType::GREATER_THAN:
-                std::cout << ">";
                 node->llvm_value = this->builder->CreateFCmpUGT(node->lhs->llvm_value, node->rhs->llvm_value);
                 break;
             case BinOpType::GREATER_THAN_OR_EQUAL:
-                std::cout << ">=";
                 node->llvm_value = this->builder->CreateFCmpUGE(node->lhs->llvm_value, node->rhs->llvm_value);
                 break;
             case BinOpType::AND:
-                std::cout << "and";
                 node->llvm_value = this->builder->CreateLogicalAnd(node->lhs->llvm_value, node->rhs->llvm_value);
                 break;
             case BinOpType::OR:
-                std::cout << "or";
                 node->llvm_value = this->builder->CreateLogicalOr(node->lhs->llvm_value, node->rhs->llvm_value);
                 break;
             case BinOpType::FLOOR_DIVIDE:
-                std::cout << "//";
                 node->llvm_value = this->builder->CreateFDiv(node->lhs->llvm_value, node->rhs->llvm_value);
                 break;
             default:
@@ -2632,10 +2621,16 @@ class CodeGenVisitor : public SymtabVisitor {
     }
 
     virtual void visitNDeclarationStatement(NDeclarationStatement* node) {
-        if (node->ident->type != nullptr)
-            node->ident->type->visit(this);
-        if (node->expression != nullptr)
-            node->expression->visit(this);
+        node->expression->visit(this);
+        if (node->expression->llvm_value == nullptr) {
+            throw SemanticError("Expression value is null", node->position);
+        }
+        auto entry = symtab_storage->symtab->lookup_or_throw(node->ident->name, node->position.lineno + 1);
+        entry->value = node->expression->llvm_value;
+        AllocaInst *alloca = builder->CreateAlloca(node->expression->llvm_value->getType(), 0, node->ident->name);
+        builder->CreateLoad(alloca->getType(), alloca, node->ident->name);
+        builder->CreateStore(node->expression->llvm_value, alloca);
+        node->llvm_value = alloca;
     }
 
     virtual void visitNReturnStatement(NReturnStatement* node) {
@@ -2645,6 +2640,7 @@ class CodeGenVisitor : public SymtabVisitor {
     virtual void visitNBlock(NBlock* node) {
         for (auto stmt : node->statements) {
             stmt->visit(this);
+            this->builder->Insert(stmt->llvm_value);
         }
 
         if (node->returnExpr != nullptr) {
