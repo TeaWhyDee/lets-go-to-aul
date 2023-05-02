@@ -1,4 +1,6 @@
-a: num = 123
-b: num = 245
+a = "123"
+b = "245"
 
 c = a + b
+
+printf(c)

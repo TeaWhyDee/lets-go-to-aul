@@ -8,6 +8,8 @@ extern int yyparse();
 
 int main(int argc, char** argv) {
     yyparse();
+    auto builtins = new BuiltinGenerator();
+    builtins->define_external_functions();
     auto pretty_print_visitor = new PrettyPrintVisitor();
     Visitor *visitors[] = {
         pretty_print_visitor,
@@ -31,7 +33,7 @@ int main(int argc, char** argv) {
     std::cout << "\n\n------------------" << visitor->name << "------------------" << std::endl;
     programBlock->visit(visitor);
     // visitor->cleanup();
-    
+
     visitor->module->print(llvm::errs(), nullptr);
 
     return 0;

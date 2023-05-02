@@ -352,6 +352,7 @@ class NIdentifier : public NExpression {
     std::string name;
     Position position;
     NIdentifier(const std::string* name, Position position) : name(*name), position(position) {}
+    NIdentifier(const std::string *name, NType *type) : name(*name), position(Position(0, 0)) { this->type = type; }
     NIdentifier(NType* type) : name(""), position(Position(0, 0)) { this->type = type; }
 
     static IdentifierList* fromTypeList(typeList* types) {
@@ -2020,6 +2021,9 @@ class SymbolTableFillerVisitor : public SymtabVisitor {
     virtual void visitNTableConstructor(NTableConstructor* node) {}
 
     virtual void visitNFunctionDeclaration(NFunctionDeclaration* node) {
+        if (node->return_type == nullptr or node->return_type->size() == 0) {
+            node->return_type = new typeList({new NNilType()});
+        }
         auto type = new NFunctionType(
             NDeclarationStatement::toIdentifierList(node->arguments),
             node->return_type);
@@ -2388,6 +2392,18 @@ class CodeGenVisitor : public SymtabVisitor {
         this->builder->SetInsertPoint(block_main);
     }
 
+    virtual void define_external_functions() {
+        std::vector<llvm::Type *> printf_arg_types;
+        printf_arg_types.push_back(builder->getInt8PtrTy());
+        llvm::FunctionType *printf_type =
+            llvm::FunctionType::get(builder->getInt32Ty(), printf_arg_types, true);
+        llvm::Function *func_printf = llvm::Function::Create(
+            printf_type, llvm::Function::ExternalLinkage,
+            llvm::Twine("printf"),
+            module);
+
+    }
+
 
     //     llvm::IntegerType *IntType::getLlvmType(Context *ctx) {
     //     return llvm::Type::getInt32Ty(*ctx->getContext());
@@ -2601,7 +2617,7 @@ class CodeGenVisitor : public SymtabVisitor {
     }
 
     virtual void visitNDeclarationStatement(NDeclarationStatement* node) {
-        if (node->inden->type != nullptr)
+        if (node->ident->type != nullptr)
             node->ident->type->visit(this);
         if (node->expression != nullptr)
             node->expression->visit(this);
@@ -2668,4 +2684,18 @@ class CodeGenVisitor : public SymtabVisitor {
     }
     virtual void visitNAccessKey(NAccessKey* node) {}
     virtual void visitNAssignmentStatement(NAssignmentStatement* node) {}
+};
+
+
+class BuiltinGenerator {
+public:
+    virtual void define_external_functions() {
+        auto args = new IdentifierList();
+        args->push_back(new NIdentifier(new std::string("arg"), new NStringType()));
+
+        auto type = new NFunctionType(args, new typeList({new NNilType()}));
+
+        auto entry = new SymbolTableEntry("printf", type, Position(0, 0));
+        symtab_storage->symtab->declare(entry);
+    }
 };
