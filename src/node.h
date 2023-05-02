@@ -2364,6 +2364,20 @@ class LLVMTypes {
     }
 };
 
+// Function used to allocate global strings.
+char *getString(char *s) {  // TODO: Should be defined as global func
+  size_t sLen = strlen(s);
+    // IDK WHY THIS IS int32 maybe it should be int8 (char) ?????
+  void *buf = malloc(sLen + 1 + sizeof(int32_t));
+  int32_t *refCnt = (int32_t *) buf;
+  *refCnt = 1;
+  refCnt += 1;
+  char *bufStr = (char *) refCnt;
+  strcpy(bufStr, s);
+  return bufStr;
+}
+
+
 class CodeGenVisitor : public SymtabVisitor {
    public:
     llvm::LLVMContext* context;
@@ -2409,8 +2423,20 @@ class CodeGenVisitor : public SymtabVisitor {
         node->llvm_value = builder->getInt1(node->value);
     }
 
+    // nneds GetStruing function in global context (defined above CodeGenVisitor)
     virtual void visitNString(NString* node) {
+        auto llvmStr = llvm::ConstantDataArray::getString(*context, node->value);
+        llvm::GlobalVariable *strGlobal = new llvm::GlobalVariable(
+            *module, LLVMTypes::str_type(context), true,
+            llvm::GlobalValue::InternalLinkage, llvmStr);
+
+        auto globalStrPtr = builder->CreateGEP(LLVMTypes::str_type(context), strGlobal, 
+                                               std::vector<llvm::Value *>{builder->getInt32(0),
+                                               builder->getInt32(0)});
         
+        llvm::Function *stringGetter = module->getFunction("getString");
+
+        node->llvm_value = builder->CreateCall(stringGetter, globalStrPtr);;
     }
 
     virtual void visitNNil(NNil* node) { }
