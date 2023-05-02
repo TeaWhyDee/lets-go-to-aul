@@ -21,7 +21,7 @@ parser:
 
 compile-and-run:
 	./parser < $(file)
-  
+
 	clang++ -S -emit-llvm builtin.cpp -o builtin.ll
 
 	llvm-link -o program.ll codegen.ll builtin.ll
