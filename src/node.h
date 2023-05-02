@@ -2403,11 +2403,7 @@ class CodeGenVisitor : public SymtabVisitor {
     }
 
     virtual void visitNIdentifier(NIdentifier* node) {
-        try {
-            symtab_storage->symtab->lookup_or_throw(node->name, node->position.lineno);
-        } catch (SemanticError* e) {
-            std::cout << e->what() << std::endl;
-        }
+
     }
 
     virtual void visitNBinaryOperatorExpression(NBinaryOperatorExpression* node) {
@@ -2476,19 +2472,15 @@ class CodeGenVisitor : public SymtabVisitor {
                 node->llvm_value = this->builder->CreateFDiv(node->lhs->llvm_value, node->rhs->llvm_value);
                 break;
             default:
-                std::cout << "unknown";
-                Function *func = Function::Create(std::string("binary") + std::to_string(node->op));
-                Value *Ops[2] = {node->lhs->llvm_value, node->rhs->llvm_value};
-                node->llvm_value = this->builder->CreateCall(func, Ops, "binop");
-                break;
+                throw SemanticError("Unknown binary operator", node->position);
         }
     }
 
     virtual void visitNUnaryOperatorExpression(NUnaryOperatorExpression* node) {
         node->rhs->visit(this);
         Value *OperandV = node->rhs->llvm_value;
-        Function *func = Function::Create(std::string("unary") + std::to_string(node->op));
-        node->llvm_value = this->builder->CreateCall(func, OperandV, "unop");
+        // Function *func = Function::Create(std::string("unary") + std::to_string(node->op));
+        // node->llvm_value = this->builder->CreateCall(func, OperandV, "unop");
     }
 
     virtual void visitNTableConstructor(NTableConstructor* node) {}
