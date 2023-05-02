@@ -2349,16 +2349,13 @@ using namespace llvm;
 
 class LLVMTypes {
 public:
-    static llvm::Type *str_type(LLVMContext *ctx)
-    {
+    static llvm::Type *str_type(LLVMContext *ctx) {
         return llvm::PointerType::getInt8PtrTy(*ctx);
     }
-    static llvm::Type *num_type(LLVMContext *ctx)
-    {
+    static llvm::Type *num_type(LLVMContext *ctx) {
         return llvm::Type::getFloatTy(*ctx);
     }
-    static llvm::Type *bool_type(LLVMContext *ctx)
-    {
+    static llvm::Type *bool_type(LLVMContext *ctx) {
         return llvm::IntegerType::getInt1Ty(*ctx);
     }
 };
@@ -2393,35 +2390,21 @@ class CodeGenVisitor : public SymtabVisitor {
         node->llvm_value = ir;
     }
 
-    virtual void visitNNil(NNil* node) {}
+    virtual void visitNBool(NBool* node) {
 
-    virtual void visitNBool(NBool* node) {}
+    }
 
-    virtual void visitNString(NString* node) {}
+    virtual void visitNString(NString* node) {
 
-    virtual SymbolTableEntry* check_symtab(NIdentifier *node, SymbolTable *symtab) {
-        for (auto entry : symtab->entries)
-        {
-            if (entry->name == node->name) {
-                std::cout << entry->name << "(";
-                std::cout << entry->position.lineno << ":" << entry->position.colno << "-";
-                std::cout << node->position.lineno << ":" << node->position.colno << ")" << std::endl;
-                if (entry->position.lineno < node->position.lineno) {
-                    std::cout << entry->name << " ok" << std::endl;
-                    return entry;
-                }
-            }
-        }
-        if (symtab->parent != nullptr) {
-            return check_symtab(node, symtab->parent);
-        } else {
-            throw new SemanticError("Identifier " + node->name + " not found", node->position);
-        }
+    }
+
+    virtual void visitNNil(NNil* node) {
+
     }
 
     virtual void visitNIdentifier(NIdentifier* node) {
         try {
-            check_symtab(node, symtab_storage->symtab);
+            symtab_storage->symtab->lookup_or_throw(node->name, node->position.lineno);
         } catch (SemanticError* e) {
             std::cout << e->what() << std::endl;
         }
@@ -2430,7 +2413,7 @@ class CodeGenVisitor : public SymtabVisitor {
     virtual void visitNBinaryOperatorExpression(NBinaryOperatorExpression* node) {
         node->lhs->visit(this);
         node->rhs->visit(this);
-        
+
         switch (node->op) {
             case BinOpType::ADD:
                 std::cout << "+";
@@ -2502,6 +2485,7 @@ class CodeGenVisitor : public SymtabVisitor {
     }
 
     virtual void visitNUnaryOperatorExpression(NUnaryOperatorExpression* node) {
+        node->rhs->visit(this);
         Value *OperandV = node->rhs->llvm_value;
         Function *func = Function::Create(std::string("unary") + std::to_string(node->op));
         node->llvm_value = this->builder->CreateCall(func, OperandV, "unop");
@@ -2704,10 +2688,7 @@ class CodeGenVisitor : public SymtabVisitor {
     virtual void visitNFunctionType(NFunctionType* node) { return; }
     virtual void visitNStructType(NStructType* node) {
         try {
-            auto entry = this->check_symtab(node->name, symtab_storage->symtab);
-            if (entry == nullptr) {
-                throw new SemanticError("Entry for type " + node->name->name + " is None", node->name->position);
-            }
+            auto entry = symtab_storage->symtab->lookup_or_throw(node->name->name, node->name->position.lineno);
 
             if (typeid(entry->type) != typeid(NStructType *)) {
                 std::string type = "unknown";
