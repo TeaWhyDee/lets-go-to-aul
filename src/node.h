@@ -2377,7 +2377,7 @@ class CodeGenVisitor : public SymtabVisitor {
         this->module = new llvm::Module("Main", *context);
         this->builder = new llvm::IRBuilder<>(*context);
 
-        Type* voidType = Type::getVoidTy(*context);
+        Type* voidType = Type::getInt16Ty(*context);
         FunctionType* functionType = FunctionType::get(voidType, false);
         Function* func_main = Function::Create(functionType, GlobalValue::ExternalLinkage, "main", module);
 
@@ -2467,7 +2467,7 @@ class CodeGenVisitor : public SymtabVisitor {
 
     virtual void visitNUnaryOperatorExpression(NUnaryOperatorExpression* node) {
         node->rhs->visit(this);
-        Value *OperandV = node->rhs->llvm_value;
+        // Value *OperandV = node->rhs->llvm_value;
         // Function *func = Function::Create(std::string("unary") + std::to_string(node->op));
         // node->llvm_value = this->builder->CreateCall(func, OperandV, "unop");
     }
@@ -2628,7 +2628,6 @@ class CodeGenVisitor : public SymtabVisitor {
         auto entry = symtab_storage->symtab->lookup_or_throw(node->ident->name, node->position.lineno + 1);
         entry->value = node->expression->llvm_value;
         AllocaInst *alloca = builder->CreateAlloca(node->expression->llvm_value->getType(), 0, node->ident->name);
-        builder->CreateLoad(alloca->getType(), alloca, node->ident->name);
         builder->CreateStore(node->expression->llvm_value, alloca);
         node->llvm_value = alloca;
     }
@@ -2638,14 +2637,20 @@ class CodeGenVisitor : public SymtabVisitor {
     }
 
     virtual void visitNBlock(NBlock* node) {
+        Value *last_stmt = this->builder->getInt16(0);
         for (auto stmt : node->statements) {
             stmt->visit(this);
             this->builder->Insert(stmt->llvm_value);
+            last_stmt = stmt->llvm_value;
         }
 
+        Value *return_expr_llvm = last_stmt;
         if (node->returnExpr != nullptr) {
             node->returnExpr->visit(this);
+            return_expr_llvm = node->returnExpr->llvm_value;
         }
+        this->builder->CreateRet(return_expr_llvm);
+        verifyFunction(*main);
     }
 
     virtual void visitNExpression(NExpression* node) {}
