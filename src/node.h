@@ -2347,6 +2347,22 @@ class DeclaredBeforeUseCheckerVisitor : public SymtabVisitor {
 
 using namespace llvm;
 
+class LLVMTypes {
+public:
+    static llvm::Type *str_type(LLVMContext *ctx)
+    {
+        return llvm::PointerType::getInt8PtrTy(*ctx);
+    }
+    static llvm::Type *num_type(LLVMContext *ctx)
+    {
+        return llvm::Type::getFloatTy(*ctx);
+    }
+    static llvm::Type *bool_type(LLVMContext *ctx)
+    {
+        return llvm::IntegerType::getInt1Ty(*ctx);
+    }
+};
+
 class CodeGenVisitor : public SymtabVisitor {
    public:
     llvm::LLVMContext* context;
