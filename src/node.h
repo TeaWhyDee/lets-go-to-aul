@@ -2009,13 +2009,6 @@ class SymbolTableFillerVisitor : public SymtabVisitor {
     virtual void visitNIdentifier(NIdentifier* node) {}
 
     virtual void visitNBinaryOperatorExpression(NBinaryOperatorExpression* node) {
-        // symtab_storage->symtab->declare(
-        //     new SymbolTableEntry(node->lhs, node->lhs->type, Position(node->position)),
-        //     true
-        // );
-
-
-
         node->lhs->visit(this);
         node->rhs->visit(this);
     }
