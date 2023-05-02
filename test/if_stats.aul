@@ -1,0 +1,9 @@
+if true then 
+    a=2
+elseif true then
+    b=3
+elseif true then
+    c=4
+else
+    d=5
+end
