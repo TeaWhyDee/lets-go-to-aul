@@ -2411,6 +2411,33 @@ public:
 };
 
 class CodeGenVisitor : public SymtabVisitor {
+   private:
+    llvm::Type *getLLVMType(NType *type) {
+        llvm::Type* return_type = builder->getVoidTy();
+
+        if (type == nullptr) {
+            printf("nullptr\n");
+            return builder->getVoidTy();
+        }
+        if (typeid(*type) == typeid(NStringType)) {
+            printf("string\n");
+            return_type = LLVMTypes::str_type(context);
+        }
+        else if (typeid(*type) == typeid(NNumType)) {
+            printf("num\n");
+            return_type = LLVMTypes::num_type(context);
+        } else if (typeid(*type) == typeid(NBoolType)) {
+            printf("bool\n");
+            return_type = LLVMTypes::bool_type(context);
+        // } else if (typeid(node->return_type) == typeid(NStringType)) {
+            // return_type = LLVMTypes::str_type(context);
+            // TODO: types
+        }
+
+        printf("returning\n");
+        return return_type;
+    }
+
    public:
     llvm::LLVMContext* context;
     llvm::Module* module;
@@ -2555,20 +2582,9 @@ class CodeGenVisitor : public SymtabVisitor {
 
     virtual void visitNFunctionDeclaration(NFunctionDeclaration* node) {
         std::string name = node->id->name;
+        printf("in funcdecl\n");
 
-        Type* return_type = builder->getVoidTy();
-
-        if (node->return_type != nullptr) {
-            for (auto return_type : *node->return_type) {
-                if (return_type == nullptr) {
-                    std::cerr << "Return type is null for function " << node->id->name << std::endl;
-                    break;
-                }
-                // printf("\n%s", ((std::string)*return_type).c_str());
-                // TODO: GET RETURN TYPES HAHA
-            }
-            return_type = builder->getFloatTy(); // TEMP
-        }
+        llvm::Type* return_type = getLLVMType(node->return_type->at(0));
 
         std::vector<Type*> parameter_types;
         if (node->arguments == nullptr) {
@@ -2576,14 +2592,9 @@ class CodeGenVisitor : public SymtabVisitor {
         }
         else {
             parameter_types = std::vector<Type*>();
-            for(auto arg: *node->arguments) {
-                if (arg->ident->type == nullptr) {
-                    std::cerr << "Argument type is null for ";
-                    std::cerr << node->id->name << ":" << arg->ident->name << std::endl;
-                    return;
-                }
-                // TODO GET TYPE
-                Type* type = builder->getFloatTy();
+            for(NDeclarationStatement *arg: *node->arguments) {
+                NType* n_type = arg->ident->type;
+                Type* type = getLLVMType(n_type);
                 parameter_types.push_back(type);
             }
         }
@@ -2591,11 +2602,6 @@ class CodeGenVisitor : public SymtabVisitor {
         FunctionType* functionType = FunctionType::get(return_type, parameter_types, false);
         Function* function = Function::Create(functionType, GlobalValue::ExternalLinkage, name, module);
         for(auto arg: *node->arguments) {
-            if (arg->ident->type == nullptr) {
-                std::cerr << "Argument type is null for ";
-                std::cerr << node->id->name << ":" << arg->ident->name << std::endl;
-                return;
-            }
             // TODO NAME PARAMETERS
             // function->getArg(0)->setName("a");
         }
