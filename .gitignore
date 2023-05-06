@@ -11,3 +11,5 @@ src/bison
 parser.output
 parser.dSYM
 Session.vim
+
+.idea
