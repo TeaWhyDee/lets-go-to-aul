@@ -11,3 +11,6 @@ src/bison
 parser.output
 parser.dSYM
 Session.vim
+builtin.ll
+codegen.bc
+codegen.ll
