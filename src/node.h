@@ -2410,26 +2410,27 @@ class CodeGenVisitor : public SymtabVisitor {
     }
 
     virtual void visitNString(NString* node) {
-        auto str = node->value;
-        auto charType = llvm::IntegerType::get(*this->context, 8);
+        // auto str = node->value;
+        // auto charType = llvm::IntegerType::get(*this->context, 8);
 
-        std::vector<llvm::Constant *> chars(str.length());
-        for(unsigned int i = 0; i < str.size(); i++) {
-          chars[i] = llvm::ConstantInt::get(charType, str[i]);
-        }
+        // std::vector<llvm::Constant *> chars(str.length());
+        // for(unsigned int i = 0; i < str.size(); i++) {
+        //   chars[i] = llvm::ConstantInt::get(charType, str[i]);
+        // }
 
-        chars.push_back(llvm::ConstantInt::get(charType, 0));
+        // chars.push_back(llvm::ConstantInt::get(charType, 0));
 
-        auto stringType = llvm::ArrayType::get(charType, chars.size());
+        // auto stringType = llvm::ArrayType::get(charType, chars.size());
 
-        auto globalDeclaration = (llvm::GlobalVariable*) module->getOrInsertGlobal(".str-" + node->value, stringType);
-        globalDeclaration->setInitializer(llvm::ConstantArray::get(stringType, chars));
-        globalDeclaration->setConstant(true);
-        globalDeclaration->setLinkage(llvm::GlobalValue::LinkageTypes::PrivateLinkage);
-        globalDeclaration->setUnnamedAddr (llvm::GlobalValue::UnnamedAddr::Global);
+        // auto globalDeclaration = (llvm::GlobalVariable*) module->getOrInsertGlobal(".str-" + node->value, stringType);
+        // globalDeclaration->setInitializer(llvm::ConstantArray::get(stringType, chars));
+        // globalDeclaration->setConstant(true);
+        // globalDeclaration->setLinkage(llvm::GlobalValue::LinkageTypes::PrivateLinkage);
+        // globalDeclaration->setUnnamedAddr (llvm::GlobalValue::UnnamedAddr::Global);
 
 
-        node->llvm_value = llvm::ConstantExpr::getBitCast(globalDeclaration, charType->getPointerTo());
+        // node->llvm_value = llvm::ConstantExpr::getBitCast(globalDeclaration, charType->getPointerTo());
+        
     }
 
     virtual void visitNNil(NNil* node) {
