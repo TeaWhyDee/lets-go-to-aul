@@ -355,6 +355,7 @@ class NIdentifier : public NExpression {
     std::string name;
     Position position;
     NIdentifier(const std::string* name, Position position) : name(*name), position(position) {}
+    NIdentifier(const std::string name, NType *type) : name(name), position(Position(0, 0)) { this->type = type; }
     NIdentifier(NType* type) : name(""), position(Position(0, 0)) { this->type = type; }
 
     static IdentifierList* fromTypeList(typeList* types) {
@@ -1113,7 +1114,7 @@ class PrettyPrintVisitor : public Visitor {
 
     virtual void visitNFunctionType(NFunctionType* node) {
         // TODO: print function type
-        std::cout << "NFunctionType";
+        std::cout << "NFunctionType" << std::flush;
     }
 
     virtual void visitNStructType(NStructType* node) {
@@ -1135,10 +1136,15 @@ class TypeChecker : public SymtabVisitor {
     bool compareTypes(NType* lhs, NType* rhs) {
         // since it is pointers to different objects, we need to check
         // if they are pointers for the same class
-        if (lhs == nullptr || rhs == nullptr) {
-            std::cout << "One of the types are null" << std::endl;
+        if (lhs == nullptr) {
+            std::cout << "LHS is null" << std::endl;
             return false;
         }
+        if (rhs == nullptr) {
+            std::cout << "RHS is null" << std::endl;
+            return false;
+        }
+
         if (typeid(*lhs) != typeid(*rhs)) {
             return false;
         }
@@ -1999,6 +2005,7 @@ class SymbolTableFillerVisitor : public SymtabVisitor {
    public:
     SymbolTableFillerVisitor() {
         this->name = "Symbol Table Filler";
+        symtab_storage->symtab->declare(new SymbolTableEntry("printf", new NFunctionType(new IdentifierList({new NIdentifier("a", new NStringType()), new NIdentifier("param", new NNumType())}), new typeList({new NNilType()})), Position(0, 0)));
     }
 
     virtual void visitNNum(NNum* node) {}
@@ -2377,9 +2384,8 @@ class CodeGenVisitor : public SymtabVisitor {
         this->module = new llvm::Module("Main", *context);
         this->builder = new llvm::IRBuilder<>(*context);
 
-        Type* voidType = Type::getInt16Ty(*context);
-        FunctionType* functionType = FunctionType::get(voidType, false);
-        Function* func_main = Function::Create(functionType, GlobalValue::ExternalLinkage, "main", module);
+        Function* func_main = Function::Create(FunctionType::get(Type::getDoubleTy(*context), false), GlobalValue::ExternalLinkage, "main", module);
+        Function *print = Function::Create(FunctionType::get(Type::getVoidTy(*context), false), GlobalValue::ExternalLinkage, "printf", module);
 
         this->main = func_main;
 
@@ -2671,6 +2677,13 @@ class CodeGenVisitor : public SymtabVisitor {
         for (auto expr : node->exprlist) {
             expr->visit(this);
         }
+        auto is_function = dynamic_cast<NFunctionType *>(node->type);
+        if (!is_function) {
+            throw SemanticError("Cannot generate code for struct call yet", Position(-1, -1));
+        }
+
+        // take function object directly from llvm symtab
+        auto func = node->expr->llvm_value;
     }
     virtual void visitNType(NType* node) { return; }
     virtual void visitNStringType(NStringType* node) { return; }
