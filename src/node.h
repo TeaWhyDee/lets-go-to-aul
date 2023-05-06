@@ -2635,7 +2635,7 @@ class CodeGenVisitor : public SymtabVisitor {
         entry->value = node->expression->llvm_value;
         AllocaInst *alloca = builder->CreateAlloca(node->expression->llvm_value->getType(), 0, node->ident->name);
         builder->CreateStore(node->expression->llvm_value, alloca);
-        node->llvm_value = alloca;
+        node->llvm_value = builder->CreateLoad(node->expression->llvm_value->getType(), alloca, "return_value");
     }
 
     virtual void visitNReturnStatement(NReturnStatement* node) {
