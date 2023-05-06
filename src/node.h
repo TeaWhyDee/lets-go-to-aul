@@ -2385,10 +2385,6 @@ class CodeGenVisitor : public SymtabVisitor {
         this->module = new llvm::Module("Main", *context);
         this->builder = new llvm::IRBuilder<>(*context);
 
-<<<<<<< HEAD
-        Function* func_main = Function::Create(FunctionType::get(Type::getDoubleTy(*context), false), GlobalValue::ExternalLinkage, "main", module);
-        Function *print = Function::Create(FunctionType::get(Type::getVoidTy(*context), false), GlobalValue::ExternalLinkage, "printf", module);
-=======
         Function* func_main = Function::Create(FunctionType::get(Type::getVoidTy(*context), false), GlobalValue::ExternalLinkage, "main", module);
         Function *print = Function::Create(FunctionType::get(Type::getVoidTy(*context), false), GlobalValue::ExternalLinkage, "printf", module);
         auto entry = symtab_storage->symtab->lookup_or_throw("printf", 1);
@@ -2397,7 +2393,6 @@ class CodeGenVisitor : public SymtabVisitor {
             throw SemanticError("Cannot get function type for 'printf'", Position(0, 0));
         }
         entry_type->llvm_value = print;
->>>>>>> 69fcc3e (Init commit for inserting LLVM instructions)
 
         this->main = func_main;
         BasicBlock* block_main = BasicBlock::Create(*context, "entry", func_main);
@@ -2677,16 +2672,9 @@ class CodeGenVisitor : public SymtabVisitor {
         for (auto stmt : node->statements) {
             stmt->visit(this);
             this->builder->Insert(stmt->llvm_value);
-<<<<<<< HEAD
-            last_stmt = stmt->llvm_value;
-        }
-
-        Value *return_expr_llvm = last_stmt;
-=======
         }
 
         Value *return_expr_llvm = nullptr;
->>>>>>> 69fcc3e (Init commit for inserting LLVM instructions)
         if (node->returnExpr != nullptr) {
             node->returnExpr->visit(this);
             return_expr_llvm = node->returnExpr->llvm_value;
@@ -2715,15 +2703,6 @@ class CodeGenVisitor : public SymtabVisitor {
             expr->visit(this);
             args.push_back(expr->llvm_value);
         }
-<<<<<<< HEAD
-        auto is_function = dynamic_cast<NFunctionType *>(node->type);
-        if (!is_function) {
-            throw SemanticError("Cannot generate code for struct call yet", Position(-1, -1));
-        }
-
-        // take function object directly from llvm symtab
-        auto func = node->expr->llvm_value;
-=======
         NFunctionType *function_type = dynamic_cast<NFunctionType *>(node->expr->type);
         bool is_function = function_type != nullptr;
         if (!is_function) {
@@ -2731,7 +2710,6 @@ class CodeGenVisitor : public SymtabVisitor {
         }
         auto func = function_type->llvm_value;
         node->llvm_value = this->builder->CreateCall(func, args);
->>>>>>> 69fcc3e (Init commit for inserting LLVM instructions)
     }
     virtual void visitNType(NType* node) { return; }
     virtual void visitNStringType(NStringType* node) { return; }
