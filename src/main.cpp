@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 
 #include "node.h"
 
@@ -30,9 +31,12 @@ int main(int argc, char** argv) {
     auto visitor = new CodeGenVisitor();
     std::cout << "\n\n------------------" << visitor->name << "------------------" << std::endl;
     programBlock->visit(visitor);
-    // visitor->cleanup();
-    
-    visitor->module->print(llvm::errs(), nullptr);
+    visitor->cleanup();
 
+    visitor->module->print(llvm::errs(), nullptr, true, true);
+    llvm::StringRef filename = "codegen.ll";
+    std::error_code err;
+    llvm::raw_fd_ostream filestream(filename, err);
+    visitor->module->print(filestream, nullptr, true, true);
     return 0;
 }

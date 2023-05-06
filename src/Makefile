@@ -1,26 +1,29 @@
-all: clean lex.cpp bison codegen
+.PHONY: all compile parser clean test
 
-codegen:
-	g++ -Wall -g -o parser parser.cpp lex.cpp main.cpp `llvm-config --cxxflags --ldflags --libs core` -fexceptions 
 
-parser:
-	g++ -Wall -g -std=c++11 -o parser parser.cpp lex.cpp main.cpp
+file ?= ../test/codegen.lua
+all: clean lex.cpp bison parser compile-and-run
 
 clean:
 	$(RM) -rf lex.cpp bison parser.cpp parser.hpp lex.hpp parser
 
-test: flex
-	cat ../test/*.aul | ./parser
-
-bison:
-	# bison --graph -Wcounterexamples -d -o parser.cpp parser.y;
-	bison -Wall -d -o parser.cpp parser.y;
-
-report:
-	bison --report all -Wcounterexamples -d -o parser.cpp parser.y;
+lex.cpp: lex.l
+	flex -o $@ lex.l
 
 flex: lex.cpp
 	g++ -Wall -g -std=c++11 $^ -o parser
 
-lex.cpp: lex.l
-	flex -o $@ lex.l
+bison:
+	bison -Wall -d -o parser.cpp parser.y;
+
+parser:
+	g++ -Wall -g -o parser parser.cpp lex.cpp main.cpp `llvm-config --cxxflags --ldflags --libs core` -fexceptions 
+
+compile-and-run:
+	./parser < $(file)
+	clang -S -emit-llvm builtin.cpp -o builtin.ll
+	clang codegen.ll builtin.ll
+	./a.out
+
+test: flex
+	cat ../test/*.aul | ./parser

@@ -14,3 +14,7 @@ Session.vim
 
 .idea
 cmake-build-debug
+
+builtin.ll
+codegen.bc
+codegen.ll

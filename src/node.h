@@ -150,6 +150,7 @@ class SymbolTableEntry {
     std::string name;
     NType* type;
     Position position;
+    llvm::Value* value;
     int usages;
 
     SymbolTableEntry(
@@ -319,11 +320,13 @@ class Node {
     // virtual llvm::Value *codegen() = 0;
 };
 
-class NStatement : public Node {};
+class NStatement : public Node {
+public:
+    llvm::Value* llvm_value = nullptr;
+};
 
 class NExpression : public NStatement {
    public:
-    llvm::Value* llvm_value = nullptr;
     NType* type = nullptr;
     virtual void visit(Visitor* v) { v->visitNExpression(this); }
 };
@@ -352,6 +355,7 @@ class NIdentifier : public NExpression {
     std::string name;
     Position position;
     NIdentifier(const std::string* name, Position position) : name(*name), position(position) {}
+    NIdentifier(const std::string name, NType *type) : name(name), position(Position(0, 0)) { this->type = type; }
     NIdentifier(NType* type) : name(""), position(Position(0, 0)) { this->type = type; }
 
     static IdentifierList* fromTypeList(typeList* types) {
@@ -1110,7 +1114,7 @@ class PrettyPrintVisitor : public Visitor {
 
     virtual void visitNFunctionType(NFunctionType* node) {
         // TODO: print function type
-        std::cout << "NFunctionType";
+        std::cout << "NFunctionType" << std::flush;
     }
 
     virtual void visitNStructType(NStructType* node) {
@@ -1132,10 +1136,15 @@ class TypeChecker : public SymtabVisitor {
     bool compareTypes(NType* lhs, NType* rhs) {
         // since it is pointers to different objects, we need to check
         // if they are pointers for the same class
-        if (lhs == nullptr || rhs == nullptr) {
-            std::cout << "One of the types are null" << std::endl;
+        if (lhs == nullptr) {
+            std::cout << "LHS is null" << std::endl;
             return false;
         }
+        if (rhs == nullptr) {
+            std::cout << "RHS is null" << std::endl;
+            return false;
+        }
+
         if (typeid(*lhs) != typeid(*rhs)) {
             return false;
         }
@@ -1996,6 +2005,7 @@ class SymbolTableFillerVisitor : public SymtabVisitor {
    public:
     SymbolTableFillerVisitor() {
         this->name = "Symbol Table Filler";
+        symtab_storage->symtab->declare(new SymbolTableEntry("printf", new NFunctionType(new IdentifierList({new NIdentifier("a", new NStringType()), new NIdentifier("param", new NNumType())}), new typeList({new NNilType()})), Position(0, 0)));
     }
 
     virtual void visitNNum(NNum* node) {}
@@ -2363,9 +2373,8 @@ class CodeGenVisitor : public SymtabVisitor {
         this->module = new llvm::Module("Main", *context);
         this->builder = new llvm::IRBuilder<>(*context);
 
-        Type* voidType = Type::getVoidTy(*context);
-        FunctionType* functionType = FunctionType::get(voidType, false);
-        Function* func_main = Function::Create(functionType, GlobalValue::ExternalLinkage, "main", module);
+        Function* func_main = Function::Create(FunctionType::get(Type::getDoubleTy(*context), false), GlobalValue::ExternalLinkage, "main", module);
+        Function *print = Function::Create(FunctionType::get(Type::getVoidTy(*context), false), GlobalValue::ExternalLinkage, "printf", module);
 
         this->main = func_main;
 
@@ -2393,12 +2402,8 @@ class CodeGenVisitor : public SymtabVisitor {
     }
 
     virtual void visitNIdentifier(NIdentifier* node) {
-        llvm::Value *ir = this->NamedValues[node->name];
-        if (ir == nullptr) {
-            std::cout << "Unknown variable name " << node->name << std::endl;
-            return;
-        }
-        node->llvm_value = this->builder->CreateLoad(ir->getType()->getPointerElementType(), ir);
+        auto entry = symtab_storage->symtab->lookup_or_throw(node->name, node->position.lineno + 1);
+        node->llvm_value = entry->value;
     }
 
     virtual void visitNBinaryOperatorExpression(NBinaryOperatorExpression* node) {
@@ -2407,63 +2412,48 @@ class CodeGenVisitor : public SymtabVisitor {
 
         switch (node->op) {
             case BinOpType::ADD:
-                std::cout << "+";
                 node->llvm_value = this->builder->CreateFAdd(node->lhs->llvm_value, node->rhs->llvm_value);
                 break;
             case BinOpType::SUBSTRACT:
-                std::cout << "-";
                 node->llvm_value = this->builder->CreateFSub(node->lhs->llvm_value, node->rhs->llvm_value);
                 break;
             case BinOpType::MULTIPLY:
-                std::cout << "*";
                 node->llvm_value = this->builder->CreateFMul(node->lhs->llvm_value, node->rhs->llvm_value);
                 break;
             case BinOpType::DIVIDE:
-                std::cout << "/";
                 node->llvm_value = this->builder->CreateSDiv(node->lhs->llvm_value, node->rhs->llvm_value);
                 break;
             case BinOpType::MODULO:
-                std::cout << "%";
                 node->llvm_value = this->builder->CreateSRem(node->lhs->llvm_value, node->rhs->llvm_value);
                 break;
             case BinOpType::POWER:
-                std::cout << "^";
                 //??
                 break;
             case BinOpType::EQUAL:
-                std::cout << "==";
                 node->llvm_value = this->builder->CreateFCmpUEQ(node->lhs->llvm_value, node->rhs->llvm_value);
                 break;
             case BinOpType::NOT_EQUAL:
-                std::cout << "~=";
                 node->llvm_value = this->builder->CreateFCmpUNE(node->lhs->llvm_value, node->rhs->llvm_value);
                 break;
             case BinOpType::LESS_THAN:
-                std::cout << "<";
                 node->llvm_value = this->builder->CreateFCmpULT(node->lhs->llvm_value, node->rhs->llvm_value);
                 break;
             case BinOpType::LESS_THAN_OR_EQUAL:
-                std::cout << "<=";
                 node->llvm_value = this->builder->CreateFCmpULE(node->lhs->llvm_value, node->rhs->llvm_value);
                 break;
             case BinOpType::GREATER_THAN:
-                std::cout << ">";
                 node->llvm_value = this->builder->CreateFCmpUGT(node->lhs->llvm_value, node->rhs->llvm_value);
                 break;
             case BinOpType::GREATER_THAN_OR_EQUAL:
-                std::cout << ">=";
                 node->llvm_value = this->builder->CreateFCmpUGE(node->lhs->llvm_value, node->rhs->llvm_value);
                 break;
             case BinOpType::AND:
-                std::cout << "and";
                 node->llvm_value = this->builder->CreateLogicalAnd(node->lhs->llvm_value, node->rhs->llvm_value);
                 break;
             case BinOpType::OR:
-                std::cout << "or";
                 node->llvm_value = this->builder->CreateLogicalOr(node->lhs->llvm_value, node->rhs->llvm_value);
                 break;
             case BinOpType::FLOOR_DIVIDE:
-                std::cout << "//";
                 node->llvm_value = this->builder->CreateFDiv(node->lhs->llvm_value, node->rhs->llvm_value);
                 break;
             default:
@@ -2473,7 +2463,7 @@ class CodeGenVisitor : public SymtabVisitor {
 
     virtual void visitNUnaryOperatorExpression(NUnaryOperatorExpression* node) {
         node->rhs->visit(this);
-        Value *OperandV = node->rhs->llvm_value;
+        // Value *OperandV = node->rhs->llvm_value;
         // Function *func = Function::Create(std::string("unary") + std::to_string(node->op));
         // node->llvm_value = this->builder->CreateCall(func, OperandV, "unop");
     }
@@ -2656,10 +2646,15 @@ class CodeGenVisitor : public SymtabVisitor {
     }
 
     virtual void visitNDeclarationStatement(NDeclarationStatement* node) {
-        if (node->ident->type != nullptr)
-            node->ident->type->visit(this);
-        if (node->expression != nullptr)
-            node->expression->visit(this);
+        node->expression->visit(this);
+        if (node->expression->llvm_value == nullptr) {
+            throw SemanticError("Expression value is null", node->position);
+        }
+        auto entry = symtab_storage->symtab->lookup_or_throw(node->ident->name, node->position.lineno + 1);
+        entry->value = node->expression->llvm_value;
+        AllocaInst *alloca = builder->CreateAlloca(node->expression->llvm_value->getType(), 0, node->ident->name);
+        builder->CreateStore(node->expression->llvm_value, alloca);
+        node->llvm_value = builder->CreateLoad(node->expression->llvm_value->getType(), alloca, "return_value");
     }
 
     virtual void visitNReturnStatement(NReturnStatement* node) {
@@ -2667,13 +2662,20 @@ class CodeGenVisitor : public SymtabVisitor {
     }
 
     virtual void visitNBlock(NBlock* node) {
+        Value *last_stmt = this->builder->getInt16(0);
         for (auto stmt : node->statements) {
             stmt->visit(this);
+            this->builder->Insert(stmt->llvm_value);
+            last_stmt = stmt->llvm_value;
         }
 
+        Value *return_expr_llvm = last_stmt;
         if (node->returnExpr != nullptr) {
             node->returnExpr->visit(this);
+            return_expr_llvm = node->returnExpr->llvm_value;
         }
+        this->builder->CreateRet(return_expr_llvm);
+        verifyFunction(*main);
     }
 
     virtual void visitNExpression(NExpression* node) {}
@@ -2694,6 +2696,13 @@ class CodeGenVisitor : public SymtabVisitor {
         for (auto expr : node->exprlist) {
             expr->visit(this);
         }
+        auto is_function = dynamic_cast<NFunctionType *>(node->type);
+        if (!is_function) {
+            throw SemanticError("Cannot generate code for struct call yet", Position(-1, -1));
+        }
+
+        // take function object directly from llvm symtab
+        auto func = node->expr->llvm_value;
     }
     virtual void visitNType(NType* node) { return; }
     virtual void visitNStringType(NStringType* node) { return; }
