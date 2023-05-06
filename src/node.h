@@ -2044,12 +2044,6 @@ class SymbolTableFillerVisitor : public SymtabVisitor {
         symtab_storage->symtab->scope_ended();
     }
 
-    virtual void visitNRepeatStatement(NRepeatUntilStatement* node) {
-        symtab_storage->symtab->scope_started();
-        node->block->visit(this);
-        symtab_storage->symtab->scope_ended();
-    }
-
     virtual void visitNDoStatement(NDoStatement* node) {
         symtab_storage->symtab->scope_started();
         node->block->visit(this);
@@ -2231,11 +2225,6 @@ class DeclaredBeforeUseCheckerVisitor : public SymtabVisitor {
         node->block->visit(this);
     }
 
-    virtual void visitNRepeatStatement(NRepeatUntilStatement* node) {
-        node->condition->visit(this);
-        node->block->visit(this);
-    }
-
     virtual void visitNDoStatement(NDoStatement* node) {
         node->block->visit(this);
     }
@@ -2395,15 +2384,21 @@ class CodeGenVisitor : public SymtabVisitor {
     }
 
     virtual void visitNString(NString* node) {
-
+        llvm::Value *ir = builder->CreateGlobalStringPtr(node->value);
+        node->llvm_value = ir;
     }
 
     virtual void visitNNil(NNil* node) {
-
+        node->llvm_value = llvm::ConstantPointerNull::get(llvm::PointerType::getInt8PtrTy(*context));
     }
 
     virtual void visitNIdentifier(NIdentifier* node) {
-
+        llvm::Value *ir = this->NamedValues[node->name];
+        if (ir == nullptr) {
+            std::cout << "Unknown variable name " << node->name << std::endl;
+            return;
+        }
+        node->llvm_value = this->builder->CreateLoad(ir->getType()->getPointerElementType(), ir);
     }
 
     virtual void visitNBinaryOperatorExpression(NBinaryOperatorExpression* node) {
@@ -2567,24 +2562,59 @@ class CodeGenVisitor : public SymtabVisitor {
     }
 
     virtual void visitNWhileStatement(NWhileStatement* node) {
+        llvm::BasicBlock* loop_block = llvm::BasicBlock::Create(*context, "while_block", main);
+        llvm::BasicBlock* loop_exit = llvm::BasicBlock::Create(*context, "while_exit", main);
+
+        this->builder->CreateBr(loop_block);
+        this->builder->SetInsertPoint(loop_block);
+        symtab_storage->symtab->enter_scope();
         node->condition->visit(this);
-        node->block->visit(this);
+        llvm::Value* zero = llvm::ConstantInt::get(*context, llvm::APInt(32, 0, true));
+        llvm::Value* condition = this->builder->CreateICmpEQ(node->condition->llvm_value, zero, "while_condition");
+        this->builder->CreateCondBr(condition, loop_exit, loop_block);
+        symtab_storage->symtab->exit_scope();
+
+        this->builder->SetInsertPoint(loop_exit);
     }
 
-    virtual void visitNRepeatStatement(NRepeatUntilStatement* node) {
-        node->condition->visit(this);
+    virtual void visitNRepeatUntilStatement(NRepeatUntilStatement* node) {
+        llvm::BasicBlock* loop_block = llvm::BasicBlock::Create(*context, "repeat_until_block", main);
+        llvm::BasicBlock* loop_exit = llvm::BasicBlock::Create(*context, "repeat_until_exit", main);
+
+        this->builder->CreateBr(loop_block);
+        this->builder->SetInsertPoint(loop_block);
+        symtab_storage->symtab->enter_scope();
         node->block->visit(this);
+
+        node->condition->visit(this);
+        llvm::Value* zero = llvm::ConstantInt::get(*context, llvm::APInt(32, 0, true));
+        llvm::Value* condition = this->builder->CreateICmpEQ(node->condition->llvm_value, zero, "repeat_until_cond");
+        this->builder->CreateCondBr(condition, loop_exit, loop_block);
+        symtab_storage->symtab->exit_scope();
+
+        this->builder->SetInsertPoint(loop_exit);
     }
 
     virtual void visitNDoStatement(NDoStatement* node) {
+        llvm::BasicBlock* doBlock = llvm::BasicBlock::Create(*context, "do_block", main);
+        llvm::BasicBlock* afterBlock = llvm::BasicBlock::Create(*context, "do_exit", main);
+
+        this->builder->CreateBr(doBlock);
+        this->builder->SetInsertPoint(doBlock);
+
+        symtab_storage->symtab->enter_scope();
         node->block->visit(this);
+        symtab_storage->symtab->exit_scope();
+
+        this->builder->CreateBr(afterBlock);
+        this->builder->SetInsertPoint(afterBlock);
     }
 
     virtual void visitNIfStatement(NIfStatement* node) {
         // create then and else blocks. 
         // where do we get the "function" instance?
-        BasicBlock* thenBlock = BasicBlock::Create(*context, "thenBlock", main);
-        BasicBlock* elseBlock = BasicBlock::Create(*context, "elseBlock", main);
+        BasicBlock* thenBlock = BasicBlock::Create(*context, "then_block", main);
+        BasicBlock* elseBlock = BasicBlock::Create(*context, "else_block", main);
 
         for (auto block : node->conditionBlockList) {
             symtab_storage->symtab->enter_scope();
@@ -2620,12 +2650,6 @@ class CodeGenVisitor : public SymtabVisitor {
     }
 
     virtual void visitNGenericForStatement(NGenericForStatement* node) {
-        symtab_storage->symtab->enter_scope();
-        node->block->visit(this);
-        symtab_storage->symtab->exit_scope();
-    }
-    virtual void visitNRepeatUntilStatement(NRepeatUntilStatement* node) {
-        node->condition->visit(this);
         symtab_storage->symtab->enter_scope();
         node->block->visit(this);
         symtab_storage->symtab->exit_scope();
