@@ -1,7 +1,8 @@
 a = 3
 b = 5
 c = 10
+e = "1323"
 
-d = (a + b) + c
+d = (a - b) + c
 
-printf("%.3f\n", 1)
+printf("hello the value is %.3f, str is %s\n", d, e)

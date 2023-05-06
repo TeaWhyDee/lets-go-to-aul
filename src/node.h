@@ -63,6 +63,7 @@ class NNilType;
 class NTableType;
 class NFunctionType;
 class NStructType;
+class NAnyType;
 class SymbolTableEntry;
 class SymbolTable;
 class ScopedSymbolTable;
@@ -134,6 +135,7 @@ class Visitor {
     virtual void visitNTableType(NTableType* node) = 0;
     virtual void visitNFunctionType(NFunctionType* node) = 0;
     virtual void visitNStructType(NStructType* node) = 0;
+    virtual void visitNAnyType(NAnyType *node) = 0;
     virtual void cleanup() = 0;
 };
 
@@ -429,6 +431,18 @@ class NNilType : public NType {
     }
 };
 
+class NAnyType: public NType {
+public:
+    NAnyType() {}
+    virtual void visit(Visitor* v) {
+        v->visitNAnyType(this);
+    }
+
+    virtual operator std::string() const {
+        return "Any";
+    }
+};
+
 class NTableType : public NType {
    public:
     NType* keyType;
@@ -449,6 +463,7 @@ public:
     llvm::Function* llvm_value;
     IdentifierList* arguments;
     typeList* returnTypes;
+    bool varargs;
 
     NFunctionType(IdentifierList* arguments, typeList* returnTypes) : arguments(arguments), returnTypes(returnTypes) {}
 
@@ -1125,6 +1140,8 @@ class PrettyPrintVisitor : public Visitor {
         std::cout << "type=" << node->name->type << ")";
     }
     virtual void cleanup() {}
+
+    virtual void visitNAnyType(NAnyType *node) {}
 };
 
 class TypeChecker : public SymtabVisitor {
@@ -1207,6 +1224,11 @@ class TypeChecker : public SymtabVisitor {
                 return false;
             }
         } else {
+            if (t1->varargs || t2->varargs) {
+                // NOTE: temporary solution
+                // It should compare arguments, but allows more elements of the same type at the end
+                return true;
+            }
             // If both of them are not null, then compare the types
             if (t1->arguments->size() != t2->arguments->size()) {
                 return false;
@@ -2000,6 +2022,8 @@ class TypeChecker : public SymtabVisitor {
 
     virtual void cleanup() {
     }
+
+    virtual void visitNAnyType(NAnyType *node) {}
 };
 
 class SymbolTableFillerVisitor : public SymtabVisitor {
@@ -2148,6 +2172,7 @@ class SymbolTableFillerVisitor : public SymtabVisitor {
     virtual void visitNTableType(NTableType* node) { return; }
     virtual void visitNFunctionType(NFunctionType* node) { return; }
     virtual void visitNStructType(NStructType* node) { return; }
+    virtual void visitNAnyType(NAnyType *node) {}
     virtual void visitNAccessKey(NAccessKey* node) {}
     virtual void visitNAssignmentStatement(NAssignmentStatement* node) {}
 };
@@ -2352,6 +2377,7 @@ class DeclaredBeforeUseCheckerVisitor : public SymtabVisitor {
             std::cout << e->what() << std::endl;
         }
     }
+    virtual void visitNAnyType(NAnyType *node) {}
     virtual void visitNAccessKey(NAccessKey* node) {}
     virtual void visitNAssignmentStatement(NAssignmentStatement* node) {}
 };
@@ -2386,7 +2412,8 @@ class CodeGenVisitor : public SymtabVisitor {
         this->builder = new llvm::IRBuilder<>(*context);
 
         Function* func_main = Function::Create(FunctionType::get(Type::getVoidTy(*context), false), GlobalValue::ExternalLinkage, "main", module);
-        Function *print = Function::Create(FunctionType::get(Type::getVoidTy(*context), false), GlobalValue::ExternalLinkage, "printf", module);
+        std::vector<Type *> printfArgsTypes({Type::getInt8PtrTy(*context)});
+        Function *print = Function::Create(FunctionType::get(Type::getInt64Ty(*context), printfArgsTypes, true), GlobalValue::ExternalLinkage, "printf", module);
         auto entry = symtab_storage->symtab->lookup_or_throw("printf", 1);
         auto entry_type = dynamic_cast<NFunctionType *>(entry->type);
         if (entry_type == nullptr) {
@@ -2401,7 +2428,6 @@ class CodeGenVisitor : public SymtabVisitor {
 
     virtual void visitNNum(NNum* node) {
         llvm::Value *ir = llvm::ConstantFP::get(*context, llvm::APFloat(node->value));
-        // ir->print(llvm::errs());
         node->llvm_value = ir;
     }
 
@@ -2410,8 +2436,25 @@ class CodeGenVisitor : public SymtabVisitor {
     }
 
     virtual void visitNString(NString* node) {
-        llvm::Value *ir = builder->CreateGlobalStringPtr(node->value);
-        node->llvm_value = ir;
+        auto str = node->value;
+        auto charType = llvm::IntegerType::get(*this->context, 8);
+
+        std::vector<llvm::Constant *> chars(str.length());
+        for(unsigned int i = 0; i < str.size(); i++) {
+          chars[i] = llvm::ConstantInt::get(charType, str[i]);
+        }
+
+        chars.push_back(llvm::ConstantInt::get(charType, 0));
+
+        auto stringType = llvm::ArrayType::get(charType, chars.size());
+
+        auto globalDeclaration = (llvm::GlobalVariable*) module->getOrInsertGlobal("." + node->value, stringType);
+        globalDeclaration->setInitializer(llvm::ConstantArray::get(stringType, chars));
+        globalDeclaration->setConstant(true);
+        globalDeclaration->setLinkage(llvm::GlobalValue::LinkageTypes::PrivateLinkage);
+        globalDeclaration->setUnnamedAddr (llvm::GlobalValue::UnnamedAddr::Global);
+
+        node->llvm_value = llvm::ConstantExpr::getBitCast(globalDeclaration, charType->getPointerTo());
     }
 
     virtual void visitNNil(NNil* node) {
@@ -2650,7 +2693,6 @@ class CodeGenVisitor : public SymtabVisitor {
     }
 
     virtual void visitNBlock(NBlock* node) {
-        Value *last_stmt = this->builder->getInt16(0);
         for (auto stmt : node->statements) {
             stmt->visit(this);
             this->builder->Insert(stmt->llvm_value);
@@ -2716,6 +2758,10 @@ class CodeGenVisitor : public SymtabVisitor {
             std::cout << e->what() << std::endl;
         }
     }
+    virtual void visitNAnyType(NAnyType *node) {}
     virtual void visitNAccessKey(NAccessKey* node) {}
     virtual void visitNAssignmentStatement(NAssignmentStatement* node) {}
+    virtual void cleanup() {
+        llvm::verifyModule(*this->module);
+    }
 };

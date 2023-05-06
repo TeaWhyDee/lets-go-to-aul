@@ -31,6 +31,7 @@ int main(int argc, char** argv) {
     auto visitor = new CodeGenVisitor();
     std::cout << "\n\n------------------" << visitor->name << "------------------" << std::endl;
     programBlock->visit(visitor);
+    visitor->cleanup();
 
     visitor->module->print(llvm::errs(), nullptr, false, false);
     llvm::StringRef filename = "codegen.ll";
