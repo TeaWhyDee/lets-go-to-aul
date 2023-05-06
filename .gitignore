@@ -13,3 +13,4 @@ parser.dSYM
 Session.vim
 
 .idea
+cmake-build-debug
