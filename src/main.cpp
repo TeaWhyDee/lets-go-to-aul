@@ -29,6 +29,7 @@ int main(int argc, char** argv) {
     }
 
     auto visitor = new CodeGenVisitor();
+    programBlock->returnExpr = new NNil();
     std::cout << "\n\n------------------" << visitor->name << "------------------" << std::endl;
     programBlock->visit(visitor);
     visitor->cleanup();
