@@ -2614,12 +2614,12 @@ class CodeGenVisitor : public SymtabVisitor {
         this->builder->SetInsertPoint(conditionBlock);
 
         node->condition->visit(this);
-        this->builder->CreateCondBr(node->condition->llvm_value, whileBlock, afterBlock);
+        this->builder->CreateCondBr(node->condition->llvm_value, afterBlock, whileBlock);
 
         this->builder->SetInsertPoint(whileBlock);
-//        symtab_storage->symtab->enter_scope();
+        symtab_storage->symtab->enter_scope();
         node->block->visit(this);
-//        symtab_storage->symtab->exit_scope();
+        symtab_storage->symtab->exit_scope();
 
         this->builder->CreateBr(conditionBlock);
         this->builder->SetInsertPoint(afterBlock);
