@@ -1200,6 +1200,11 @@ class TypeChecker : public SymtabVisitor {
         if (t1 == nullptr || t2 == nullptr) {
             return false;
         }
+        if (t1->varargs || t2->varargs) {
+            // NOTE: temporary solution
+            // It should compare arguments, but allows more elements of the same type at the end
+            return true;
+        }
         // Compare the return types
         if (t1->returnTypes == nullptr || t2->returnTypes == nullptr) {
             // If one of them is null, then they are not the same
@@ -1224,11 +1229,6 @@ class TypeChecker : public SymtabVisitor {
                 return false;
             }
         } else {
-            if (t1->varargs || t2->varargs) {
-                // NOTE: temporary solution
-                // It should compare arguments, but allows more elements of the same type at the end
-                return true;
-            }
             // If both of them are not null, then compare the types
             if (t1->arguments->size() != t2->arguments->size()) {
                 return false;
@@ -1501,8 +1501,11 @@ class TypeChecker : public SymtabVisitor {
     virtual void visitFunctionCall(NExpressionCall* node) {
         auto functionType = dynamic_cast<NFunctionType*>(node->expr->type);
 
+        if (functionType->varargs) {
+            std::cout << "Function has vararg param, skip args check";
+        }
         // check argument types
-        if (functionType->arguments == nullptr || node->exprlist.empty()) {
+        else if (functionType->arguments == nullptr || node->exprlist.empty()) {
             // check if both is empty
             if (functionType->arguments != nullptr || not node->exprlist.empty()) {
                 std::cout << "TypeError: number of arguments is not correct";
@@ -2033,7 +2036,17 @@ class SymbolTableFillerVisitor : public SymtabVisitor {
    public:
     SymbolTableFillerVisitor() {
         this->name = "Symbol Table Filler";
-        symtab_storage->symtab->declare(new SymbolTableEntry("printf", new NFunctionType(new IdentifierList({new NIdentifier("a", new NStringType()), new NIdentifier("param", new NNumType())}), new typeList({new NNilType()})), Position(0, 0)));
+        auto type = new NFunctionType(
+            new IdentifierList({new NIdentifier("a", new NStringType()),
+                                new NIdentifier("param", new NNumType())}),
+            new typeList({new NNilType()})
+        );
+        auto entry = new SymbolTableEntry(
+            "printf",
+            type,
+            Position(0, 0));
+        symtab_storage->symtab->declare(entry);
+        type->varargs = true;
     }
 
     virtual void visitNNum(NNum* node) {}
