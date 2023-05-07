@@ -1637,6 +1637,7 @@ class TypeChecker : public SymtabVisitor {
         node->condition->visit(this);
         node->visit(this->prettyPrinter);
         checkConditionalExpression(node->condition);
+        node->block->visit(this);
         std::cout << ")" << std::endl;
     }
 
