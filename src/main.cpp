@@ -33,10 +33,10 @@ int main(int argc, char** argv) {
     programBlock->visit(visitor);
     visitor->cleanup();
 
-    visitor->module->print(llvm::errs(), nullptr, true, true);
+    visitor->module->print(llvm::errs(), nullptr, false, false);
     llvm::StringRef filename = "codegen.ll";
     std::error_code err;
     llvm::raw_fd_ostream filestream(filename, err);
-    visitor->module->print(filestream, nullptr, true, true);
+    visitor->module->print(filestream, nullptr, false, false);
     return 0;
 }
