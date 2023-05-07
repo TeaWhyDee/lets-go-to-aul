@@ -1623,7 +1623,9 @@ class TypeChecker : public SymtabVisitor {
             std::cout << "condition: ";
             conditionBlock->first->visit(this);
             checkConditionalExpression(conditionBlock->first);
+            symtab_storage->symtab->enter_scope();
             conditionBlock->second->visit(this);
+            symtab_storage->symtab->exit_scope();
             std::cout << std::endl;
         }
     }
@@ -2033,9 +2035,6 @@ class TypeChecker : public SymtabVisitor {
     virtual void visitNStructType(NStructType* node) {
     }
 
-    virtual void cleanup() {
-    }
-
     virtual void visitNAnyType(NAnyType *node) {}
 };
 
@@ -2432,7 +2431,7 @@ class CodeGenVisitor : public SymtabVisitor {
             throw SemanticError("Cannot get function type for 'printf'", Position(0, 0));
         }
         entry_type->llvm_value = print;
-//        Function *print = Function::Create(FunctionType::get(Type::getVoidTy(*context), false), GlobalValue::ExternalLinkage, "printf", module);
+        // Function *print = Function::Create(FunctionType::get(Type::getVoidTy(*context), false), GlobalValue::ExternalLinkage, "printf", module);
 
         this->main = func_main;
         BasicBlock* block_main = BasicBlock::Create(*context, "entry", func_main);
@@ -2474,9 +2473,19 @@ class CodeGenVisitor : public SymtabVisitor {
         node->llvm_value = llvm::ConstantPointerNull::get(llvm::PointerType::getInt8PtrTy(*context));
     }
 
+    virtual bool load_required(SymbolTableEntry *entry) {
+        bool is_function = dynamic_cast<NFunctionType *>(entry->type) != nullptr;
+        bool is_struct = dynamic_cast<NStructType *>(entry->type) != nullptr;
+
+        return not is_function and not is_struct;
+    }
+
     virtual void visitNIdentifier(NIdentifier* node) {
         auto entry = symtab_storage->symtab->lookup_or_throw(node->name, node->position.lineno + 1);
         node->llvm_value = entry->value;
+        if (this->load_required(entry)) {
+            node->llvm_value = this->builder->CreateLoad(static_cast<AllocaInst *>(entry->value)->getAllocatedType(), entry->value);
+        }
     }
 
     virtual void visitNBinaryOperatorExpression(NBinaryOperatorExpression* node) {
@@ -2687,7 +2696,7 @@ class CodeGenVisitor : public SymtabVisitor {
     }
 
     virtual void visitNIfStatement(NIfStatement* node) {
-//        llvm::Function* func = this->builder->GetInsertBlock()->getParent();
+        // llvm::Function* func = this->builder->GetInsertBlock()->getParent();
         unsigned int num_conditions = node->conditionBlockList.size();
 
         llvm::Function* func = main;
@@ -2698,12 +2707,12 @@ class CodeGenVisitor : public SymtabVisitor {
             auto condition_value = node->conditionBlockList[i]->first;
             auto block = node->conditionBlockList[i]->second;
             condition_value->visit(this);
-//            std::cout << "cond_block->first->llvm_value: " << cond_block->first->llvm_value << std::endl;
+            // std::cout << "cond_block->first->llvm_value: " << cond_block->first->llvm_value << std::endl;
             llvm::Value* zero = llvm::ConstantInt::get(*context, llvm::APInt(1, 0, true));
-//            std::cout << "zero: " << zero << std::endl;
+            // std::cout << "zero: " << zero << std::endl;
             llvm::Value* condition = this->builder->CreateICmpEQ(condition_value->llvm_value, zero, "if_condition");
-//            llvm::Value* condition = this->builder->CreateFCmpONE(cond_block->first->llvm_value, zero, "if_condition");
-//            std::cout << "condition: " << condition << std::endl;
+            // llvm::Value* condition = this->builder->CreateFCmpONE(cond_block->first->llvm_value, zero, "if_condition");
+            // std::cout << "condition: " << condition << std::endl;
 
             if (i == num_conditions - 1 && node->elseBlock == nullptr) {
                 std::cout << "last if" << std::endl;
@@ -2734,72 +2743,72 @@ class CodeGenVisitor : public SymtabVisitor {
     }
 
     virtual void visitNNumericForStatement(NNumericForStatement* node) {
-//        llvm::Function *func = this->builder->GetInsertBlock()->getParent();
-//        same as for declaration
-//        auto entry = symtab_storage->symtab->lookup_or_throw(node->id->name, node->id->position.lineno + 1);
-//
-//        entry->value = node->start->llvm_value;
-//        AllocaInst *alloca = builder->CreateAlloca(node->expression->llvm_value->getType(), 0, node->ident->name);
-//        builder->CreateStore(node->expression->llvm_value, alloca);
-//        node->id->llvm_value = builder->CreateLoad(node->expression->llvm_value->getType(), alloca, "return_value");
+        // llvm::Function *func = this->builder->GetInsertBlock()->getParent();
+        // same as for declaration
+        // auto entry = symtab_storage->symtab->lookup_or_throw(node->id->name, node->id->position.lineno + 1);
+
+        // entry->value = node->start->llvm_value;
+        // AllocaInst *alloca = builder->CreateAlloca(node->expression->llvm_value->getType(), 0, node->ident->name);
+        // builder->CreateStore(node->expression->llvm_value, alloca);
+        // node->id->llvm_value = builder->CreateLoad(node->expression->llvm_value->getType(), alloca, "return_value");
 
 
-//        llvm::BasicBlock *loop_block = llvm::BasicBlock::Create(*context, "numeric_for_block", func);
-//        llvm::BasicBlock *loop_cond = llvm::BasicBlock::Create(*context, "numeric_for_cond", func);
-//        llvm::BasicBlock *loop_step = llvm::BasicBlock::Create(*context, "numeric_for_step", func);
-//        llvm::BasicBlock *loop_exit = llvm::BasicBlock::Create(*context, "numeric_for_exit", func);
+        // llvm::BasicBlock *loop_block = llvm::BasicBlock::Create(*context, "numeric_for_block", func);
+        // llvm::BasicBlock *loop_cond = llvm::BasicBlock::Create(*context, "numeric_for_cond", func);
+        // llvm::BasicBlock *loop_step = llvm::BasicBlock::Create(*context, "numeric_for_step", func);
+        // llvm::BasicBlock *loop_exit = llvm::BasicBlock::Create(*context, "numeric_for_exit", func);
 
-        // Evaluate the start value and store it in the loop variable.
-        node->start->visit(this);
-//        return
-//                llvm::Value * start_val = node->start->llvm_value;
-//        this->builder->CreateStore(start_val, symtab_storage->get_named_value(node->id->name));
+      ////  Evaluate the start value and store it in the loop variable.
+        // node->start->visit(this);
+        // return
+        //         llvm::Value * start_val = node->start->llvm_value;
+        // this->builder->CreateStore(start_val, symtab_storage->get_named_value(node->id->name));
 
-        // Create the loop variable and initialize it to the start value.
-//        llvm::Value* var_alloca = symtab_storage->get_named_value(node->id->name);
-//        llvm::Value *var_val = this->builder->CreateLoad(var_alloca, node->id->name);
-//        llvm::Value *var_phi = this->builder->CreatePHI(var_val->getType(), 2, node->id->name);
-//        var_phi->addIncoming(var_val, this->builder->GetInsertBlock());
-//
-//        // Create the loop block and enter the scope.
-//        this->builder->CreateBr(loop_block);
-//        this->builder->SetInsertPoint(loop_block);
-//        symtab_storage->symtab->enter_scope();
-//
-//        // Add the loop variable to the symbol table.
-//        symtab_storage->add_named_value(node->id->name, var_phi);
-//
-//        // Visit the block.
-//        node->block->visit(this);
-//
-//        // Create the step block.
-//        this->builder->CreateBr(loop_step);
-//        this->builder->SetInsertPoint(loop_step);
-//
-//        // Evaluate the step expression and add it to the loop variable.
-//        node->step->visit(this);
-//        llvm::Value *step_val = node->step->llvm_value;
-//        var_val = this->builder->CreateLoad(var_alloca, node->id->name);
-//        llvm::Value *var_add = this->builder->CreateFAdd(var_val, step_val, "addtmp");
-//        this->builder->CreateStore(var_add, var_alloca);
-//
-//        // Create the condition block.
-//        this->builder->CreateBr(loop_cond);
-//        this->builder->SetInsertPoint(loop_cond);
-//
-//        // Evaluate the end expression and compare it to the loop variable.
-//        node->end->visit(this);
-//        llvm::Value *end_val = node->end->llvm_value;
-//        var_val = this->builder->CreateLoad(var_alloca, node->id->name);
-//        llvm::Value *end_cmp = this->builder->CreateFCmpOLE(var_val, end_val, "cmp");
-//        this->builder->CreateCondBr(end_cmp, loop_block, loop_exit);
-//
-//        // Add incoming values to the PHI node.
-//        var_phi->addIncoming(var_val, this->builder->GetInsertBlock());
-//
-//        // Exit the scope and set the insert point to the loop exit block.
-//        symtab_storage->symtab->exit_scope();
-//        this->builder->Set
+      ////  Create the loop variable and initialize it to the start value.
+        // llvm::Value* var_alloca = symtab_storage->get_named_value(node->id->name);
+        // llvm::Value *var_val = this->builder->CreateLoad(var_alloca, node->id->name);
+        // llvm::Value *var_phi = this->builder->CreatePHI(var_val->getType(), 2, node->id->name);
+        // var_phi->addIncoming(var_val, this->builder->GetInsertBlock());
+
+        // // Create the loop block and enter the scope.
+        // this->builder->CreateBr(loop_block);
+        // this->builder->SetInsertPoint(loop_block);
+        // symtab_storage->symtab->enter_scope();
+
+        // // Add the loop variable to the symbol table.
+        // symtab_storage->add_named_value(node->id->name, var_phi);
+
+        // // Visit the block.
+        // node->block->visit(this);
+
+        // // Create the step block.
+        // this->builder->CreateBr(loop_step);
+        // this->builder->SetInsertPoint(loop_step);
+
+        // // Evaluate the step expression and add it to the loop variable.
+        // node->step->visit(this);
+        // llvm::Value *step_val = node->step->llvm_value;
+        // var_val = this->builder->CreateLoad(var_alloca, node->id->name);
+        // llvm::Value *var_add = this->builder->CreateFAdd(var_val, step_val, "addtmp");
+        // this->builder->CreateStore(var_add, var_alloca);
+
+        // // Create the condition block.
+        // this->builder->CreateBr(loop_cond);
+        // this->builder->SetInsertPoint(loop_cond);
+
+        // // Evaluate the end expression and compare it to the loop variable.
+        // node->end->visit(this);
+        // llvm::Value *end_val = node->end->llvm_value;
+        // var_val = this->builder->CreateLoad(var_alloca, node->id->name);
+        // llvm::Value *end_cmp = this->builder->CreateFCmpOLE(var_val, end_val, "cmp");
+        // this->builder->CreateCondBr(end_cmp, loop_block, loop_exit);
+
+        // // Add incoming values to the PHI node.
+        // var_phi->addIncoming(var_val, this->builder->GetInsertBlock());
+
+        // // Exit the scope and set the insert point to the loop exit block.
+        // symtab_storage->symtab->exit_scope();
+        // this->builder->Set
     }
 
 
@@ -2814,11 +2823,12 @@ class CodeGenVisitor : public SymtabVisitor {
         if (node->expression->llvm_value == nullptr) {
             throw SemanticError("Expression value is null", node->position);
         }
-        auto entry = symtab_storage->symtab->lookup_or_throw(node->ident->name, node->position.lineno + 1, true);
-        entry->value = node->expression->llvm_value;
-        AllocaInst *alloca = builder->CreateAlloca(node->expression->llvm_value->getType(), 0, node->ident->name);
-        builder->CreateStore(node->expression->llvm_value, alloca);
-        node->llvm_value = builder->CreateLoad(node->expression->llvm_value->getType(), alloca, "return_value");
+        auto entry = symtab_storage->symtab->lookup_or_throw(node->ident->name, node->position.lineno + 1);
+        if (entry->value == nullptr) {
+            AllocaInst *alloca = this->builder->CreateAlloca(node->expression->llvm_value->getType(), 0, node->ident->name);
+            entry->value = alloca;
+        }
+        node->llvm_value = this->builder->CreateStore(node->expression->llvm_value, entry->value);
     }
 
     virtual void visitNReturnStatement(NReturnStatement* node) {
@@ -2837,7 +2847,9 @@ class CodeGenVisitor : public SymtabVisitor {
             }
             this->builder->Insert(stmt->llvm_value);
 
-            stmt->llvm_value->setName("stmt" + std::to_string(stmt_num));
+            if (stmt->llvm_value->getType()->getTypeID() != Type::VoidTyID) {
+                stmt->llvm_value->setName("stmt" + std::to_string(stmt_num));
+            }
             last_stmt = stmt->llvm_value;
             last_stmt_node = stmt;
             stmt_num++;
@@ -2857,7 +2869,10 @@ class CodeGenVisitor : public SymtabVisitor {
             }
         }
 
-        verifyFunction(*func);
+        std::string err;
+        if (verifyFunction(*func, new raw_string_ostream(err))) {
+            std::cerr << "\033[1;31m" << err << "\033[0m" << std::flush;
+        }
     }
 
 
@@ -2916,6 +2931,9 @@ class CodeGenVisitor : public SymtabVisitor {
     virtual void visitNAccessKey(NAccessKey* node) {}
     virtual void visitNAssignmentStatement(NAssignmentStatement* node) {}
     virtual void cleanup() {
-        llvm::verifyModule(*this->module);
+        std::string err;
+        if (verifyModule(*this->module, new raw_string_ostream(err))) {
+            std::cerr << "\033[1;31m" << err << "\033[0m" << std::flush;
+        }
     }
 };
