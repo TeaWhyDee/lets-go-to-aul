@@ -1623,6 +1623,7 @@ class TypeChecker : public SymtabVisitor {
             std::cout << "condition: ";
             conditionBlock->first->visit(this);
             checkConditionalExpression(conditionBlock->first);
+            conditionBlock->second->visit(this);
             std::cout << std::endl;
         }
     }
@@ -1631,6 +1632,10 @@ class TypeChecker : public SymtabVisitor {
         std::cout << "IfStatement(";
         node->visit(this->prettyPrinter);
         checkConditionalBlockList(node->conditionBlockList);
+        if (node->elseBlock != nullptr) {
+            std::cout << "else: ";
+            node->elseBlock->visit(this);
+        }
         std::cout << ")" << std::endl;
     }
 
@@ -1650,6 +1655,7 @@ class TypeChecker : public SymtabVisitor {
         std::cout << "condition: ";
         node->condition->visit(this);
         checkConditionalExpression(node->condition);
+        node->block->visit(this);
         std::cout << ")" << std::endl;
     }
 
@@ -1679,6 +1685,7 @@ class TypeChecker : public SymtabVisitor {
             throw SemanticError("TypeError: start, end or step is not a number", Position(-1, -1));
             return;
         }
+        node->block->visit(this);
         std::cout << ")" << std::endl;
     }
 
@@ -2475,7 +2482,6 @@ class CodeGenVisitor : public SymtabVisitor {
     virtual void visitNBinaryOperatorExpression(NBinaryOperatorExpression* node) {
         node->lhs->visit(this);
         node->rhs->visit(this);
-
         switch (node->op) {
             case BinOpType::ADD:
                 node->llvm_value = this->builder->CreateFAdd(node->lhs->llvm_value, node->rhs->llvm_value);
@@ -2619,43 +2625,65 @@ class CodeGenVisitor : public SymtabVisitor {
 
     virtual void visitNWhileStatement(NWhileStatement* node) {
         llvm::Function* func = main;
+        symtab_storage->symtab->enter_scope();
+
 
         llvm::BasicBlock* conditionBlock = llvm::BasicBlock::Create(*context, "while_condition", func);
-        llvm::BasicBlock* whileBlock = llvm::BasicBlock::Create(*context, "while_block", func);
         llvm::BasicBlock* afterBlock = llvm::BasicBlock::Create(*context, "while_exit", func);
 
         this->builder->CreateBr(conditionBlock);
         this->builder->SetInsertPoint(conditionBlock);
 
-        node->condition->visit(this);
-        this->builder->CreateCondBr(node->condition->llvm_value, afterBlock, whileBlock);
+        // Create a new block for the condition evaluation
+        llvm::BasicBlock* conditionEvalBlock = llvm::BasicBlock::Create(*context, "condition_eval", func);
+        this->builder->CreateBr(conditionEvalBlock);
+        this->builder->SetInsertPoint(conditionEvalBlock);
 
-        this->builder->SetInsertPoint(whileBlock);
-        symtab_storage->symtab->enter_scope();
+        // Evaluate the condition
+        node->condition->visit(this);
+
+        // Create a new block for the body of the loop
+        llvm::BasicBlock* loopBodyBlock = llvm::BasicBlock::Create(*context, "loop_body", func);
+
+        // Create a new block for the post-loop update
+        llvm::BasicBlock* postLoopUpdateBlock = llvm::BasicBlock::Create(*context, "post_loop_update", func);
+
+        // Create a branch to either the loop body or the exit block based on the condition
+        this->builder->CreateCondBr(node->condition->llvm_value, loopBodyBlock, afterBlock);
+
+        // Set the builder to the loop body block
+        this->builder->SetInsertPoint(loopBodyBlock);
+
+        // Visit the loop body
         node->block->visit(this);
+
+        // Create a branch to the post-loop update block
+        this->builder->CreateBr(postLoopUpdateBlock);
+
+        // Set the builder to the post-loop update block
+        this->builder->SetInsertPoint(postLoopUpdateBlock);
+
+        // Update the value of the variable used in the condition
+        // For example, if the condition is "a < 2" and "a" is a variable, you would need to update the value of "a"
+        // in this block to reflect the new value of "a" after the loop body is executed.
+        // The code for this would depend on how you are storing and accessing variables in your program.
+
+        // Create a branch to the condition evaluation block to re-evaluate the condition
+        this->builder->CreateBr(conditionEvalBlock);
+
+        // Set the builder to the after block
+        this->builder->SetInsertPoint(afterBlock);
         symtab_storage->symtab->exit_scope();
 
-        this->builder->CreateBr(conditionBlock);
-        this->builder->SetInsertPoint(afterBlock);
     }
+
 
     virtual void visitNRepeatUntilStatement(NRepeatUntilStatement* node) {
 
     }
 
     virtual void visitNDoStatement(NDoStatement* node) {
-        llvm::BasicBlock* doBlock = llvm::BasicBlock::Create(*context, "do_block", main);
-        llvm::BasicBlock* afterBlock = llvm::BasicBlock::Create(*context, "do_exit", main);
 
-        this->builder->CreateBr(doBlock);
-        this->builder->SetInsertPoint(doBlock);
-
-        symtab_storage->symtab->enter_scope();
-        node->block->visit(this);
-        symtab_storage->symtab->exit_scope();
-
-        this->builder->CreateBr(afterBlock);
-        this->builder->SetInsertPoint(afterBlock);
     }
 
     virtual void visitNIfStatement(NIfStatement* node) {
@@ -2786,7 +2814,7 @@ class CodeGenVisitor : public SymtabVisitor {
         if (node->expression->llvm_value == nullptr) {
             throw SemanticError("Expression value is null", node->position);
         }
-        auto entry = symtab_storage->symtab->lookup_or_throw(node->ident->name, node->position.lineno + 1);
+        auto entry = symtab_storage->symtab->lookup_or_throw(node->ident->name, node->position.lineno + 1, true);
         entry->value = node->expression->llvm_value;
         AllocaInst *alloca = builder->CreateAlloca(node->expression->llvm_value->getType(), 0, node->ident->name);
         builder->CreateStore(node->expression->llvm_value, alloca);
@@ -2824,7 +2852,9 @@ class CodeGenVisitor : public SymtabVisitor {
         if (return_expr_llvm != nullptr && dynamic_cast<NReturnStatement*>(last_stmt_node) != nullptr) {
             this->builder->CreateRet(return_expr_llvm);
         } else {
-            this->builder->CreateRetVoid();
+            if (node->returnExpr != nullptr && func->getName() == "main") {
+                this->builder->CreateRetVoid();
+            }
         }
 
         verifyFunction(*func);
