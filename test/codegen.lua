@@ -3,9 +3,9 @@
 -- b = 5
 -- c = 10
 -- e = "1323"
---
+
 -- d = (a - b) + c
---
+
 -- printf("Values of a,b,c,d, e: %.1f, %.1f, %.1f, %.1f, '%s'\n", a, b, c, d, e)
 
 
@@ -48,7 +48,7 @@
 -- --Check if block (for now not working)
 -- printf("\nIF\n")
 -- a = 14
--- printf("A is %.3f\n", a)
+-- printf("A before is %.3f\n", a)
 -- if a < 10 then
 --   a = 12
 --   printf("A = %.3f\n", a)
