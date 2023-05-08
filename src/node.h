@@ -2442,6 +2442,7 @@ class CodeGenVisitor : public SymtabVisitor {
     llvm::Module* module;
     llvm::IRBuilder<>* builder;
     llvm::Function* main;
+    BasicBlock* block_main;
     std::map<std::string, llvm::Value *> NamedValues;
 
     CodeGenVisitor() {
@@ -2462,7 +2463,7 @@ class CodeGenVisitor : public SymtabVisitor {
         // Function *print = Function::Create(FunctionType::get(Type::getVoidTy(*context), false), GlobalValue::ExternalLinkage, "printf", module);
 
         this->main = func_main;
-        BasicBlock* block_main = BasicBlock::Create(*context, "entry", func_main);
+        block_main = BasicBlock::Create(*context, "entry", func_main);
         this->builder->SetInsertPoint(block_main);
     }
 
@@ -2580,16 +2581,16 @@ class CodeGenVisitor : public SymtabVisitor {
     virtual void visitNTableConstructor(NTableConstructor* node) {}
 
     virtual void visitNFunctionDeclaration(NFunctionDeclaration* node) {
+        symtab_storage->symtab->enter_scope();
+
         std::string name = node->id->name;
         llvm::Type* return_type;
         std::vector<Type*> parameter_types;
 
-        symtab_storage->symtab->enter_scope();
-
         if (node->return_type != nullptr) { 
-            llvm::Type* return_type = getLLVMType(node->return_type->at(0));
+            return_type = getLLVMType(node->return_type->at(0));
         } else {
-            llvm::Type* return_type = getLLVMType(nullptr);
+            return_type = getLLVMType(nullptr);
         }
 
         if (node->arguments == nullptr) {
@@ -2604,56 +2605,38 @@ class CodeGenVisitor : public SymtabVisitor {
             }
         }
 
-        return_type = builder->getVoidTy();
-        parameter_types = std::vector<Type*>(1, builder->getVoidTy());
+        // return_type = builder->getVoidTy();
+        // parameter_types = std::vector<Type*>(1, builder->getVoidTy());
         FunctionType* functionType = FunctionType::get(return_type, parameter_types, false);
         printf("in funcdecl\n");
         Function* function = Function::Create(functionType, GlobalValue::ExternalLinkage, name, module);
         int i = 0;
         for(auto arg: *node->arguments) {
-            // TODO NAME PARAMETERS
-            // function->getArg(i)->setName(arg->ident->name);
+            function->getArg(i)->setName(arg->ident->name);
             i++;
         }
 
         BasicBlock* block = BasicBlock::Create(*context, name, function);
         this->builder->SetInsertPoint(block);
-        // node->block->visit(this);
+        node->block->visit(this);
 
-        // symtab_storage->symtab->exit_scope();
+        // Add to symbol table
+        symtab_storage->symtab->exit_scope();
 
-        // std::string name_end = name + "end";
-        // BasicBlock* block_end = BasicBlock::Create(*context, name_end, function);
-        // this->builder->SetInsertPoint(block_end);
+        // auto type = new NFunctionType(
+        //     new IdentifierList({new NIdentifier("a", new NStringType()),
+        //         new NIdentifier("param", new NNumType())}),
+        //     new typeList({new NNilType()})
+        // );
+        // auto entry = new SymbolTableEntry(
+        //     "printf",
+        //     type,
+        //     Position(0, 0));
+        // symtab_storage->symtab->declare(entry);
+        // type->varargs = true;
 
-        // if (node->arguments == nullptr) {
-        //     std::cerr << "Arguments are null for function " << node->id->name << std::endl;
-        //     return;
-        // }
-        // for(auto arg: *node->arguments) {
-        //     if (arg->type == nullptr) {
-        //         std::cerr << "Argument type is null for ";
-        //         std::cerr << node->id->name << ":" << arg->ident->name << std::endl;
-        //         return;
-        //     }
-        //     arg->type->visit(this);
-        // }
-        //
-        // symtab_storage->symtab->enter_scope();
-        // node->block->visit(this);
-        // symtab_storage->symtab->exit_scope();
-        //
-        // if (node->return_type == nullptr) {
-        //     std::cerr << "Return type is null for function " << node->id->name << std::endl;
-        //     return;
-        // }
-        // for (auto return_type : *node->return_type) {
-        //     if (return_type == nullptr) {
-        //         std::cerr << "Return type is null for function " << node->id->name << std::endl;
-        //         return;
-        //     }
-        //     return_type->visit(this);
-        // }
+
+        this->builder->SetInsertPoint(block_main);
     }
 
     virtual void visitNWhileStatement(NWhileStatement* node) {

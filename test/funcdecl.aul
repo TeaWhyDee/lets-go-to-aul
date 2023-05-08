@@ -1,5 +1,9 @@
-function f(a: num) -> num
+a = 2
+
+function f(b: num) -> num
     printf("a")
 end
+
+-- f(a)
 
 a = 2
