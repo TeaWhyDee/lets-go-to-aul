@@ -2416,18 +2416,14 @@ class CodeGenVisitor : public SymtabVisitor {
         llvm::Type* return_type = builder->getVoidTy();
 
         if (type == nullptr) {
-            // printf("nullptr\n");
             return builder->getVoidTy();
         }
         if (typeid(*type) == typeid(NStringType)) {
-            // printf("string\n");
             return_type = LLVMTypes::str_type(context);
         }
         else if (typeid(*type) == typeid(NNumType)) {
-            // printf("num\n");
             return_type = LLVMTypes::num_type(context);
         } else if (typeid(*type) == typeid(NBoolType)) {
-            // printf("bool\n");
             return_type = LLVMTypes::bool_type(context);
         // } else if (typeid(node->return_type) == typeid(NStringType)) {
             // return_type = LLVMTypes::str_type(context);
@@ -2605,10 +2601,7 @@ class CodeGenVisitor : public SymtabVisitor {
             }
         }
 
-        // return_type = builder->getVoidTy();
-        // parameter_types = std::vector<Type*>(1, builder->getVoidTy());
         FunctionType* functionType = FunctionType::get(return_type, parameter_types, false);
-        printf("in funcdecl\n");
         Function* function = Function::Create(functionType, GlobalValue::ExternalLinkage, name, module);
         int i = 0;
         for(auto arg: *node->arguments) {
@@ -2620,23 +2613,9 @@ class CodeGenVisitor : public SymtabVisitor {
         this->builder->SetInsertPoint(block);
         node->block->visit(this);
 
-        // Add to symbol table
-        symtab_storage->symtab->exit_scope();
-
-        // auto type = new NFunctionType(
-        //     new IdentifierList({new NIdentifier("a", new NStringType()),
-        //         new NIdentifier("param", new NNumType())}),
-        //     new typeList({new NNilType()})
-        // );
-        // auto entry = new SymbolTableEntry(
-        //     "printf",
-        //     type,
-        //     Position(0, 0));
-        // symtab_storage->symtab->declare(entry);
-        // type->varargs = true;
-
-
         this->builder->SetInsertPoint(block_main);
+
+        symtab_storage->symtab->exit_scope();
     }
 
     virtual void visitNWhileStatement(NWhileStatement* node) {
