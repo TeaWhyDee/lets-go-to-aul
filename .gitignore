@@ -11,7 +11,12 @@ src/bison
 parser.output
 parser.dSYM
 Session.vim
+
+.idea
+cmake-build-debug
+
 builtin.ll
 codegen.bc
 codegen.ll
 a.out.dSYM/
+.DS_Store

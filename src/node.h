@@ -1200,6 +1200,11 @@ class TypeChecker : public SymtabVisitor {
         if (t1 == nullptr || t2 == nullptr) {
             return false;
         }
+        if (t1->varargs || t2->varargs) {
+            // NOTE: temporary solution
+            // It should compare arguments, but allows more elements of the same type at the end
+            return true;
+        }
         // Compare the return types
         if (t1->returnTypes == nullptr || t2->returnTypes == nullptr) {
             // If one of them is null, then they are not the same
@@ -1224,11 +1229,6 @@ class TypeChecker : public SymtabVisitor {
                 return false;
             }
         } else {
-            if (t1->varargs || t2->varargs) {
-                // NOTE: temporary solution
-                // It should compare arguments, but allows more elements of the same type at the end
-                return true;
-            }
             // If both of them are not null, then compare the types
             if (t1->arguments->size() != t2->arguments->size()) {
                 return false;
@@ -1501,8 +1501,11 @@ class TypeChecker : public SymtabVisitor {
     virtual void visitFunctionCall(NExpressionCall* node) {
         auto functionType = dynamic_cast<NFunctionType*>(node->expr->type);
 
+        if (functionType->varargs) {
+            std::cout << "Function has vararg param, skip args check";
+        }
         // check argument types
-        if (functionType->arguments == nullptr || node->exprlist.empty()) {
+        else if (functionType->arguments == nullptr || node->exprlist.empty()) {
             // check if both is empty
             if (functionType->arguments != nullptr || not node->exprlist.empty()) {
                 std::cout << "TypeError: number of arguments is not correct";
@@ -1620,6 +1623,9 @@ class TypeChecker : public SymtabVisitor {
             std::cout << "condition: ";
             conditionBlock->first->visit(this);
             checkConditionalExpression(conditionBlock->first);
+            symtab_storage->symtab->enter_scope();
+            conditionBlock->second->visit(this);
+            symtab_storage->symtab->exit_scope();
             std::cout << std::endl;
         }
     }
@@ -1628,6 +1634,12 @@ class TypeChecker : public SymtabVisitor {
         std::cout << "IfStatement(";
         node->visit(this->prettyPrinter);
         checkConditionalBlockList(node->conditionBlockList);
+        if (node->elseBlock != nullptr) {
+            std::cout << "else: ";
+            symtab_storage->symtab->enter_scope();
+            node->elseBlock->visit(this);
+            symtab_storage->symtab->exit_scope();
+        }
         std::cout << ")" << std::endl;
     }
 
@@ -1637,6 +1649,7 @@ class TypeChecker : public SymtabVisitor {
         node->condition->visit(this);
         node->visit(this->prettyPrinter);
         checkConditionalExpression(node->condition);
+        node->block->visit(this);
         std::cout << ")" << std::endl;
     }
 
@@ -1646,6 +1659,7 @@ class TypeChecker : public SymtabVisitor {
         std::cout << "condition: ";
         node->condition->visit(this);
         checkConditionalExpression(node->condition);
+        node->block->visit(this);
         std::cout << ")" << std::endl;
     }
 
@@ -1675,6 +1689,7 @@ class TypeChecker : public SymtabVisitor {
             throw SemanticError("TypeError: start, end or step is not a number", Position(-1, -1));
             return;
         }
+        node->block->visit(this);
         std::cout << ")" << std::endl;
     }
 
@@ -1921,7 +1936,9 @@ class TypeChecker : public SymtabVisitor {
     }
 
     virtual void visitNDoStatement(NDoStatement* node) {
+        symtab_storage->symtab->scope_started();
         node->block->visit(this);
+        symtab_storage->symtab->scope_ended();
     }
 
     virtual void visitNAssignmentStatement(NAssignmentStatement* node) {
@@ -2020,9 +2037,6 @@ class TypeChecker : public SymtabVisitor {
     virtual void visitNStructType(NStructType* node) {
     }
 
-    virtual void cleanup() {
-    }
-
     virtual void visitNAnyType(NAnyType *node) {}
 };
 
@@ -2030,7 +2044,17 @@ class SymbolTableFillerVisitor : public SymtabVisitor {
    public:
     SymbolTableFillerVisitor() {
         this->name = "Symbol Table Filler";
-        symtab_storage->symtab->declare(new SymbolTableEntry("printf", new NFunctionType(new IdentifierList({new NIdentifier("a", new NStringType()), new NIdentifier("param", new NNumType())}), new typeList({new NNilType()})), Position(0, 0)));
+        auto type = new NFunctionType(
+            new IdentifierList({new NIdentifier("a", new NStringType()),
+                                new NIdentifier("param", new NNumType())}),
+            new typeList({new NNilType()})
+        );
+        auto entry = new SymbolTableEntry(
+            "printf",
+            type,
+            Position(0, 0));
+        symtab_storage->symtab->declare(entry);
+        type->varargs = true;
     }
 
     virtual void visitNNum(NNum* node) {}
@@ -2074,12 +2098,6 @@ class SymbolTableFillerVisitor : public SymtabVisitor {
     }
 
     virtual void visitNWhileStatement(NWhileStatement* node) {
-        symtab_storage->symtab->scope_started();
-        node->block->visit(this);
-        symtab_storage->symtab->scope_ended();
-    }
-
-    virtual void visitNRepeatStatement(NRepeatUntilStatement* node) {
         symtab_storage->symtab->scope_started();
         node->block->visit(this);
         symtab_storage->symtab->scope_ended();
@@ -2267,11 +2285,6 @@ class DeclaredBeforeUseCheckerVisitor : public SymtabVisitor {
         node->block->visit(this);
     }
 
-    virtual void visitNRepeatStatement(NRepeatUntilStatement* node) {
-        node->condition->visit(this);
-        node->block->visit(this);
-    }
-
     virtual void visitNDoStatement(NDoStatement* node) {
         node->block->visit(this);
     }
@@ -2420,6 +2433,7 @@ class CodeGenVisitor : public SymtabVisitor {
             throw SemanticError("Cannot get function type for 'printf'", Position(0, 0));
         }
         entry_type->llvm_value = print;
+        // Function *print = Function::Create(FunctionType::get(Type::getVoidTy(*context), false), GlobalValue::ExternalLinkage, "printf", module);
 
         this->main = func_main;
         BasicBlock* block_main = BasicBlock::Create(*context, "entry", func_main);
@@ -2458,18 +2472,27 @@ class CodeGenVisitor : public SymtabVisitor {
     }
 
     virtual void visitNNil(NNil* node) {
+        node->llvm_value = llvm::ConstantPointerNull::get(llvm::PointerType::getInt8PtrTy(*context));
+    }
 
+    virtual bool load_required(SymbolTableEntry *entry) {
+        bool is_function = dynamic_cast<NFunctionType *>(entry->type) != nullptr;
+        bool is_struct = dynamic_cast<NStructType *>(entry->type) != nullptr;
+
+        return not is_function and not is_struct;
     }
 
     virtual void visitNIdentifier(NIdentifier* node) {
         auto entry = symtab_storage->symtab->lookup_or_throw(node->name, node->position.lineno + 1);
         node->llvm_value = entry->value;
+        if (this->load_required(entry)) {
+            node->llvm_value = this->builder->CreateLoad(static_cast<AllocaInst *>(entry->value)->getAllocatedType(), entry->value);
+        }
     }
 
     virtual void visitNBinaryOperatorExpression(NBinaryOperatorExpression* node) {
         node->lhs->visit(this);
         node->rhs->visit(this);
-
         switch (node->op) {
             case BinOpType::ADD:
                 node->llvm_value = this->builder->CreateFAdd(node->lhs->llvm_value, node->rhs->llvm_value);
@@ -2612,21 +2635,72 @@ class CodeGenVisitor : public SymtabVisitor {
     }
 
     virtual void visitNWhileStatement(NWhileStatement* node) {
+        llvm::Function* func = this->builder->GetInsertBlock()->getParent();
+
+        llvm::BasicBlock* conditionBlock = llvm::BasicBlock::Create(*context, "while_condition", func);
+        llvm::BasicBlock* whileBlock = llvm::BasicBlock::Create(*context, "while_block", func);
+        llvm::BasicBlock* afterBlock = llvm::BasicBlock::Create(*context, "while_exit", func);
+
+        this->builder->CreateBr(conditionBlock);
+        this->builder->SetInsertPoint(conditionBlock);
+
         node->condition->visit(this);
+
+        this->builder->CreateCondBr(node->condition->llvm_value, whileBlock, afterBlock);
+
+        this->builder->SetInsertPoint(whileBlock);
+        symtab_storage->symtab->enter_scope();
         node->block->visit(this);
+        symtab_storage->symtab->exit_scope();
+
+        this->builder->CreateBr(conditionBlock);
+        this->builder->SetInsertPoint(afterBlock);
     }
 
-    virtual void visitNRepeatStatement(NRepeatUntilStatement* node) {
-        node->condition->visit(this);
+
+    virtual void visitNRepeatUntilStatement(NRepeatUntilStatement* node) {
+        llvm::Function* func = this->builder->GetInsertBlock()->getParent();
+
+        llvm::BasicBlock* repeatBlock = llvm::BasicBlock::Create(*context, "repeat_block", func);
+        llvm::BasicBlock* conditionBlock = llvm::BasicBlock::Create(*context, "repeat_condition", func);
+        llvm::BasicBlock* afterBlock = llvm::BasicBlock::Create(*context, "repeat_exit", func);
+
+        this->builder->CreateBr(repeatBlock);
+        this->builder->SetInsertPoint(repeatBlock);
+
+        symtab_storage->symtab->enter_scope();
         node->block->visit(this);
+        symtab_storage->symtab->exit_scope();
+
+        this->builder->CreateBr(conditionBlock);
+        this->builder->SetInsertPoint(conditionBlock);
+
+        node->condition->visit(this);
+
+            this->builder->CreateCondBr(node->condition->llvm_value, repeatBlock, afterBlock);
+
+        this->builder->SetInsertPoint(afterBlock);
     }
 
     virtual void visitNDoStatement(NDoStatement* node) {
+        llvm::Function* func = this->builder->GetInsertBlock()->getParent();
+
+        llvm::BasicBlock* doBlock = llvm::BasicBlock::Create(*context, "do_block", func);
+        llvm::BasicBlock* afterBlock = llvm::BasicBlock::Create(*context, "do_exit", func);
+
+        this->builder->CreateBr(doBlock);
+        this->builder->SetInsertPoint(doBlock);
+
+        symtab_storage->symtab->enter_scope();
         node->block->visit(this);
+        symtab_storage->symtab->exit_scope();
+
+        this->builder->CreateBr(afterBlock);
+        this->builder->SetInsertPoint(afterBlock);
     }
 
     virtual void visitNIfStatement(NIfStatement* node) {
-        // create then and else blocks. 
+        // create then and else blocks.
         // where do we get the "function" instance?
         BasicBlock* thenBlock = BasicBlock::Create(*context, "thenBlock", main);
         BasicBlock* elseBlock = BasicBlock::Create(*context, "elseBlock", main);
@@ -2654,23 +2728,10 @@ class CodeGenVisitor : public SymtabVisitor {
     }
 
     virtual void visitNNumericForStatement(NNumericForStatement* node) {
-        node->start->visit(this);
-        node->end->visit(this);
-        if (node->step != nullptr) {
-            node->step->visit(this);
-        }
-        symtab_storage->symtab->enter_scope();
-        node->block->visit(this);
-        symtab_storage->symtab->exit_scope();
     }
 
+
     virtual void visitNGenericForStatement(NGenericForStatement* node) {
-        symtab_storage->symtab->enter_scope();
-        node->block->visit(this);
-        symtab_storage->symtab->exit_scope();
-    }
-    virtual void visitNRepeatUntilStatement(NRepeatUntilStatement* node) {
-        node->condition->visit(this);
         symtab_storage->symtab->enter_scope();
         node->block->visit(this);
         symtab_storage->symtab->exit_scope();
@@ -2682,10 +2743,11 @@ class CodeGenVisitor : public SymtabVisitor {
             throw SemanticError("Expression value is null", node->position);
         }
         auto entry = symtab_storage->symtab->lookup_or_throw(node->ident->name, node->position.lineno + 1);
-        entry->value = node->expression->llvm_value;
-        AllocaInst *alloca = builder->CreateAlloca(node->expression->llvm_value->getType(), 0, node->ident->name);
-        builder->CreateStore(node->expression->llvm_value, alloca);
-        node->llvm_value = builder->CreateLoad(node->expression->llvm_value->getType(), alloca, "return_value");
+        if (entry->value == nullptr) {
+            AllocaInst *alloca = this->builder->CreateAlloca(node->expression->llvm_value->getType(), 0, node->ident->name);
+            entry->value = alloca;
+        }
+        node->llvm_value = this->builder->CreateStore(node->expression->llvm_value, entry->value);
     }
 
     virtual void visitNReturnStatement(NReturnStatement* node) {
@@ -2693,19 +2755,40 @@ class CodeGenVisitor : public SymtabVisitor {
     }
 
     virtual void visitNBlock(NBlock* node) {
+        auto func = builder->GetInsertBlock()->getParent();
+        Value *last_stmt = llvm::ConstantFP::get(*context, APFloat(0.0));
+        NStatement *last_stmt_node = nullptr;
+        int stmt_num = 0;
         for (auto stmt : node->statements) {
             stmt->visit(this);
-            this->builder->Insert(stmt->llvm_value);
+            if (stmt->llvm_value == nullptr) {
+                continue;
+            }
+            last_stmt = stmt->llvm_value;
+            last_stmt_node = stmt;
+            stmt_num++;
         }
 
-        Value *return_expr_llvm = nullptr;
+        Value *return_expr_llvm = last_stmt;
         if (node->returnExpr != nullptr) {
             node->returnExpr->visit(this);
             return_expr_llvm = node->returnExpr->llvm_value;
         }
-        this->builder->CreateRet(return_expr_llvm);
-        verifyFunction(*main);
+
+        if (return_expr_llvm != nullptr && dynamic_cast<NReturnStatement*>(last_stmt_node) != nullptr) {
+            this->builder->CreateRet(return_expr_llvm);
+        } else {
+            if (node->returnExpr != nullptr && func->getName() == "main") {
+                this->builder->CreateRetVoid();
+            }
+        }
+
+        std::string err;
+        if (verifyFunction(*func, new raw_string_ostream(err))) {
+            std::cerr << "\033[1;31m" << err << "\033[0m" << std::flush;
+        }
     }
+
 
     virtual void visitNExpression(NExpression* node) {}
 
@@ -2762,6 +2845,9 @@ class CodeGenVisitor : public SymtabVisitor {
     virtual void visitNAccessKey(NAccessKey* node) {}
     virtual void visitNAssignmentStatement(NAssignmentStatement* node) {}
     virtual void cleanup() {
-        llvm::verifyModule(*this->module);
+        std::string err;
+        if (verifyModule(*this->module, new raw_string_ostream(err))) {
+            std::cerr << "\033[1;31m" << err << "\033[0m" << std::flush;
+        }
     }
 };
