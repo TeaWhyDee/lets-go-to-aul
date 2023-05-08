@@ -1,7 +1,7 @@
 .PHONY: all compile parser clean test
 
 
-file ?= ../test/codegen.lua
+file ?= ../test/codegen-struct.lua
 all: clean lex.cpp bison parser compile-and-run
 
 clean:
