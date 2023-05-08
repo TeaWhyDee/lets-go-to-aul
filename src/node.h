@@ -2700,46 +2700,31 @@ class CodeGenVisitor : public SymtabVisitor {
     }
 
     virtual void visitNIfStatement(NIfStatement* node) {
-        llvm::Function* func = this->builder->GetInsertBlock()->getParent();
-        unsigned int num_conditions = node->conditionBlockList.size();
+        // create then and else blocks.
+        // where do we get the "function" instance?
+        BasicBlock* thenBlock = BasicBlock::Create(*context, "thenBlock", main);
+        BasicBlock* elseBlock = BasicBlock::Create(*context, "elseBlock", main);
 
-        llvm::BasicBlock* current_if_block = llvm::BasicBlock::Create(*context, "if_then", func);
-        llvm::BasicBlock *next_if_block = nullptr;
-
-        for (unsigned int i = 0; i < num_conditions; ++i) {
-            auto condition = node->conditionBlockList[i]->first;
-            auto block = node->conditionBlockList[i]->second;
-            condition->visit(this);
-
-            std::string nex_block_name = "if_then";
-            if (i == num_conditions - 1 && node->elseBlock == nullptr) {
-                nex_block_name = "if_exit";
-            }
-//            } else {
-//                nex_block_name += std::to_string(i+1);
-//            }
-            next_if_block = llvm::BasicBlock::Create(*context, nex_block_name, func);
-            this->builder->CreateCondBr(condition->llvm_value, current_if_block, next_if_block);
-
-            this->builder->SetInsertPoint(current_if_block);
+        for (auto block : node->conditionBlockList) {
             symtab_storage->symtab->enter_scope();
-            block->visit(this);
+            // visit the condition
+            // TODO how to take its Value* like here:
+            // Value* condition = builder->CreateICmpSGT(arg, value33, "compare.result");
+            block->first->visit(this);
+            Value* condition = block->first->llvm_value;
+            // create the condition branch
+            this->builder->CreateCondBr(condition, thenBlock, elseBlock);
+            // set the insert point to thenBlock
+            this->builder->SetInsertPoint(thenBlock);
+            block->second->visit(this);
             symtab_storage->symtab->exit_scope();
-
-            current_if_block = next_if_block;
-            this->builder->CreateBr(next_if_block);
         }
 
-        llvm::BasicBlock* if_exit = next_if_block;
         if (node->elseBlock != nullptr) {
-            this->builder->SetInsertPoint(next_if_block);
             symtab_storage->symtab->enter_scope();
             node->elseBlock->visit(this);
             symtab_storage->symtab->exit_scope();
-            if_exit = llvm::BasicBlock::Create(*context, "if_exit", func);
-            this->builder->CreateBr(if_exit);
         }
-        this->builder->SetInsertPoint(if_exit);
     }
 
     virtual void visitNNumericForStatement(NNumericForStatement* node) {
