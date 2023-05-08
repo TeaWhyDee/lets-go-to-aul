@@ -6,7 +6,7 @@
 --
 -- d = (a - b) + c
 --
--- printf("Values of a,b,c,d: %.1f, %.1f, %.1f, %.1f, '%s'\n", d, e)
+-- printf("Values of a,b,c,d, e: %.1f, %.1f, %.1f, %.1f, '%s'\n", a, b, c, d, e)
 
 
 -- --Check while block
@@ -43,7 +43,7 @@
 -- printf("A after = %.1f\n", a)
 
 
--- --Next part is not working for now!
+-- --Next part is not working for now
 
 -- --Check if block (for now not working)
 -- printf("\nIF\n")
