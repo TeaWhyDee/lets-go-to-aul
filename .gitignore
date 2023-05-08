@@ -19,3 +19,4 @@ builtin.ll
 codegen.bc
 codegen.ll
 a.out.dSYM/
+.DS_Store
