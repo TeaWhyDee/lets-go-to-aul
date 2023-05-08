@@ -2416,18 +2416,18 @@ class CodeGenVisitor : public SymtabVisitor {
         llvm::Type* return_type = builder->getVoidTy();
 
         if (type == nullptr) {
-            printf("nullptr\n");
+            // printf("nullptr\n");
             return builder->getVoidTy();
         }
         if (typeid(*type) == typeid(NStringType)) {
-            printf("string\n");
+            // printf("string\n");
             return_type = LLVMTypes::str_type(context);
         }
         else if (typeid(*type) == typeid(NNumType)) {
-            printf("num\n");
+            // printf("num\n");
             return_type = LLVMTypes::num_type(context);
         } else if (typeid(*type) == typeid(NBoolType)) {
-            printf("bool\n");
+            // printf("bool\n");
             return_type = LLVMTypes::bool_type(context);
         // } else if (typeid(node->return_type) == typeid(NStringType)) {
             // return_type = LLVMTypes::str_type(context);
@@ -2581,12 +2581,18 @@ class CodeGenVisitor : public SymtabVisitor {
     virtual void visitNTableConstructor(NTableConstructor* node) {}
 
     virtual void visitNFunctionDeclaration(NFunctionDeclaration* node) {
+        symtab_storage->symtab->enter_scope();
+
         std::string name = node->id->name;
-        printf("in funcdecl\n");
-
-        llvm::Type* return_type = getLLVMType(node->return_type->at(0));
-
+        llvm::Type* return_type;
         std::vector<Type*> parameter_types;
+
+        if (node->return_type != nullptr) { 
+            llvm::Type* return_type = getLLVMType(node->return_type->at(0));
+        } else {
+            llvm::Type* return_type = getLLVMType(nullptr);
+        }
+
         if (node->arguments == nullptr) {
             parameter_types = std::vector<Type*>(1, builder->getVoidTy());
         }
@@ -2600,10 +2606,13 @@ class CodeGenVisitor : public SymtabVisitor {
         }
 
         FunctionType* functionType = FunctionType::get(return_type, parameter_types, false);
+        printf("in funcdecl\n");
         Function* function = Function::Create(functionType, GlobalValue::ExternalLinkage, name, module);
+        int i = 0;
         for(auto arg: *node->arguments) {
             // TODO NAME PARAMETERS
-            // function->getArg(0)->setName("a");
+            // function->getArg(i)->setName(arg->ident->name);
+            i++;
         }
 
         BasicBlock* block = BasicBlock::Create(*context, name, function);
@@ -2638,6 +2647,7 @@ class CodeGenVisitor : public SymtabVisitor {
         //     }
         //     return_type->visit(this);
         // }
+        symtab_storage->symtab->exit_scope();
     }
 
     virtual void visitNWhileStatement(NWhileStatement* node) {
