@@ -2764,11 +2764,6 @@ class CodeGenVisitor : public SymtabVisitor {
             if (stmt->llvm_value == nullptr) {
                 continue;
             }
-            this->builder->Insert(stmt->llvm_value);
-
-//            if (stmt->llvm_value->getType()->getTypeID() != Type::VoidTyID) {
-//                stmt->llvm_value->setName("stmt" + std::to_string(stmt_num));
-//            }
             last_stmt = stmt->llvm_value;
             last_stmt_node = stmt;
             stmt_num++;
