@@ -2434,7 +2434,6 @@ class CodeGenVisitor : public SymtabVisitor {
             // TODO: types
         }
 
-        printf("returning\n");
         return return_type;
     }
 
@@ -2581,11 +2580,11 @@ class CodeGenVisitor : public SymtabVisitor {
     virtual void visitNTableConstructor(NTableConstructor* node) {}
 
     virtual void visitNFunctionDeclaration(NFunctionDeclaration* node) {
-        symtab_storage->symtab->enter_scope();
-
         std::string name = node->id->name;
         llvm::Type* return_type;
         std::vector<Type*> parameter_types;
+
+        symtab_storage->symtab->enter_scope();
 
         if (node->return_type != nullptr) { 
             llvm::Type* return_type = getLLVMType(node->return_type->at(0));
@@ -2605,6 +2604,8 @@ class CodeGenVisitor : public SymtabVisitor {
             }
         }
 
+        return_type = builder->getVoidTy();
+        parameter_types = std::vector<Type*>(1, builder->getVoidTy());
         FunctionType* functionType = FunctionType::get(return_type, parameter_types, false);
         printf("in funcdecl\n");
         Function* function = Function::Create(functionType, GlobalValue::ExternalLinkage, name, module);
@@ -2617,7 +2618,13 @@ class CodeGenVisitor : public SymtabVisitor {
 
         BasicBlock* block = BasicBlock::Create(*context, name, function);
         this->builder->SetInsertPoint(block);
-        node->block->visit(this);
+        // node->block->visit(this);
+
+        // symtab_storage->symtab->exit_scope();
+
+        // std::string name_end = name + "end";
+        // BasicBlock* block_end = BasicBlock::Create(*context, name_end, function);
+        // this->builder->SetInsertPoint(block_end);
 
         // if (node->arguments == nullptr) {
         //     std::cerr << "Arguments are null for function " << node->id->name << std::endl;
@@ -2647,7 +2654,6 @@ class CodeGenVisitor : public SymtabVisitor {
         //     }
         //     return_type->visit(this);
         // }
-        symtab_storage->symtab->exit_scope();
     }
 
     virtual void visitNWhileStatement(NWhileStatement* node) {

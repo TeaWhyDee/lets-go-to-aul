@@ -1,3 +1,5 @@
-function f(a: num, b: str) -> num
-    c: num = 2
+function f(a: num) -> num
+    printf("a")
 end
+
+a = 2
