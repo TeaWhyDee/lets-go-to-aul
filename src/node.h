@@ -2086,6 +2086,9 @@ class SymbolTableFillerVisitor : public SymtabVisitor {
     virtual void visitNTableConstructor(NTableConstructor* node) {}
 
     virtual void visitNFunctionDeclaration(NFunctionDeclaration* node) {
+        if (node->return_type == nullptr) {
+            node->return_type = new typeList({new NNilType()});
+        }
         auto type = new NFunctionType(
             NDeclarationStatement::toIdentifierList(node->arguments),
             node->return_type);
