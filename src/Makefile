@@ -20,7 +20,7 @@ parser:
 	g++ -Wall -g -o parser parser.cpp lex.cpp main.cpp `llvm-config --cxxflags --ldflags --libs core` -fexceptions 
 
 compile-and-run:
-	./parser < $(file) > codegen.ll
+	./parser < $(file)
 
 	clang++ -S -emit-llvm builtin.cpp -o builtin.ll
 
