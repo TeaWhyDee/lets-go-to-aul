@@ -2822,6 +2822,7 @@ class CodeGenVisitor : public SymtabVisitor {
 
     virtual void visitNReturnStatement(NReturnStatement* node) {
         node->expression->visit(this);
+        node->llvm_value = node->expression->llvm_value;
     }
 
     virtual void visitNBlock(NBlock* node) {
@@ -2843,7 +2844,8 @@ class CodeGenVisitor : public SymtabVisitor {
             node->returnExpr->visit(this);
             return_expr_llvm = node->returnExpr->llvm_value;
         }
-
+        std::cout << "return_expr_llvm: " << return_expr_llvm << std::endl;
+        std::cout << "last_stmt_node: " << last_stmt_node << std::endl;
         if (return_expr_llvm != nullptr && dynamic_cast<NReturnStatement*>(last_stmt_node) != nullptr) {
             this->builder->CreateRet(return_expr_llvm);
         } else {
