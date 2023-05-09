@@ -45,7 +45,7 @@
 
 -- --Next part is not working for now
 
--- --Check if block (for now not working)
+-- --Check if block
 -- printf("\nIF\n")
 -- a = 14
 -- printf("A before is %.3f\n", a)
@@ -62,8 +62,10 @@
 -- printf("A after = %.3f\n", a)
 
 
--- --Check numeric for (for now not working)
--- printf("\nNUMERIC FOR\n")
+-- --Check numeric for
+-- printf("\nFOR\n")
 -- for i = 1, 10, 1 do
---   printf("I = %.3f\n", i)
+--   ff = i * 2
+--   printf("I = %.3f, FF = %.3f\n", i, ff)
 -- end
+-- printf("For finished\n")
