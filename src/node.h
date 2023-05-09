@@ -284,6 +284,10 @@ class ScopedSymbolTable : public SymbolTable {
 
     virtual void enter_scope() {
         std::cout << "Scope entered" << std::endl;
+        if (this->scope_id >= this->children.size()) {
+            std::cerr << "Cannot enter scope, no more scopes" << std::endl;
+            return;
+        }
         auto next_scope = this->children[this->scope_id++];
         symtab_storage->symtab = next_scope;
         std::cout << "Now scope is " << symtab_storage->symtab << std::endl;
@@ -299,6 +303,10 @@ class ScopedSymbolTable : public SymbolTable {
     virtual void exit_scope() {
         // current symbol table is the parent
         std::cout << "Scope ended" << std::endl;
+        if (symtab_storage->symtab->parent == nullptr) {
+            std::cerr << "Cannot exit scope, already at top level" << std::endl;
+            return;
+        }
         symtab_storage->symtab = symtab_storage->symtab->parent;
         std::cout << "Now scope is " << symtab_storage->symtab << std::endl;
     }
@@ -1689,7 +1697,9 @@ class TypeChecker : public SymtabVisitor {
             throw SemanticError("TypeError: start, end or step is not a number", Position(-1, -1));
             return;
         }
+        symtab_storage->symtab->enter_scope();
         node->block->visit(this);
+        symtab_storage->symtab->exit_scope();
         std::cout << ")" << std::endl;
     }
 
@@ -2125,6 +2135,9 @@ class SymbolTableFillerVisitor : public SymtabVisitor {
 
     virtual void visitNNumericForStatement(NNumericForStatement* node) {
         symtab_storage->symtab->scope_started();
+        auto entry = symtab_storage->symtab->declare(
+            new SymbolTableEntry(node->id->name, new NNumType(), node->id->position),
+            false);
         node->block->visit(this);
         symtab_storage->symtab->scope_ended();
     }
@@ -2684,34 +2697,107 @@ class CodeGenVisitor : public SymtabVisitor {
     }
 
     virtual void visitNIfStatement(NIfStatement* node) {
-        // create then and else blocks.
-        // where do we get the "function" instance?
-        BasicBlock* thenBlock = BasicBlock::Create(*context, "thenBlock", main);
-        BasicBlock* elseBlock = BasicBlock::Create(*context, "elseBlock", main);
+        llvm::Function* func = builder->GetInsertBlock()->getParent();
 
-        for (auto block : node->conditionBlockList) {
-            symtab_storage->symtab->enter_scope();
-            // visit the condition
-            // TODO how to take its Value* like here:
-            // Value* condition = builder->CreateICmpSGT(arg, value33, "compare.result");
-            block->first->visit(this);
-            Value* condition = block->first->llvm_value;
-            // create the condition branch
-            this->builder->CreateCondBr(condition, thenBlock, elseBlock);
-            // set the insert point to thenBlock
-            this->builder->SetInsertPoint(thenBlock);
-            block->second->visit(this);
-            symtab_storage->symtab->exit_scope();
+        // generate blocks, so all instructions can be added to the correct block in the correct order
+        std::vector<std::pair<llvm::BasicBlock*, llvm::BasicBlock*>> condition_blocks;
+        for (auto _: node->conditionBlockList) {
+            auto cond = llvm::BasicBlock::Create(*context, "if_condition", func);
+            auto block = llvm::BasicBlock::Create(*context, "if_block", func);
+            condition_blocks.push_back(std::make_pair(cond, block));
         }
 
+        // generate blocks for else and exit
+        llvm::BasicBlock* else_block = nullptr;
         if (node->elseBlock != nullptr) {
+            else_block = llvm::BasicBlock::Create(*context, "else_block", func);
+        }
+        llvm::BasicBlock* exit_block = llvm::BasicBlock::Create(*context, "if_exit", func);
+
+        // generate condition blocks and branch instructions
+        builder->CreateBr(condition_blocks[0].first);
+        for (int i = 0; i < condition_blocks.size(); i++) {
+            auto condition = node->conditionBlockList[i]->first;
+            auto block = node->conditionBlockList[i]->second;
+            auto cur_cond = condition_blocks[i].first;
+            auto cur_block = condition_blocks[i].second;
+
+
+            // make branch instruction for the current condition block
+            builder->SetInsertPoint(cur_cond);
+            condition->visit(this);
+            // if there is a next condition block, branch to it, otherwise branch to else or exit
+            if (i < condition_blocks.size() - 1) {
+                auto next_condition = condition_blocks[i + 1].first;
+                builder->CreateCondBr(condition->llvm_value, cur_block, next_condition);
+            } else if (else_block != nullptr) {
+                builder->CreateCondBr(condition->llvm_value, cur_block, else_block);
+            } else {
+                builder->CreateCondBr(condition->llvm_value, cur_block, exit_block);
+            }
+
+            // Generate code for the block code of the current condition block
+            builder->SetInsertPoint(cur_block);
+            symtab_storage->symtab->enter_scope();
+            block->visit(this);
+            symtab_storage->symtab->exit_scope();
+            builder->CreateBr(exit_block);
+        }
+
+        // Generate code for the else block (if present) and the exit block
+        if (else_block != nullptr) {
+            builder->SetInsertPoint(else_block);
             symtab_storage->symtab->enter_scope();
             node->elseBlock->visit(this);
             symtab_storage->symtab->exit_scope();
+            builder->CreateBr(exit_block);
         }
+        builder->SetInsertPoint(exit_block);
     }
 
+
+
     virtual void visitNNumericForStatement(NNumericForStatement* node) {
+        llvm::Function* func = this->builder->GetInsertBlock()->getParent();
+
+        llvm::BasicBlock* conditionBlock = llvm::BasicBlock::Create(*context, "for_condition", func);
+        llvm::BasicBlock* forBlock = llvm::BasicBlock::Create(*context, "for_block", func);
+        llvm::BasicBlock* afterBlock = llvm::BasicBlock::Create(*context, "for_exit", func);
+
+        node->end->visit(this);
+        node->step->visit(this);
+        node->start->visit(this);
+
+        // allocate space for the loop variable
+        symtab_storage->symtab->enter_scope();
+        // declare the loop variable
+        auto entry = symtab_storage->symtab->lookup_or_throw(node->id->name, node->id->position.lineno + 1);
+        if (entry->value == nullptr) {
+            AllocaInst *alloca = this->builder->CreateAlloca(node->start->llvm_value->getType(), 0, node->id->name);
+            entry->value = alloca;
+        }
+        llvm::Value* loop_var = this->builder->CreateStore(node->start->llvm_value, entry->value);
+
+        // generate code for the condition block
+        this->builder->CreateBr(conditionBlock);
+        this->builder->SetInsertPoint(conditionBlock);
+        node->id->visit(this);
+        // print the loop variable
+        auto cond = this->builder->CreateFCmpULT(node->id->llvm_value, node->end->llvm_value);
+        this->builder->CreateCondBr(cond, forBlock, afterBlock);
+
+        // generate code for the for block
+        this->builder->SetInsertPoint(forBlock);
+        node->block->visit(this);
+        // generate code for the increment
+        node->id->visit(this);
+        auto loop_var_inc = this->builder->CreateFAdd(node->id->llvm_value, node->step->llvm_value);
+        llvm::Value* loop_inc_var = this->builder->CreateStore(loop_var_inc, entry->value);
+        // branch back to the condition block
+        this->builder->CreateBr(conditionBlock);
+        // generate code for the exit block
+        symtab_storage->symtab->exit_scope();
+        this->builder->SetInsertPoint(afterBlock);
     }
 
 
@@ -2740,20 +2826,19 @@ class CodeGenVisitor : public SymtabVisitor {
 
     virtual void visitNBlock(NBlock* node) {
         auto func = builder->GetInsertBlock()->getParent();
-        Value *last_stmt = llvm::ConstantFP::get(*context, APFloat(0.0));
         NStatement *last_stmt_node = nullptr;
-        int stmt_num = 0;
+        llvm::Value *last_llvm_value = nullptr;
         for (auto stmt : node->statements) {
             stmt->visit(this);
             if (stmt->llvm_value == nullptr) {
                 continue;
             }
-            last_stmt = stmt->llvm_value;
             last_stmt_node = stmt;
-            stmt_num++;
+            last_llvm_value = stmt->llvm_value;
         }
 
-        Value *return_expr_llvm = last_stmt;
+
+        Value *return_expr_llvm = last_llvm_value;
         if (node->returnExpr != nullptr) {
             node->returnExpr->visit(this);
             return_expr_llvm = node->returnExpr->llvm_value;
