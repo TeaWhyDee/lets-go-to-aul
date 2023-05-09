@@ -2416,7 +2416,7 @@ public:
         return llvm::PointerType::getInt8PtrTy(*ctx);
     }
     static llvm::Type *num_type(LLVMContext *ctx) {
-        return llvm::Type::getFloatTy(*ctx);
+        return llvm::Type::getDoubleTy(*ctx);
     }
     static llvm::Type *bool_type(LLVMContext *ctx) {
         return llvm::IntegerType::getInt1Ty(*ctx);
@@ -2626,18 +2626,13 @@ class CodeGenVisitor : public SymtabVisitor {
 
             llvm::Type *argtype = getLLVMType(arg->ident->type);
 
-            // node->expression->visit(this);
-            // if (node->expression->llvm_value == nullptr) {
-            //     throw semanticerror("expression value is null", node->position);
-            // }
-            // auto entry = symtab_storage->symtab->lookup_or_throw(node->ident->name, node->position.lineno + 1);
-            // if (entry->value == nullptr) {
-            //     allocainst *alloca = this->builder->createalloca(node->expression->llvm_value->gettype(), 0, node->ident->name);
-            //     entry->value = alloca;
-            // }
-            // node->llvm_value = this->builder->CreateStore(node->expression->llvm_value, entry->value);
-
             i++;
+        }
+
+        // Add parameters to scope (for block)
+        NamedValues.clear();
+        for (auto &Arg : function->args()) {
+            NamedValues[std::string(Arg.getName())] = &Arg;
         }
 
         BasicBlock* block = BasicBlock::Create(*context, name, function);
@@ -2868,6 +2863,9 @@ class CodeGenVisitor : public SymtabVisitor {
             this->builder->CreateRet(return_expr_llvm);
         } else {
             if (node->returnExpr != nullptr && func->getName() == "main") {
+                this->builder->CreateRetVoid();
+            }
+            if (node->returnExpr == nullptr) {
                 this->builder->CreateRetVoid();
             }
         }

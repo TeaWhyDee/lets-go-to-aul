@@ -1,7 +1,8 @@
 a = 2
 
 function f(b: num) -> num
-    printf("a")
+    printf("b = %.3f\n", 2)
+    return 2
 end
 
 -- f(a)
