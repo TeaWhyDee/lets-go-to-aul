@@ -727,6 +727,7 @@ class NFunctionDeclaration : public NStatement {
     std::vector<NDeclarationStatement*>* arguments;
     NBlock* block;
     Position position;
+    NType *type;
 
     NFunctionDeclaration(
         typeList* return_type,
@@ -749,10 +750,6 @@ class NFunctionDeclaration : public NStatement {
             list->push_back(declaration->id);
         }
         return list;
-    }
-
-    NType* get_type() {
-        return new NFunctionType(NDeclarationStatement::toIdentifierList(this->arguments), this->return_type);
     }
 
     virtual void visit(Visitor* v) { v->visitNFunctionDeclaration(this); }
@@ -2468,6 +2465,7 @@ class CodeGenVisitor : public SymtabVisitor {
         if (entry_type == nullptr) {
             throw SemanticError("Cannot get function type for 'printf'", Position(0, 0));
         }
+        entry->value = print;
         entry_type->llvm_value = print;
         // Function *print = Function::Create(FunctionType::get(Type::getVoidTy(*context), false), GlobalValue::ExternalLinkage, "printf", module);
 
@@ -2616,6 +2614,10 @@ class CodeGenVisitor : public SymtabVisitor {
 
         FunctionType* functionType = FunctionType::get(return_type, parameter_types, false);
         Function* function = Function::Create(functionType, GlobalValue::ExternalLinkage, name, module);
+        node->llvm_value = function;
+
+        auto entry = symtab_storage->symtab->lookup_or_throw(node->id->name, node->position.lineno + 1);
+        entry->value = function;
 
         function->setCallingConv(llvm::CallingConv::C);
 
@@ -2902,7 +2904,8 @@ class CodeGenVisitor : public SymtabVisitor {
         if (!is_function) {
             throw SemanticError("Cannot generate code for struct call yet", Position(-1, -1));
         }
-        auto func = function_type->llvm_value;
+        auto raw_func = node->expr->llvm_value;
+        auto func = static_cast<llvm::Function *>(raw_func);
         node->llvm_value = this->builder->CreateCall(func, args);
     }
     virtual void visitNType(NType* node) { return; }
