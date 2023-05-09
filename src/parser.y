@@ -85,7 +85,7 @@
    calling an (NIdentifier*). It makes the compiler happy.
  */
 %type <block> program block stmt_list
-%type <stmt> stmt var_decl retstat for_numeric for_generic var_assignment
+%type <stmt> stmt var_decl retstat for_numeric for_generic var_assignment break
 %type <ifstmt> if_stmt
 %type <elif> elseif
 %type <function_decl> function_decl
@@ -134,6 +134,7 @@ stmt_list : stmt_list stmt { $1->statements.push_back($<stmt>2); }
 
 stmt : var_decl
      | access_member
+     | break
      | var_assignment
      | function_call
      | function_decl
@@ -230,6 +231,9 @@ expr_list : expr {$$ = new std::vector<NExpression *>(); $$ -> push_back($1);}
 
 term : L_NUM { $$ = new NNum(atof($1->c_str())); delete $1; }
      | L_STRING { $$ = new NString(*$1);}
+    ;
+
+break : KW_BREAK { $$ = new NBreakStatement(); }
     ;
 
 exp : expr OP_PLUS expr  {$$ = new NBinaryOperatorExpression($1, BinOpType::ADD, $3, Position(@1.first_line, @1.first_column));}

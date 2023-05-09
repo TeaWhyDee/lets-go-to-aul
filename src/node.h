@@ -10,6 +10,7 @@
 #include <string>
 #include <string.h>
 #include <vector>
+#include <stack>
 
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/STLExtras.h"
@@ -67,6 +68,7 @@ class NAnyType;
 class SymbolTableEntry;
 class SymbolTable;
 class ScopedSymbolTable;
+class NBreakStatement;
 
 typedef std::vector<NStatement*> StatementList;
 typedef std::vector<NExpression*> ExpressionList;
@@ -136,6 +138,7 @@ class Visitor {
     virtual void visitNFunctionType(NFunctionType* node) = 0;
     virtual void visitNStructType(NStructType* node) = 0;
     virtual void visitNAnyType(NAnyType *node) = 0;
+    virtual void visitNBreakStatement(NBreakStatement *node) = 0;
     virtual void cleanup() = 0;
 };
 
@@ -575,6 +578,13 @@ class NTableConstructor : public NExpression {
     virtual void visit(Visitor* v) { v->visitNTableConstructor(this); }
 };
 
+class NBreakStatement : public NStatement {
+   public:
+    NBreakStatement() {}
+
+    virtual void visit(Visitor* v) { v->visitNBreakStatement(this); }
+};
+
 class NWhileStatement : public NStatement {
    public:
     NExpression* condition;
@@ -786,6 +796,10 @@ class PrettyPrintVisitor : public Visitor {
     int tabs;
     PrettyPrintVisitor() : tabs(0) { this->name = "Pretty Print"; }
     const std::string indent() { return std::string(4 * this->tabs, ' '); }
+
+    virtual void visitNBreakStatement(NBreakStatement *node) {
+        std::cout << "NBreakStatement()";
+    }
 
     virtual void visitNNum(NNum* node) {
         std::cout << "NNum(value=" << node->value << ", type=";
@@ -1155,6 +1169,7 @@ class PrettyPrintVisitor : public Visitor {
 class TypeChecker : public SymtabVisitor {
    public:
     bool isInsideFunction = false;
+    int isInsideLoop = 0;
     NType* functionReturnType = nullptr;
     PrettyPrintVisitor* prettyPrinter;
     TypeChecker(PrettyPrintVisitor* prettyPrinter) : prettyPrinter(prettyPrinter) { this->name = "TypeChecker"; }
@@ -1657,7 +1672,9 @@ class TypeChecker : public SymtabVisitor {
         node->condition->visit(this);
         node->visit(this->prettyPrinter);
         checkConditionalExpression(node->condition);
+        this->isInsideLoop += 1;
         node->block->visit(this);
+        this->isInsideLoop -= 1;
         std::cout << ")" << std::endl;
     }
 
@@ -1667,7 +1684,9 @@ class TypeChecker : public SymtabVisitor {
         std::cout << "condition: ";
         node->condition->visit(this);
         checkConditionalExpression(node->condition);
+        this->isInsideLoop += 1;
         node->block->visit(this);
+        this->isInsideLoop -= 1;
         std::cout << ")" << std::endl;
     }
 
@@ -1698,7 +1717,9 @@ class TypeChecker : public SymtabVisitor {
             return;
         }
         symtab_storage->symtab->enter_scope();
+        this->isInsideLoop += 1;
         node->block->visit(this);
+        this->isInsideLoop -= 1;
         symtab_storage->symtab->exit_scope();
         std::cout << ")" << std::endl;
     }
@@ -1722,7 +1743,12 @@ class TypeChecker : public SymtabVisitor {
             throw SemanticError("TypeError: expression is not a table", Position(-1, -1));
             return;
         }
+
+        symtab_storage->symtab->enter_scope();
+        this->isInsideLoop += 1;
         node->block->visit(this);
+        this->isInsideLoop -= 1;
+        symtab_storage->symtab->exit_scope();
         std::cout << ")" << std::endl;
     }
 
@@ -1743,6 +1769,17 @@ class TypeChecker : public SymtabVisitor {
         }
         std::cout << "Type approved, return type: ";
         node->expression->type->visit(this->prettyPrinter);
+        std::cout << ")" << std::endl;
+    }
+
+    virtual void visitNBreakStatement(NBreakStatement *node) {
+        std::cout << "BreakStatement(";
+        if (this->isInsideLoop <= 0) {
+            std::cout << "TypeError: break statement is not in a loop";
+            std::cout << ")" << std::endl;
+            throw SemanticError("TypeError: break statement is outside of a loop", Position(-1, -1));
+            return;
+        }
         std::cout << ")" << std::endl;
     }
 
@@ -2077,6 +2114,8 @@ class SymbolTableFillerVisitor : public SymtabVisitor {
 
     virtual void visitNIdentifier(NIdentifier* node) {}
 
+    virtual void visitNBreakStatement(NBreakStatement *node) {}
+
     virtual void visitNBinaryOperatorExpression(NBinaryOperatorExpression* node) {
         node->lhs->visit(this);
         node->rhs->visit(this);
@@ -2221,6 +2260,8 @@ class DeclaredBeforeUseCheckerVisitor : public SymtabVisitor {
     virtual void visitNBool(NBool* node) {}
 
     virtual void visitNString(NString* node) {}
+
+    virtual void visitNBreakStatement(NBreakStatement *node) {}
 
     virtual SymbolTableEntry* check_symtab(NIdentifier* node, SymbolTable* symtab) {
         for (auto entry : symtab->entries) {
@@ -2430,6 +2471,9 @@ class CodeGenVisitor : public SymtabVisitor {
     llvm::IRBuilder<>* builder;
     llvm::Function* main;
     std::map<std::string, llvm::Value *> NamedValues;
+    bool breakFlag = false;
+    //  stack of loop blocks, used for break statements
+    std::stack<llvm::BasicBlock *> loopBlocks;
 
     CodeGenVisitor() {
         this->name = "Code Generation Visitor";
@@ -2654,11 +2698,10 @@ class CodeGenVisitor : public SymtabVisitor {
         llvm::BasicBlock* whileBlock = llvm::BasicBlock::Create(*context, "while_block", func);
         llvm::BasicBlock* afterBlock = llvm::BasicBlock::Create(*context, "while_exit", func);
 
+        this->loopBlocks.push(afterBlock);
         this->builder->CreateBr(conditionBlock);
         this->builder->SetInsertPoint(conditionBlock);
-
         node->condition->visit(this);
-
         this->builder->CreateCondBr(node->condition->llvm_value, whileBlock, afterBlock);
 
         this->builder->SetInsertPoint(whileBlock);
@@ -2667,6 +2710,7 @@ class CodeGenVisitor : public SymtabVisitor {
         symtab_storage->symtab->exit_scope();
 
         this->builder->CreateBr(conditionBlock);
+        this->loopBlocks.pop();
         this->builder->SetInsertPoint(afterBlock);
     }
 
@@ -2678,6 +2722,7 @@ class CodeGenVisitor : public SymtabVisitor {
         llvm::BasicBlock* conditionBlock = llvm::BasicBlock::Create(*context, "repeat_condition", func);
         llvm::BasicBlock* afterBlock = llvm::BasicBlock::Create(*context, "repeat_exit", func);
 
+        this->loopBlocks.push(afterBlock);
         this->builder->CreateBr(repeatBlock);
         this->builder->SetInsertPoint(repeatBlock);
 
@@ -2690,8 +2735,8 @@ class CodeGenVisitor : public SymtabVisitor {
 
         node->condition->visit(this);
 
-            this->builder->CreateCondBr(node->condition->llvm_value, repeatBlock, afterBlock);
-
+        this->builder->CreateCondBr(node->condition->llvm_value, repeatBlock, afterBlock);
+        this->loopBlocks.pop();
         this->builder->SetInsertPoint(afterBlock);
     }
 
@@ -2710,6 +2755,14 @@ class CodeGenVisitor : public SymtabVisitor {
 
         this->builder->CreateBr(afterBlock);
         this->builder->SetInsertPoint(afterBlock);
+    }
+
+    virtual void visitNBreakStatement(NBreakStatement *node) {
+        if (this->loopBlocks.empty()) {
+            std::cerr << "Break statement outside of loop" << std::endl;
+            return;
+        }
+        this->breakFlag = true;
     }
 
     virtual void visitNIfStatement(NIfStatement* node) {
@@ -2757,7 +2810,13 @@ class CodeGenVisitor : public SymtabVisitor {
             symtab_storage->symtab->enter_scope();
             block->visit(this);
             symtab_storage->symtab->exit_scope();
-            builder->CreateBr(exit_block);
+            if (this->breakFlag) {
+                llvm::BasicBlock* loopBlock = this->loopBlocks.top();
+                builder->CreateBr(loopBlock);
+                this->breakFlag = false;
+            } else {
+                builder->CreateBr(exit_block);
+            }
         }
 
         // Generate code for the else block (if present) and the exit block
@@ -2771,8 +2830,6 @@ class CodeGenVisitor : public SymtabVisitor {
         builder->SetInsertPoint(exit_block);
     }
 
-
-
     virtual void visitNNumericForStatement(NNumericForStatement* node) {
         llvm::Function* func = this->builder->GetInsertBlock()->getParent();
 
@@ -2783,7 +2840,7 @@ class CodeGenVisitor : public SymtabVisitor {
         node->end->visit(this);
         node->step->visit(this);
         node->start->visit(this);
-
+        this->loopBlocks.push(afterBlock);
         // allocate space for the loop variable
         symtab_storage->symtab->enter_scope();
         // declare the loop variable
@@ -2798,8 +2855,7 @@ class CodeGenVisitor : public SymtabVisitor {
         this->builder->CreateBr(conditionBlock);
         this->builder->SetInsertPoint(conditionBlock);
         node->id->visit(this);
-        // print the loop variable
-        auto cond = this->builder->CreateFCmpULT(node->id->llvm_value, node->end->llvm_value);
+        auto cond = this->builder->CreateFCmpULE(node->id->llvm_value, node->end->llvm_value);
         this->builder->CreateCondBr(cond, forBlock, afterBlock);
 
         // generate code for the for block
@@ -2813,6 +2869,7 @@ class CodeGenVisitor : public SymtabVisitor {
         this->builder->CreateBr(conditionBlock);
         // generate code for the exit block
         symtab_storage->symtab->exit_scope();
+        this->loopBlocks.pop();
         this->builder->SetInsertPoint(afterBlock);
     }
 
@@ -2846,6 +2903,11 @@ class CodeGenVisitor : public SymtabVisitor {
         llvm::Value *last_llvm_value = nullptr;
         for (auto stmt : node->statements) {
             stmt->visit(this);
+            if (dynamic_cast<NBreakStatement*>(stmt) != nullptr or dynamic_cast<NReturnStatement*>(stmt) != nullptr) {
+                last_stmt_node = stmt;
+                last_llvm_value = stmt->llvm_value;
+                break;
+            }
             if (stmt->llvm_value == nullptr) {
                 continue;
             }
