@@ -284,6 +284,10 @@ class ScopedSymbolTable : public SymbolTable {
 
     virtual void enter_scope() {
         std::cout << "Scope entered" << std::endl;
+        if (this->scope_id >= this->children.size()) {
+            std::cerr << "Cannot enter scope, no more scopes" << std::endl;
+            return;
+        }
         auto next_scope = this->children[this->scope_id++];
         symtab_storage->symtab = next_scope;
         std::cout << "Now scope is " << symtab_storage->symtab << std::endl;
@@ -299,6 +303,10 @@ class ScopedSymbolTable : public SymbolTable {
     virtual void exit_scope() {
         // current symbol table is the parent
         std::cout << "Scope ended" << std::endl;
+        if (symtab_storage->symtab->parent == nullptr) {
+            std::cerr << "Cannot exit scope, already at top level" << std::endl;
+            return;
+        }
         symtab_storage->symtab = symtab_storage->symtab->parent;
         std::cout << "Now scope is " << symtab_storage->symtab << std::endl;
     }
@@ -1689,7 +1697,9 @@ class TypeChecker : public SymtabVisitor {
             throw SemanticError("TypeError: start, end or step is not a number", Position(-1, -1));
             return;
         }
+        symtab_storage->symtab->enter_scope();
         node->block->visit(this);
+        symtab_storage->symtab->exit_scope();
         std::cout << ")" << std::endl;
     }
 
@@ -2125,6 +2135,9 @@ class SymbolTableFillerVisitor : public SymtabVisitor {
 
     virtual void visitNNumericForStatement(NNumericForStatement* node) {
         symtab_storage->symtab->scope_started();
+        auto entry = symtab_storage->symtab->declare(
+            new SymbolTableEntry(node->id->name, new NNumType(), node->id->position),
+            false);
         node->block->visit(this);
         symtab_storage->symtab->scope_ended();
     }
@@ -2761,6 +2774,46 @@ class CodeGenVisitor : public SymtabVisitor {
 
 
     virtual void visitNNumericForStatement(NNumericForStatement* node) {
+        llvm::Function* func = this->builder->GetInsertBlock()->getParent();
+
+        llvm::BasicBlock* conditionBlock = llvm::BasicBlock::Create(*context, "for_condition", func);
+        llvm::BasicBlock* forBlock = llvm::BasicBlock::Create(*context, "for_block", func);
+        llvm::BasicBlock* afterBlock = llvm::BasicBlock::Create(*context, "for_exit", func);
+
+        node->end->visit(this);
+        node->step->visit(this);
+        node->start->visit(this);
+
+        // allocate space for the loop variable
+        symtab_storage->symtab->enter_scope();
+        // declare the loop variable
+        auto entry = symtab_storage->symtab->lookup_or_throw(node->id->name, node->id->position.lineno + 1);
+        if (entry->value == nullptr) {
+            AllocaInst *alloca = this->builder->CreateAlloca(node->start->llvm_value->getType(), 0, node->id->name);
+            entry->value = alloca;
+        }
+        llvm::Value* loop_var = this->builder->CreateStore(node->start->llvm_value, entry->value);
+
+        // generate code for the condition block
+        this->builder->CreateBr(conditionBlock);
+        this->builder->SetInsertPoint(conditionBlock);
+        node->id->visit(this);
+        // print the loop variable
+        auto cond = this->builder->CreateFCmpULT(node->id->llvm_value, node->end->llvm_value);
+        this->builder->CreateCondBr(cond, forBlock, afterBlock);
+
+        // generate code for the for block
+        this->builder->SetInsertPoint(forBlock);
+        node->block->visit(this);
+        // generate code for the increment
+        node->id->visit(this);
+        auto loop_var_inc = this->builder->CreateFAdd(node->id->llvm_value, node->step->llvm_value);
+        llvm::Value* loop_inc_var = this->builder->CreateStore(loop_var_inc, entry->value);
+        // branch back to the condition block
+        this->builder->CreateBr(conditionBlock);
+        // generate code for the exit block
+        symtab_storage->symtab->exit_scope();
+        this->builder->SetInsertPoint(afterBlock);
     }
 
 
@@ -2790,15 +2843,18 @@ class CodeGenVisitor : public SymtabVisitor {
     virtual void visitNBlock(NBlock* node) {
         auto func = builder->GetInsertBlock()->getParent();
         NStatement *last_stmt_node = nullptr;
+        llvm::Value *last_llvm_value = nullptr;
         for (auto stmt : node->statements) {
             stmt->visit(this);
             if (stmt->llvm_value == nullptr) {
                 continue;
             }
             last_stmt_node = stmt;
+            last_llvm_value = stmt->llvm_value;
         }
 
-        Value *return_expr_llvm = last_stmt_node->llvm_value;
+
+        Value *return_expr_llvm = last_llvm_value;
         if (node->returnExpr != nullptr) {
             node->returnExpr->visit(this);
             return_expr_llvm = node->returnExpr->llvm_value;
