@@ -2616,9 +2616,27 @@ class CodeGenVisitor : public SymtabVisitor {
 
         FunctionType* functionType = FunctionType::get(return_type, parameter_types, false);
         Function* function = Function::Create(functionType, GlobalValue::ExternalLinkage, name, module);
+
+        function->setCallingConv(llvm::CallingConv::C);
+
         int i = 0;
+        // Name parameters
         for(auto arg: *node->arguments) {
             function->getArg(i)->setName(arg->ident->name);
+
+            llvm::Type *argtype = getLLVMType(arg->ident->type);
+
+            // node->expression->visit(this);
+            // if (node->expression->llvm_value == nullptr) {
+            //     throw semanticerror("expression value is null", node->position);
+            // }
+            // auto entry = symtab_storage->symtab->lookup_or_throw(node->ident->name, node->position.lineno + 1);
+            // if (entry->value == nullptr) {
+            //     allocainst *alloca = this->builder->createalloca(node->expression->llvm_value->gettype(), 0, node->ident->name);
+            //     entry->value = alloca;
+            // }
+            // node->llvm_value = this->builder->CreateStore(node->expression->llvm_value, entry->value);
+
             i++;
         }
 
