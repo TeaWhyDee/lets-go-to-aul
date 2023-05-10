@@ -22,7 +22,7 @@ parser:
 compile-and-run:
 	./parser < $(file)
 	clang -S -emit-llvm builtin.cpp -o builtin.ll
-	clang codegen.ll builtin.ll
+	clang++ codegen.ll builtin.ll
 	./a.out
 
 test: flex
