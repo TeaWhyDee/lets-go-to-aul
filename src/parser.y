@@ -140,31 +140,31 @@ stmt : var_decl
      | function_decl
      | retstat
      | struct_decl
-     | KW_DO block KW_END { $$ = new NDoStatement($2); }
-     | KW_WHILE expr KW_DO block KW_END { $$ = new NWhileStatement($2, $4); }
-     | KW_REPEAT block KW_UNTIL expr { $$ = new NRepeatUntilStatement($4, $2); }
+     | KW_DO block KW_END { $$ = new NDoStatement($2, Position(@1.first_line, @1.first_column)); }
+     | KW_WHILE expr KW_DO block KW_END { $$ = new NWhileStatement($2, $4, Position(@1.first_line, @1.first_column)); }
+     | KW_REPEAT block KW_UNTIL expr { $$ = new NRepeatUntilStatement($4, $2, Position(@1.first_line, @1.first_column)); }
      | KW_IF if_stmt KW_END { $$ = $2; }
      | for_numeric
      | for_generic
     ;
 
 for_generic : KW_FOR ident_list KW_IN expr KW_DO block KW_END {
-            $$ = new NGenericForStatement(*$2, $4, $6); }
+            $$ = new NGenericForStatement(*$2, $4, $6, Position(@1.first_line, @1.first_column)); }
     ;
 
 for_numeric : KW_FOR ident OP_EQUAL expr OP_COMMA expr KW_DO block KW_END { 
-            $$ = new NNumericForStatement($2, $4, $6, new NNum((double)1), $8); }
+            $$ = new NNumericForStatement($2, $4, $6, new NNum((double)1), $8, Position(@1.first_line, @1.first_column)); }
             | KW_FOR ident OP_EQUAL expr OP_COMMA expr OP_COMMA expr KW_DO block KW_END { 
-                    $$ = new NNumericForStatement($2, $4, $6, $8, $10); }
+                    $$ = new NNumericForStatement($2, $4, $6, $8, $10, Position(@1.first_line, @1.first_column)); }
     ;
 
-if_stmt : expr KW_THEN block elseif KW_ELSE block { $$ = new NIfStatement(*$4, $6);
+if_stmt : expr KW_THEN block elseif KW_ELSE block { $$ = new NIfStatement(*$4, $6, Position(@1.first_line, @1.first_column));
                 $$->conditionBlockList.insert($$->conditionBlockList.begin(), new std::pair<NExpression *, NBlock *>($1, $3) );}
-        | expr KW_THEN block elseif { $$ = new NIfStatement(*$4, nullptr);
+        | expr KW_THEN block elseif { $$ = new NIfStatement(*$4, nullptr, Position(@1.first_line, @1.first_column));
                 $$->conditionBlockList.insert($$->conditionBlockList.begin(), new std::pair<NExpression *, NBlock *>($1, $3) );}
-        | expr KW_THEN block KW_ELSE block { $$ = new NIfStatement(std::vector<conditionBlock*>(), $5);
+        | expr KW_THEN block KW_ELSE block { $$ = new NIfStatement(std::vector<conditionBlock*>(), $5, Position(@1.first_line, @1.first_column));
                 $$->conditionBlockList.push_back( new std::pair<NExpression *, NBlock *>($1, $3) );}
-        | expr KW_THEN block { $$ = new NIfStatement(std::vector<conditionBlock*>(), nullptr);
+        | expr KW_THEN block { $$ = new NIfStatement(std::vector<conditionBlock*>(), nullptr, Position(@1.first_line, @1.first_column));
                 $$->conditionBlockList.push_back( new std::pair<NExpression *, NBlock *>($1, $3) );}
     ;
 
@@ -173,15 +173,15 @@ elseif : KW_ELSEIF expr KW_THEN block { $$ = new std::vector<conditionBlock*>();
        | elseif KW_ELSEIF expr KW_THEN block { $1->push_back( new std::pair<NExpression *, NBlock *>($3, $5) );}
     ;
 
-retstat : KW_RETURN expr { $$ = new NReturnStatement($2, Position(@retstat.first_line, @retstat.first_column)); }
+retstat : KW_RETURN expr { $$ = new NReturnStatement($2, Position(@KW_RETURN.first_line, @KW_RETURN.first_column)); }
     ;
 
 ident_list : ident {$$ = new std::vector<NIdentifier *>(); $$ -> push_back($1);}
          | ident_list OP_COMMA ident {$$ -> push_back($3);}
     ;
 
-var_assignment : access_member OP_EQUAL expr { $$ = new NAssignmentStatement($1, $3); }
-               /* { $$ = new NDeclarationStatement($1, $4); } */
+var_assignment : access_member OP_EQUAL expr { $$ = new NAssignmentStatement($1, $3, Position(@access_member.first_line, @access_member.first_column)); }
+               /* { $$ = new NDeclarationStatement($1, $4, Position(@access_member.first_line, @access_member.first_column)); } */
     ;
 
 expr : term
@@ -196,14 +196,14 @@ expr : term
      | KW_FALSE { new NBool(false); }
     ;
 
-access_member : access_member OP_LSQUARE_BRACE expr OP_RSQUARE_BRACE { $$ = new NAccessKey($1, $3); }
-              | access_member OP_DOT ident { $$ = new NAccessKey($1, $3); }
-              /* | access_member OP_DOT function_call { $$ = new NExpressionCall($1, $3); } */
-              | access_member OP_LBRACE OP_RBRACE {$$ = new NExpressionCall($1, std::vector<NExpression *>());}
-              | access_member OP_LBRACE expr_list OP_RBRACE {$$ = new NExpressionCall($1, *$3);}
+access_member : access_member OP_LSQUARE_BRACE expr OP_RSQUARE_BRACE { $$ = new NAccessKey($1, $3, Position(@1.first_line, @1.first_column)); }
+              | access_member OP_DOT ident { $$ = new NAccessKey($1, $3, Position(@1.first_line, @1.first_column)); }
+              /* | access_member OP_DOT function_call { $$ = new NExpressionCall($1, $3, Position(@1.first_line, @1.first_column)); } */
+              | access_member OP_LBRACE OP_RBRACE {$$ = new NExpressionCall($1, std::vector<NExpression *>(), Position(@1.first_line, @1.first_column));}
+              | access_member OP_LBRACE expr_list OP_RBRACE {$$ = new NExpressionCall($1, *$3, Position(@1.first_line, @1.first_column));}
               | KW_SELF { std::string* str = new std::string("self");
             //   hotfix for position, should be fixed later
-                            $$ = new NIdentifier(str, Position(0, 0)); }
+                            $$ = new NIdentifier(str, Position(@access_member.first_line, @access_member.first_column)); }
               | ident
               | function_call
     ;
@@ -221,19 +221,19 @@ keyval_pair_list : keyval_pair { $$ = new std::vector<std::pair<NIdentifier*, NE
 keyval_pair : ident OP_EQUAL expr { $$ = new std::pair<NIdentifier*, NExpression*>($1, $3); }
     ;
 
-function_call : ident OP_LBRACE OP_RBRACE {$$ = new NExpressionCall($1, std::vector<NExpression *>());}
-              | ident OP_LBRACE expr_list OP_RBRACE { $$ = new NExpressionCall($1, *$3); }
+function_call : ident OP_LBRACE OP_RBRACE {$$ = new NExpressionCall($1, std::vector<NExpression *>(), Position(@ident.first_line, @ident.first_column));}
+              | ident OP_LBRACE expr_list OP_RBRACE { $$ = new NExpressionCall($1, *$3, Position(@ident.first_line, @ident.first_column)); }
     ;
 
 expr_list : expr {$$ = new std::vector<NExpression *>(); $$ -> push_back($1);}
           | expr_list OP_COMMA expr {$$ -> push_back($3);}
     ;
 
-term : L_NUM { $$ = new NNum(atof($1->c_str()), Position(@term.first_line, @term.first_column)); delete $1; }
-     | L_STRING { $$ = new NString(*$1, Position(@term.first_line, @term.first_column));}
+term : L_NUM { $$ = new NNum(atof($1->c_str()), Position(@L_NUM.first_line, @L_NUM.first_column)); delete $1; }
+     | L_STRING { $$ = new NString(*$1, Position(@L_STRING.first_line, @L_STRING.first_column));}
     ;
 
-break : KW_BREAK { $$ = new NBreakStatement(); }
+break : KW_BREAK { $$ = new NBreakStatement(Position(@KW_BREAK.first_line, @KW_BREAK.first_column)); }
     ;
 
 exp : expr OP_PLUS expr  {$$ = new NBinaryOperatorExpression($1, BinOpType::ADD, $3, Position(@1.first_line, @1.first_column));}
@@ -266,10 +266,10 @@ var_decl : ident OP_EQUAL expr { $$ = new NDeclarationStatement($ident, $expr, P
          | ident OP_COLON type_ident OP_EQUAL expr { $$ = new NDeclarationStatement($ident, $type_ident, $expr, Position(@ident.first_line, @ident.first_column)); }
     ;
 
-function_decl : KW_FUNCTION ident OP_LBRACE typed_var_list OP_RBRACE OP_ARROW typelist block KW_END { $$ = new NFunctionDeclaration($typelist, $ident, $typed_var_list, $block, Position(@ident.first_line, @ident.first_column));}
-    |  KW_FUNCTION ident OP_LBRACE typed_var_list OP_RBRACE block KW_END { $$ = new NFunctionDeclaration(nullptr, $ident, $typed_var_list, $block, Position(@ident.first_line, @ident.first_column));}
-    |  KW_FUNCTION ident OP_LBRACE OP_RBRACE OP_ARROW typelist block KW_END { $$ = new NFunctionDeclaration($typelist, $ident, new std::vector<NDeclarationStatement*>(), $block, Position(@ident.first_line, @ident.first_column));}
-    |  KW_FUNCTION ident OP_LBRACE OP_RBRACE block KW_END { $$ = new NFunctionDeclaration(nullptr, $ident, new std::vector<NDeclarationStatement*>(), $block, Position(@ident.first_line, @ident.first_column));}
+function_decl : KW_FUNCTION ident OP_LBRACE typed_var_list OP_RBRACE OP_ARROW typelist block KW_END { $$ = new NFunctionDeclaration($typelist, $ident, $typed_var_list, $block, Position(@KW_FUNCTION.first_line, @KW_FUNCTION.first_column));}
+    |  KW_FUNCTION ident OP_LBRACE typed_var_list OP_RBRACE block KW_END { $$ = new NFunctionDeclaration(nullptr, $ident, $typed_var_list, $block, Position(@KW_FUNCTION.first_line, @KW_FUNCTION.first_column));}
+    |  KW_FUNCTION ident OP_LBRACE OP_RBRACE OP_ARROW typelist block KW_END { $$ = new NFunctionDeclaration($typelist, $ident, new std::vector<NDeclarationStatement*>(), $block, Position(@KW_FUNCTION.first_line, @KW_FUNCTION.first_column));}
+    |  KW_FUNCTION ident OP_LBRACE OP_RBRACE block KW_END { $$ = new NFunctionDeclaration(nullptr, $ident, new std::vector<NDeclarationStatement*>(), $block, Position(@KW_FUNCTION.first_line, @KW_FUNCTION.first_column));}
     |  KW_NEW OP_LBRACE OP_RBRACE block KW_END { $$ = new NFunctionDeclaration(nullptr, new NIdentifier(new std::string("new"), Position(@KW_NEW.first_line, @KW_NEW.first_column)), new std::vector<NDeclarationStatement*>(), $block, Position(@block.first_line, @block.first_column));}
     |  KW_NEW OP_LBRACE typed_var_list OP_RBRACE block KW_END { $$ = new NFunctionDeclaration(nullptr, new NIdentifier(new std::string("new"), Position(@KW_NEW.first_line, @KW_NEW.first_column)), $typed_var_list, $block, Position(@block.first_line, @block.first_column));}
     ;

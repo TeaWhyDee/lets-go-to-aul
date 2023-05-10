@@ -1,0 +1,3 @@
+function f3 (n1: num, s: str) -> str
+    return 10
+end
