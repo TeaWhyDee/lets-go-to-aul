@@ -21,7 +21,7 @@ parser:
 
 compile-and-run:
 	./parser < $(file)
-
+  
 	clang++ -S -emit-llvm builtin.cpp -o builtin.ll
 
 	llvm-link -o program.ll codegen.ll builtin.ll
@@ -30,7 +30,6 @@ compile-and-run:
 	clang++ program.o -o program
 
 	./program
-
 
 test: flex
 	cat ../test/*.aul | ./parser
