@@ -208,8 +208,8 @@ access_member : access_member OP_LSQUARE_BRACE expr OP_RSQUARE_BRACE { $$ = new 
               | function_call
     ;
 
-table_constructor : expr_list { $$ = new NTableConstructor(); $$->expressionList = *$1; }
-    | keyval_pair_list { $$ = new NTableConstructor(); $$->keyvalPairList = *$1; }
+table_constructor : expr_list { $$ = new NTableConstructor(Position(@1.first_line, @1.first_column)); $$->expressionList = *$1; }
+    | keyval_pair_list { $$ = new NTableConstructor(Position(@1.first_line, @1.first_column)); $$->keyvalPairList = *$1; }
     | /* empty */  { $$ = new NTableConstructor(); }
     ;
 

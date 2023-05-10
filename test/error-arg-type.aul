@@ -1,0 +1,14 @@
+struct S 
+    new () end
+
+    function f ()
+        a = 0
+    end
+end
+
+function f (n: num) -> num
+    s = S()
+    s.f(1)
+end
+
+f(10)
