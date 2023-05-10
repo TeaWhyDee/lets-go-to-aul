@@ -336,12 +336,19 @@ class Node {
 class NStatement : public Node {
 public:
     llvm::Value* llvm_value = nullptr;
+    Position position;
+
+    NStatement(Position position) : position(position) {}
+    NStatement() : position(Position(0, 0)) {}
 };
 
 class NExpression : public NStatement {
    public:
     NType* type = nullptr;
     virtual void visit(Visitor* v) { v->visitNExpression(this); }
+
+    NExpression(Position position) : position(position) {}
+    NExpression() : position(Position(0, 0)) {}
 };
 
 class NBlock : public Node {
@@ -366,7 +373,6 @@ class NBlock : public Node {
 class NIdentifier : public NExpression {
    public:
     std::string name;
-    Position position;
     NIdentifier(const std::string* name, Position position) : name(*name), position(position) {}
     NIdentifier(const std::string name, NType *type) : name(name), position(Position(0, 0)) { this->type = type; }
     NIdentifier(NType* type) : name(""), position(Position(0, 0)) { this->type = type; }
@@ -518,7 +524,7 @@ class NStructType : public NType {
 class NNum : public NExpression {
    public:
     double value;
-    NNum(long double value) : value(value) { this->type = new NNumType(); }
+    NNum(long double value, Position position) : value(value), position(position) { this->type = new NNumType(); }
 
     virtual void visit(Visitor* v) { v->visitNNum(this); }
 };
@@ -541,7 +547,7 @@ class NBool : public NExpression {
 class NString : public NExpression {
    public:
     std::string& value;
-    NString(std::string& value) : value(value) { this->type = new NStringType(); }
+    NString(std::string& value, Position position) : value(value), position(position) { this->type = new NStringType(); }
 
     virtual void visit(Visitor* v) { v->visitNString(this); }
 };
@@ -589,8 +595,10 @@ class NWhileStatement : public NStatement {
    public:
     NExpression* condition;
     NBlock* block;
-    NWhileStatement(NExpression* condition, NBlock* block)
-        : condition(condition), block(block) {}
+    NWhileStatement(NExpression* condition, NBlock* block, Position position)
+        : condition(condition), block(block), position(position) {}
+        NWhileStatement(NExpression* condition, NBlock* block)
+        : condition(condition), block(block), position(Position(0, 0)) {}
 
     virtual void visit(Visitor* v) { v->visitNWhileStatement(this); }
 };
@@ -600,7 +608,9 @@ class NRepeatUntilStatement : public NStatement {
     NExpression* condition;
     NBlock* block;
     NRepeatUntilStatement(NExpression* condition, NBlock* block)
-        : condition(condition), block(block) {}
+        : condition(condition), block(block), position(Position(0, 0)) {}
+    NRepeatUntilStatement(NExpression* condition, NBlock* block, Position position)
+        : condition(condition), block(block), position(position) {}
 
     virtual void visit(Visitor* v) { v->visitNRepeatUntilStatement(this); }
 };
@@ -608,7 +618,8 @@ class NRepeatUntilStatement : public NStatement {
 class NDoStatement : public NStatement {
    public:
     NBlock* block;
-    NDoStatement(NBlock* block) : block(block) {}
+    NDoStatement(NBlock* block) : block(block), position(Position(0, 0)) {}
+    NDoStatement(NBlock* block, Position position) : block(block), position(position) {}
 
     virtual void visit(Visitor* v) { v->visitNDoStatement(this); }
 };
@@ -619,7 +630,10 @@ class NIfStatement : public NStatement {
     NBlock* elseBlock;
     NIfStatement(std::vector<conditionBlock*> conditionBlockList,
                  NBlock* elseBlock)
-        : conditionBlockList(conditionBlockList), elseBlock(elseBlock) {}
+        : conditionBlockList(conditionBlockList), elseBlock(elseBlock), position(Position(0, 0)) {}
+    NIfStatement(std::vector<conditionBlock*> conditionBlockList,
+                 NBlock* elseBlock, Position position)
+        : conditionBlockList(conditionBlockList), elseBlock(elseBlock), position(position) {}
 
     virtual void visit(Visitor* v) { v->visitNIfStatement(this); }
 };
@@ -633,7 +647,10 @@ class NNumericForStatement : public NStatement {
     NBlock* block;
     NNumericForStatement(NIdentifier* id, NExpression* start, NExpression* end,
                          NExpression* step, NBlock* block)
-        : id(id), start(start), end(end), step(step), block(block) {}
+        : id(id), start(start), end(end), step(step), block(block), position(Position(0, 0)) {}
+    NNumericForStatement(NIdentifier* id, NExpression* start, NExpression* end,
+                         NExpression* step, NBlock* block, Position position)
+        : id(id), start(start), end(end), step(step), block(block), position(position) {}
 
     virtual void visit(Visitor* v) { v->visitNNumericForStatement(this); }
 };
@@ -645,7 +662,10 @@ class NGenericForStatement : public NStatement {
     NBlock* block;
     NGenericForStatement(IdentifierList identifiers, NExpression* expression,
                          NBlock* block)
-        : identifiers(identifiers), expression(expression), block(block) {}
+        : identifiers(identifiers), expression(expression), block(block), position(Position(0, 0)) {}
+    NGenericForStatement(IdentifierList identifiers, NExpression* expression,
+                         NBlock* block, Position position)
+        : identifiers(identifiers), expression(expression), block(block), position(position) {}
 
     virtual void visit(Visitor* v) { v->visitNGenericForStatement(this); }
 };
@@ -653,7 +673,8 @@ class NGenericForStatement : public NStatement {
 class NReturnStatement : public NStatement {
    public:
     NExpression* expression;
-    NReturnStatement(NExpression* expression) : expression(expression) {}
+    NReturnStatement(NExpression* expression) : expression(expression), position(Position(0, 0)) {}
+    NReturnStatement(NExpression* expression, Position position) : expression(expression), position(position) {}
 
     virtual void visit(Visitor* v) { v->visitNReturnStatement(this); }
 };
@@ -664,9 +685,14 @@ class NAssignmentStatement : public NStatement {
     NType* type;
     NExpression* expression;
     NAssignmentStatement(NExpression* ident, NExpression* expression)
-        : ident(ident), type(nullptr), expression(expression) { ident->type = type; }
+        : ident(ident), type(nullptr), expression(expression), position(Position(0, 0)) { ident->type = type; }
+        NAssignmentStatement(NExpression* ident, NExpression* expression, Position position)
+        : ident(ident), type(nullptr), expression(expression), position(position) { ident->type = type; }
 
-    NAssignmentStatement(NExpression* ident, NType* type, NExpression* expression) : ident(ident), type(type), expression(expression) { ident->type = type; }
+    NAssignmentStatement(NExpression* ident, NType* type, NExpression* expression) 
+        : ident(ident), type(type), expression(expression), position(Position(0, 0)) { ident->type = type; }
+    NAssignmentStatement(NExpression* ident, NType* type, NExpression* expression, Position position) 
+        : ident(ident), type(type), expression(expression), position(position) { ident->type = type; }
 
     virtual void visit(Visitor* v) { v->visitNAssignmentStatement(this); }
 };
@@ -675,7 +701,6 @@ class NDeclarationStatement : public NStatement {
    public:
     NIdentifier* ident;
     NExpression* expression;
-    Position position;
     NDeclarationStatement(NIdentifier* ident, NExpression* expression, Position position)
         : ident(ident), expression(expression), position(position) {}
 
@@ -736,7 +761,6 @@ class NFunctionDeclaration : public NStatement {
     NIdentifier* id;
     std::vector<NDeclarationStatement*>* arguments;
     NBlock* block;
-    Position position;
     NType *type;
 
     NFunctionDeclaration(
@@ -778,7 +802,6 @@ class StructBody {
 class NStructDeclaration : public NStatement {
    public:
     NIdentifier* id;
-    Position position;
     std::vector<NDeclarationStatement*> fields;
     std::vector<NFunctionDeclaration*> methods;
 

@@ -173,7 +173,7 @@ elseif : KW_ELSEIF expr KW_THEN block { $$ = new std::vector<conditionBlock*>();
        | elseif KW_ELSEIF expr KW_THEN block { $1->push_back( new std::pair<NExpression *, NBlock *>($3, $5) );}
     ;
 
-retstat : KW_RETURN expr { $$ = new NReturnStatement($2); }
+retstat : KW_RETURN expr { $$ = new NReturnStatement($2, Position(@retstat.first_line, @retstat.first_column)); }
     ;
 
 ident_list : ident {$$ = new std::vector<NIdentifier *>(); $$ -> push_back($1);}
@@ -229,8 +229,8 @@ expr_list : expr {$$ = new std::vector<NExpression *>(); $$ -> push_back($1);}
           | expr_list OP_COMMA expr {$$ -> push_back($3);}
     ;
 
-term : L_NUM { $$ = new NNum(atof($1->c_str())); delete $1; }
-     | L_STRING { $$ = new NString(*$1);}
+term : L_NUM { $$ = new NNum(atof($1->c_str()), Position(@term.first_line, @term.first_column)); delete $1; }
+     | L_STRING { $$ = new NString(*$1, Position(@term.first_line, @term.first_column));}
     ;
 
 break : KW_BREAK { $$ = new NBreakStatement(); }
