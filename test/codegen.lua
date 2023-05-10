@@ -19,6 +19,14 @@ while a > 0 do
 end
 printf("A after = %.3f\n", a)
 
+--Check repeat until block
+printf("\nREPEAT UNTIL\n")
+a = 1
+repeat
+  printf("A = %.3f\n", a)
+  a = a * 2
+until a ~= 8
+printf("A after = %.1f\n", a)
 
 --Check do end block
 printf("\nDO END\n")
@@ -31,19 +39,6 @@ do
   printf("B = %.3f\n", b)
 end
 printf("A after = %.3f\n", a)
-
-
---Check repeat until block
-printf("\nREPEAT UNTIL\n")
-a = 1
-repeat
-  printf("A = %.3f\n", a)
-  a = a * 2
-until a ~= 8
-printf("A after = %.1f\n", a)
-
-
---Next part is not working for now
 
 --Check if block
 printf("\nIF\n")
@@ -61,7 +56,6 @@ else
 end
 printf("A after = %.3f\n", a)
 
-
 --Check numeric for
 printf("\nFOR\n")
 for i = 1, 10, 1 do
@@ -69,3 +63,14 @@ for i = 1, 10, 1 do
   printf("I = %.3f, FF = %.3f\n", i, ff)
 end
 printf("For finished\n")
+
+-- check break in for
+printf("\nBREAK\n")
+for i = 1, 10, 1 do
+  ff = i * 2
+  printf("I = %.3f, FF = %.3f\n", i, ff)
+  if i == 5 then
+    break
+  end
+end
+printf("For with break finished\n")
