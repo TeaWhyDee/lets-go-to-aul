@@ -1508,7 +1508,7 @@ class TypeChecker : public SymtabVisitor {
 
         if (functionType->varargs) {
             std::cout << "Function has vararg param, skip args check";
-            for (int i = 0; i < functionType->arguments->size(); i++) {
+            for (int i = 0; i < node->exprlist.size(); i++) {
                 node->exprlist.at(i)->visit(this);  // set type of the expression
             }
         }
