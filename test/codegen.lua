@@ -1,12 +1,12 @@
--- printf("Goodbye, Aul!\n")
--- a = 3
--- b = 5
--- c = 10
--- e = "1323"
+printf("Goodbye, Aul!\n")
+a = 3
+b = 5
+c = 10
+e = "1323"
 
--- d = (a - b) + c
+d = (a - b) + c
 
--- printf("Values of a,b,c,d, e: %.1f, %.1f, %.1f, %.1f, '%s'\n", a, b, c, d, e)
+printf("Values of a,b,c,d, e: %.1f, %.1f, %.1f, %.1f, '%s'\n", a, b, c, d, e)
 
 
 -- --Check while block

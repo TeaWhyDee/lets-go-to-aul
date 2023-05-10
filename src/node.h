@@ -1508,6 +1508,9 @@ class TypeChecker : public SymtabVisitor {
 
         if (functionType->varargs) {
             std::cout << "Function has vararg param, skip args check";
+            for (int i = 0; i < functionType->arguments->size(); i++) {
+                node->exprlist.at(i)->visit(this);  // set type of the expression
+            }
         }
         // check argument types
         else if (functionType->arguments == nullptr || node->exprlist.empty()) {
@@ -2452,7 +2455,6 @@ class CodeGenVisitor : public SymtabVisitor {
     llvm::IRBuilder<>* builder;
     llvm::Function* main;
     BasicBlock* block_main;
-    std::map<std::string, llvm::Value *> NamedValues;
 
     CodeGenVisitor() {
         this->name = "Code Generation Visitor";
@@ -2624,24 +2626,21 @@ class CodeGenVisitor : public SymtabVisitor {
 
         function->setCallingConv(llvm::CallingConv::C);
 
+        BasicBlock* block = BasicBlock::Create(*context, name, function);
+        this->builder->SetInsertPoint(block);
         int i = 0;
         // Name parameters
         for(auto arg: *node->arguments) {
             function->getArg(i)->setName(arg->ident->name);
-
             llvm::Type *argtype = getLLVMType(arg->ident->type);
-
+            AllocaInst *alloca = this->builder->CreateAlloca(argtype, 0, arg->ident->name);
+            this->builder->CreateStore(function->getArg(i), alloca);
+            auto entry = symtab_storage->symtab->lookup_or_throw(arg->ident->name, arg->ident->position.lineno + 1, true);
+            entry->value = alloca;
+            arg->llvm_value = alloca;
             i++;
         }
 
-        // Add parameters to scope (for block)
-        NamedValues.clear();
-        for (auto &Arg : function->args()) {
-            NamedValues[std::string(Arg.getName())] = &Arg;
-        }
-
-        BasicBlock* block = BasicBlock::Create(*context, name, function);
-        this->builder->SetInsertPoint(block);
         node->block->visit(this);
 
         this->builder->SetInsertPoint(block_main);

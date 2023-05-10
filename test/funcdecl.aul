@@ -1,9 +1,16 @@
-a = 2
+a = "abcd"
 
-function f(b: num)
-    printf("b = %.3f\n", 2)
+function f(b: num) -> num
+    printf("b = %.3f\n", b)
+    return b
 end
 
-b = f(a)
+function g(b: str) -> str
+    printf("b = %s\n", b)
+    return b
+end
+
+c = g(a)
+printf("outside: %s\n", c)
 
 -- a = 2
