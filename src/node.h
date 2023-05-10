@@ -2498,6 +2498,7 @@ class CodeGenVisitor : public SymtabVisitor {
     bool breakFlag = false;
     //  stack of loop blocks, used for break statements
     std::stack<llvm::BasicBlock *> loopBlocks;
+    llvm::BasicBlock *block_main;
 
     CodeGenVisitor() {
         this->name = "Code Generation Visitor";
