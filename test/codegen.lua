@@ -56,7 +56,6 @@ else
 end
 printf("A after = %.3f\n", a)
 
-
 --Check numeric for
 printf("\nFOR\n")
 for i = 1, 10, 1 do

@@ -737,6 +737,7 @@ class NFunctionDeclaration : public NStatement {
     std::vector<NDeclarationStatement*>* arguments;
     NBlock* block;
     Position position;
+    NType *type;
 
     NFunctionDeclaration(
         typeList* return_type,
@@ -759,10 +760,6 @@ class NFunctionDeclaration : public NStatement {
             list->push_back(declaration->id);
         }
         return list;
-    }
-
-    NType* get_type() {
-        return new NFunctionType(NDeclarationStatement::toIdentifierList(this->arguments), this->return_type);
     }
 
     virtual void visit(Visitor* v) { v->visitNFunctionDeclaration(this); }
@@ -1526,6 +1523,9 @@ class TypeChecker : public SymtabVisitor {
 
         if (functionType->varargs) {
             std::cout << "Function has vararg param, skip args check";
+            for (int i = 0; i < node->exprlist.size(); i++) {
+                node->exprlist.at(i)->visit(this);  // set type of the expression
+            }
         }
         // check argument types
         else if (functionType->arguments == nullptr || node->exprlist.empty()) {
@@ -2132,6 +2132,9 @@ class SymbolTableFillerVisitor : public SymtabVisitor {
     virtual void visitNTableConstructor(NTableConstructor* node) {}
 
     virtual void visitNFunctionDeclaration(NFunctionDeclaration* node) {
+        if (node->return_type == nullptr) {
+            node->return_type = new typeList({new NNilType()});
+        }
         auto type = new NFunctionType(
             NDeclarationStatement::toIdentifierList(node->arguments),
             node->return_type);
@@ -2461,7 +2464,7 @@ public:
         return llvm::PointerType::getInt8PtrTy(*ctx);
     }
     static llvm::Type *num_type(LLVMContext *ctx) {
-        return llvm::Type::getFloatTy(*ctx);
+        return llvm::Type::getDoubleTy(*ctx);
     }
     static llvm::Type *bool_type(LLVMContext *ctx) {
         return llvm::IntegerType::getInt1Ty(*ctx);
@@ -2469,15 +2472,37 @@ public:
 };
 
 class CodeGenVisitor : public SymtabVisitor {
+   private:
+    llvm::Type *getLLVMType(NType *type) {
+        llvm::Type* return_type = builder->getVoidTy();
+
+        if (type == nullptr) {
+            return builder->getVoidTy();
+        }
+        if (typeid(*type) == typeid(NStringType)) {
+            return_type = LLVMTypes::str_type(context);
+        }
+        else if (typeid(*type) == typeid(NNumType)) {
+            return_type = LLVMTypes::num_type(context);
+        } else if (typeid(*type) == typeid(NBoolType)) {
+            return_type = LLVMTypes::bool_type(context);
+        // } else if (typeid(node->return_type) == typeid(NStringType)) {
+            // return_type = LLVMTypes::str_type(context);
+            // TODO: types
+        }
+
+        return return_type;
+    }
+
    public:
     llvm::LLVMContext* context;
     llvm::Module* module;
     llvm::IRBuilder<>* builder;
     llvm::Function* main;
-    std::map<std::string, llvm::Value *> NamedValues;
     bool breakFlag = false;
     //  stack of loop blocks, used for break statements
     std::stack<llvm::BasicBlock *> loopBlocks;
+    llvm::BasicBlock *block_main;
 
     CodeGenVisitor() {
         this->name = "Code Generation Visitor";
@@ -2493,11 +2518,12 @@ class CodeGenVisitor : public SymtabVisitor {
         if (entry_type == nullptr) {
             throw SemanticError("Cannot get function type for 'printf'", Position(0, 0));
         }
+        entry->value = print;
         entry_type->llvm_value = print;
         // Function *print = Function::Create(FunctionType::get(Type::getVoidTy(*context), false), GlobalValue::ExternalLinkage, "printf", module);
 
         this->main = func_main;
-        BasicBlock* block_main = BasicBlock::Create(*context, "entry", func_main);
+        block_main = BasicBlock::Create(*context, "entry", func_main);
         this->builder->SetInsertPoint(block_main);
     }
 
@@ -2615,84 +2641,59 @@ class CodeGenVisitor : public SymtabVisitor {
     virtual void visitNTableConstructor(NTableConstructor* node) {}
 
     virtual void visitNFunctionDeclaration(NFunctionDeclaration* node) {
+        symtab_storage->symtab->enter_scope();
+
         std::string name = node->id->name;
+        llvm::Type* return_type;
+        std::vector<Type*> parameter_types;
 
-        Type* return_type = builder->getVoidTy();
-
-        if (node->return_type != nullptr) {
-            for (auto return_type : *node->return_type) {
-                if (return_type == nullptr) {
-                    std::cerr << "Return type is null for function " << node->id->name << std::endl;
-                    break;
-                }
-                // printf("\n%s", ((std::string)*return_type).c_str());
-                // TODO: GET RETURN TYPES HAHA
-            }
-            return_type = builder->getFloatTy(); // TEMP
+        if (node->return_type != nullptr) { 
+            return_type = getLLVMType(node->return_type->at(0));
+        } else {
+            return_type = getLLVMType(nullptr);
         }
 
-        std::vector<Type*> parameter_types;
         if (node->arguments == nullptr) {
             parameter_types = std::vector<Type*>(1, builder->getVoidTy());
         }
         else {
             parameter_types = std::vector<Type*>();
-            for(auto arg: *node->arguments) {
-                if (arg->ident->type == nullptr) {
-                    std::cerr << "Argument type is null for ";
-                    std::cerr << node->id->name << ":" << arg->ident->name << std::endl;
-                    return;
-                }
-                // TODO GET TYPE
-                Type* type = builder->getFloatTy();
+            for(NDeclarationStatement *arg: *node->arguments) {
+                NType* n_type = arg->ident->type;
+                Type* type = getLLVMType(n_type);
                 parameter_types.push_back(type);
             }
         }
 
         FunctionType* functionType = FunctionType::get(return_type, parameter_types, false);
         Function* function = Function::Create(functionType, GlobalValue::ExternalLinkage, name, module);
-        for(auto arg: *node->arguments) {
-            if (arg->ident->type == nullptr) {
-                std::cerr << "Argument type is null for ";
-                std::cerr << node->id->name << ":" << arg->ident->name << std::endl;
-                return;
-            }
-            // TODO NAME PARAMETERS
-            // function->getArg(0)->setName("a");
-        }
+        node->llvm_value = function;
+
+        auto entry = symtab_storage->symtab->lookup_or_throw(node->id->name, node->position.lineno + 1);
+        entry->value = function;
+
+        function->setCallingConv(llvm::CallingConv::C);
 
         BasicBlock* block = BasicBlock::Create(*context, name, function);
         this->builder->SetInsertPoint(block);
+        int i = 0;
+        // Name parameters
+        for(auto arg: *node->arguments) {
+            function->getArg(i)->setName(arg->ident->name);
+            llvm::Type *argtype = getLLVMType(arg->ident->type);
+            AllocaInst *alloca = this->builder->CreateAlloca(argtype, 0, arg->ident->name);
+            this->builder->CreateStore(function->getArg(i), alloca);
+            auto entry = symtab_storage->symtab->lookup_or_throw(arg->ident->name, arg->ident->position.lineno + 1, true);
+            entry->value = alloca;
+            arg->llvm_value = alloca;
+            i++;
+        }
+
         node->block->visit(this);
 
-        // if (node->arguments == nullptr) {
-        //     std::cerr << "Arguments are null for function " << node->id->name << std::endl;
-        //     return;
-        // }
-        // for(auto arg: *node->arguments) {
-        //     if (arg->type == nullptr) {
-        //         std::cerr << "Argument type is null for ";
-        //         std::cerr << node->id->name << ":" << arg->ident->name << std::endl;
-        //         return;
-        //     }
-        //     arg->type->visit(this);
-        // }
-        //
-        // symtab_storage->symtab->enter_scope();
-        // node->block->visit(this);
-        // symtab_storage->symtab->exit_scope();
-        //
-        // if (node->return_type == nullptr) {
-        //     std::cerr << "Return type is null for function " << node->id->name << std::endl;
-        //     return;
-        // }
-        // for (auto return_type : *node->return_type) {
-        //     if (return_type == nullptr) {
-        //         std::cerr << "Return type is null for function " << node->id->name << std::endl;
-        //         return;
-        //     }
-        //     return_type->visit(this);
-        // }
+        this->builder->SetInsertPoint(block_main);
+
+        symtab_storage->symtab->exit_scope();
     }
 
     virtual void visitNWhileStatement(NWhileStatement* node) {
@@ -2834,6 +2835,8 @@ class CodeGenVisitor : public SymtabVisitor {
         builder->SetInsertPoint(exit_block);
     }
 
+
+
     virtual void visitNNumericForStatement(NNumericForStatement* node) {
         llvm::Function* func = this->builder->GetInsertBlock()->getParent();
 
@@ -2899,6 +2902,7 @@ class CodeGenVisitor : public SymtabVisitor {
 
     virtual void visitNReturnStatement(NReturnStatement* node) {
         node->expression->visit(this);
+        node->llvm_value = node->expression->llvm_value;
     }
 
     virtual void visitNBlock(NBlock* node) {
@@ -2925,11 +2929,15 @@ class CodeGenVisitor : public SymtabVisitor {
             node->returnExpr->visit(this);
             return_expr_llvm = node->returnExpr->llvm_value;
         }
-
+        std::cout << "return_expr_llvm: " << return_expr_llvm << std::endl;
+        std::cout << "last_stmt_node: " << last_stmt_node << std::endl;
         if (return_expr_llvm != nullptr && dynamic_cast<NReturnStatement*>(last_stmt_node) != nullptr) {
             this->builder->CreateRet(return_expr_llvm);
         } else {
             if (node->returnExpr != nullptr && func->getName() == "main") {
+                this->builder->CreateRetVoid();
+            }
+            if (node->returnExpr == nullptr && func->getReturnType()->isVoidTy()) {
                 this->builder->CreateRetVoid();
             }
         }
@@ -2966,7 +2974,8 @@ class CodeGenVisitor : public SymtabVisitor {
         if (!is_function) {
             throw SemanticError("Cannot generate code for struct call yet", Position(-1, -1));
         }
-        auto func = function_type->llvm_value;
+        auto raw_func = node->expr->llvm_value;
+        auto func = static_cast<llvm::Function *>(raw_func);
         node->llvm_value = this->builder->CreateCall(func, args);
     }
     virtual void visitNType(NType* node) { return; }

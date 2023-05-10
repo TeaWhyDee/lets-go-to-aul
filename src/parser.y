@@ -192,8 +192,8 @@ expr : term
      | OP_LBRACE expr OP_RBRACE {$$ = $2;}
      | function_call
      | OP_LCURLY_BRACE table_constructor OP_RCURLY_BRACE { $$ = $2; }
-     | KW_TRUE { new NBool(true); }
-     | KW_FALSE { new NBool(false); }
+     | KW_TRUE { $$ = new NBool(true); }
+     | KW_FALSE { $$ = new NBool(false); }
     ;
 
 access_member : access_member OP_LSQUARE_BRACE expr OP_RSQUARE_BRACE { $$ = new NAccessKey($1, $3); }
