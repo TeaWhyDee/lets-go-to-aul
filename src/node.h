@@ -1672,9 +1672,11 @@ class TypeChecker : public SymtabVisitor {
         node->condition->visit(this);
         node->visit(this->prettyPrinter);
         checkConditionalExpression(node->condition);
+        symtab_storage->symtab->enter_scope();
         this->isInsideLoop += 1;
         node->block->visit(this);
         this->isInsideLoop -= 1;
+        symtab_storage->symtab->exit_scope();
         std::cout << ")" << std::endl;
     }
 
@@ -1684,9 +1686,11 @@ class TypeChecker : public SymtabVisitor {
         std::cout << "condition: ";
         node->condition->visit(this);
         checkConditionalExpression(node->condition);
+        symtab_storage->symtab->enter_scope();
         this->isInsideLoop += 1;
         node->block->visit(this);
         this->isInsideLoop -= 1;
+        symtab_storage->symtab->exit_scope();
         std::cout << ")" << std::endl;
     }
 
