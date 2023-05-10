@@ -1,12 +1,16 @@
 flex/lex.yy.c
 flex/a.out
 *.out
+*.o
+*.ll
 src/lex.cpp
 src/lex.yy.c
 src/parser.cpp
 src/parser
 src/parser.hpp
 src/bison
+src/builtin.*
+src/program
 .vscode
 parser.output
 parser.dSYM
@@ -20,3 +24,4 @@ codegen.bc
 codegen.ll
 a.out.dSYM/
 .DS_Store
+
