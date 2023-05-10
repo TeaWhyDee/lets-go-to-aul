@@ -1,4 +1,4 @@
-function p(a: num, b: num) -> num
+function p(a: num, b: str) -> bool
 end
 
 p()
