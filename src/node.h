@@ -373,8 +373,13 @@ class NBlock : public Node {
 class NIdentifier : public NExpression {
    public:
     std::string name;
-    NIdentifier(const std::string* name, Position position) : name(*name) { this->position = position; }
+    int idx = 0;
+    NIdentifier(const std::string *name, Position position) : name(*name) { this->position = position; }
     NIdentifier(const std::string name, NType *type) : name(name) { this->type = type; }
+    NIdentifier(const std::string name, NType *type, Position position) : name(name) {
+        this->type = type;
+        this->position = position;
+    }
     NIdentifier(NType* type) : name("") { this->type = type; }
 
     static IdentifierList* fromTypeList(typeList* types) {
@@ -694,8 +699,9 @@ class NDeclarationStatement : public NStatement {
         : ident(ident), expression(expression) { this->position = position; }
 
     NDeclarationStatement(NIdentifier* ident, NType* type, Position position)
-        : ident(ident), expression(nullptr), position(position) {
+        : ident(ident), expression(nullptr) {
         this->ident->type = type;
+        this->position = position;
     }
 
     NDeclarationStatement(
@@ -1625,7 +1631,7 @@ class TypeChecker : public SymtabVisitor {
         std::cout << "ExpressionCall(";
         node->visit(this->prettyPrinter);
         if (node->expr == nullptr) {
-            throw SemanticError("Expression is not defined", Position(-1, -1));
+            throw SemanticError("Expression is not defined", node->position);
             // std::cout << "TypeError: expression is not defined";
             // std::cout << ")" << std::endl;
             // return;
@@ -2002,12 +2008,12 @@ class TypeChecker : public SymtabVisitor {
                 auto identifier = dynamic_cast<NIdentifier*>(node->indexExpr);
                 auto struct_ident = dynamic_cast<NIdentifier*>(node->expr);
                 if (struct_ident == nullptr) {
-                    throw SemanticError("Expect identifier for left part of access key", Position(-1, -1));
+                    throw SemanticError("Expect identifier for left part of access key", node->position);
                 }
                 auto struct_entry = symtab_storage->symtab->lookup_or_throw(struct_ident->name, struct_ident->position.lineno);
                 auto structType = dynamic_cast<NStructType *>(struct_entry->type);
                 if (structType == nullptr) {
-                    throw SemanticError("Got entry which type is not a struct but " + std::string(typeid(struct_entry->type).name()), Position(-1, -1));
+                    throw SemanticError("Got entry which type is not a struct but " + std::string(typeid(struct_entry->type).name()), node->position);
                 }
                 if (identifier == nullptr) {
                     std::cout << "TypeError: identifier is not correct";
@@ -2018,7 +2024,11 @@ class TypeChecker : public SymtabVisitor {
                 for (auto field : *structType->fields) {
                     if (field->name == identifier->name) {
                         node->indexExpr->type = field->type;
+                        auto struct_symtab = structType->symtab;
+                        auto prev_symtab = symtab_storage->symtab;
+                        symtab_storage->symtab = struct_symtab;
                         node->indexExpr->visit(this);
+                        symtab_storage->symtab = prev_symtab;
                         node->type = node->indexExpr->type;
                         std::cout << "Type approved, identifier type: ";
                         identifier->type->visit(this->prettyPrinter);
@@ -2026,7 +2036,7 @@ class TypeChecker : public SymtabVisitor {
                         return;
                     }
                 }
-                throw SemanticError("Cannot find field" + identifier->name, Position(-1, -1));
+                throw SemanticError("Cannot find field " + identifier->name, node->position);
             }
             else {
                 std::cout << "TypeError: indexExpr is not a function call or identifier";
@@ -2579,6 +2589,7 @@ class CodeGenVisitor : public SymtabVisitor {
     std::stack<llvm::BasicBlock *> loopBlocks;
     llvm::BasicBlock *block_main;
     SymbolTableEntry *current_struct = nullptr;
+    bool load_required_flag = true;
 
     CodeGenVisitor() {
         this->name = "Code Generation Visitor";
@@ -2641,12 +2652,18 @@ class CodeGenVisitor : public SymtabVisitor {
         bool is_function = dynamic_cast<NFunctionType *>(entry->type) != nullptr;
         bool is_struct = dynamic_cast<NStructType *>(entry->type) != nullptr;
 
-        return not is_function and not is_struct;
+        return not is_function and not is_struct and this->load_required_flag;
     }
 
     virtual void visitNIdentifier(NIdentifier* node) {
         auto entry = symtab_storage->symtab->lookup_or_throw(node->name, node->position.lineno + 1);
+        if (entry->value == nullptr) {
+          node->type->visit(this);
+          AllocaInst *alloca = this->builder->CreateAlloca(node->type->llvm_value, 0, node->name);
+          entry->value = alloca;
+        }
         node->llvm_value = entry->value;
+
         if (this->load_required(entry)) {
             node->llvm_value = this->builder->CreateLoad(static_cast<AllocaInst *>(entry->value)->getAllocatedType(), entry->value);
         }
@@ -2970,16 +2987,9 @@ class CodeGenVisitor : public SymtabVisitor {
     }
 
     virtual void visitNDeclarationStatement(NDeclarationStatement* node) {
-        node->expression->visit(this);
-        if (node->expression->llvm_value == nullptr) {
-            throw SemanticError("Expression value is null", node->position);
-        }
-        auto entry = symtab_storage->symtab->lookup_or_throw(node->ident->name, node->position.lineno + 1);
-        if (entry->value == nullptr) {
-            AllocaInst *alloca = this->builder->CreateAlloca(node->expression->llvm_value->getType(), 0, node->ident->name);
-            entry->value = alloca;
-        }
-        node->llvm_value = this->builder->CreateStore(node->expression->llvm_value, entry->value);
+        auto assignment = new NAssignmentStatement(node->ident, node->ident->type, node->expression, node->position);
+        this->visitNAssignmentStatement(assignment);
+        node->llvm_value = assignment->llvm_value;
     }
 
     virtual void visitNReturnStatement(NReturnStatement* node) {
@@ -3036,9 +3046,12 @@ class CodeGenVisitor : public SymtabVisitor {
     virtual void visitNStructDeclaration(NStructDeclaration* node) {
         symtab_storage->symtab->enter_scope();
         std::vector<llvm::Type *> field_types = {};
+        int i = 0;
         for (auto field : node->fields) {
             field->ident->type->visit(this);
+            field->ident->idx = i;
             field_types.push_back(field->ident->type->llvm_value);
+            i++;
         }
         llvm::StructType *struct_def = llvm::StructType::create(*this->context, field_types, node->id->name);
         auto entry = symtab_storage->symtab->lookup_or_throw(node->id->name, node->position.lineno + 1);
@@ -3070,16 +3083,15 @@ class CodeGenVisitor : public SymtabVisitor {
         if (struct_type != nullptr) {
             auto entry = struct_type->symtab->lookup_or_throw("new", 100 + 1);
             llvm::StructType *llvm_struct = static_cast<llvm::StructType *>(struct_type->llvm_value);
-            auto alloca = this->builder->CreateAlloca(llvm_struct);
-            args.insert(args.begin(), alloca);
+            args.insert(args.begin(), node->expr->llvm_value);
 
             llvm::Function *func = static_cast<llvm::Function*>(entry->value);
             this->builder->CreateCall(func, args);
 
-            node->llvm_value = alloca;
+            node->llvm_value = node->expr->llvm_value;
             return;
         }
-        throw SemanticError("Cannot generate code for such expression call yet", Position(-1, -1));
+        throw SemanticError("Cannot generate code for such expression call yet", node->position);
     }
     virtual void visitNType(NType* node) { return; }
     virtual void visitNStringType(NStringType* node) { 
@@ -3099,21 +3111,49 @@ class CodeGenVisitor : public SymtabVisitor {
     virtual void visitNStructType(NStructType* node) { node->llvm_value = this->current_struct->type->llvm_value; }
     virtual void visitNAnyType(NAnyType *node) {}
     virtual void visitNAccessKey(NAccessKey* node) {
+        NIdentifier *struct_ident = dynamic_cast<NIdentifier *>(node->expr);
         NStructType *struct_type = dynamic_cast<NStructType *>(node->expr->type);
-        if (struct_type != nullptr) {
-            NIdentifier *ident = dynamic_cast<NIdentifier *>(node->key);
+        if (struct_ident != nullptr and struct_type != nullptr) {
+            node->expr->visit(this);
+
+            NIdentifier *ident = dynamic_cast<NIdentifier *>(node->indexExpr);
+            auto prev_symtab = symtab_storage->symtab;
+            symtab_storage->symtab = struct_type->symtab;
+            node->indexExpr->visit(this);
+            symtab_storage->symtab = prev_symtab;
+
             if (ident == nullptr) {
-                throw SemanticError("Cannot generate code for such access key yet", node);
+                throw SemanticError("Cannot generate code for such access key yet", node->position);
             }
-            auto entry = struct_type->symtab->lookup_or_throw(node->indexExpr, node->key->position.lineno + 1);
+            std::cout << "idx " << ident->idx << std::endl;
             auto struct_llvm = static_cast<llvm::StructType *>(struct_type->llvm_value);
-            auto struct_ptr = this->builder->CreateLoad(struct_llvm->getPointerTo(), node->expr->llvm_value);
-            auto gep = this->builder->CreateStructGEP(struct_llvm, struct_ptr, entry->index);
-            node->llvm_value = this->builder->CreateLoad(gep);
+            auto gep = this->builder->CreateStructGEP(struct_llvm, struct_ident->llvm_value, ident->idx);
+            if (this->load_required_flag) {
+                gep = this->builder->CreateLoad(node->indexExpr->llvm_value->getType(), gep);
+            }
+            node->llvm_value = gep;
             return;
         }
+
+        throw SemanticError("Cannot generate code for such access key yet", node->position);
     }
-    virtual void visitNAssignmentStatement(NAssignmentStatement* node) {}
+    virtual void visitNAssignmentStatement(NAssignmentStatement* node) {
+        bool prev_load_required = this->load_required_flag;
+        this->load_required_flag = false;
+        node->ident->visit(this);
+        this->load_required_flag = prev_load_required;
+
+        if (node->ident->llvm_value == nullptr) {
+            throw SemanticError("Identifier value is null", node->position);
+        }
+
+        node->expression->visit(this);
+        if (node->expression->llvm_value == nullptr) {
+            throw SemanticError("Expression value is null", node->position);
+        }
+
+        this->builder->CreateStore(node->expression->llvm_value, node->ident->llvm_value);
+    }
     virtual void cleanup() {
         std::string err;
         if (verifyModule(*this->module, new raw_string_ostream(err))) {

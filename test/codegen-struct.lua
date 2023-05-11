@@ -8,6 +8,7 @@ struct A
 end
 
 p1 = A(1)
+printf("p1.x = %f\n", p1.x)
 -- struct Point
 --     x: num
 --     y: num
