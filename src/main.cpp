@@ -26,7 +26,12 @@ int main(int argc, char** argv) {
         }
     } catch (SemanticError* e) {
         std::cout << "Semantic error: " << e->what() << std::endl;
+        std::exit(1);
+    } catch (SemanticError e) {
+        std::cout << "Semantic error: " << e.what() << std::endl;
+        std::exit(1);
     }
+
 
     auto visitor = new CodeGenVisitor();
     programBlock->returnExpr = new NNil();

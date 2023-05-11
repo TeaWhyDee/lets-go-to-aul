@@ -170,6 +170,7 @@ class SymbolTable {
     std::vector<SymbolTable*> children;
     std::vector<SymbolTableEntry*> entries;
     bool check_parent = true;
+    SymbolTableEntry* corresponding_struct = nullptr;
 
     virtual SymbolTableEntry* lookup_here(std::string name, int above_lineno) = 0;
     virtual SymbolTableEntry* lookup(std::string name, int above_lineno, bool check_parent = false) = 0;
@@ -372,8 +373,13 @@ class NBlock : public Node {
 class NIdentifier : public NExpression {
    public:
     std::string name;
-    NIdentifier(const std::string* name, Position position) : name(*name) { this->position = position; }
+    int idx = 0;
+    NIdentifier(const std::string *name, Position position) : name(*name) { this->position = position; }
     NIdentifier(const std::string name, NType *type) : name(name) { this->type = type; }
+    NIdentifier(const std::string name, NType *type, Position position) : name(name) {
+        this->type = type;
+        this->position = position;
+    }
     NIdentifier(NType* type) : name("") { this->type = type; }
 
     static IdentifierList* fromTypeList(typeList* types) {
@@ -388,8 +394,10 @@ class NIdentifier : public NExpression {
 };
 
 class NType : public Node {
-   public:
-    virtual void visit(Visitor* v) {
+public:
+    llvm::Type *llvm_value;
+    virtual void visit(Visitor *v)
+    {
         v->visitNType(this);
     }
 
@@ -506,7 +514,8 @@ class NStructType : public NType {
     NIdentifier* name;
     IdentifierList* fields;
     IdentifierList* methods;
-    NStructType(NIdentifier* name, IdentifierList* fields, IdentifierList* methods) : name(name), fields(fields), methods(methods) {}
+    SymbolTable *symtab;
+    NStructType(NIdentifier *name, IdentifierList *fields, IdentifierList *methods) : name(name), fields(fields), methods(methods) {}
 
     NStructType(NIdentifier* name) : name(name), fields(nullptr), methods(nullptr) {}
 
@@ -688,6 +697,12 @@ class NDeclarationStatement : public NStatement {
     NExpression* expression;
     NDeclarationStatement(NIdentifier* ident, NExpression* expression, Position position)
         : ident(ident), expression(expression) { this->position = position; }
+
+    NDeclarationStatement(NIdentifier* ident, NType* type, Position position)
+        : ident(ident), expression(nullptr) {
+        this->ident->type = type;
+        this->position = position;
+    }
 
     NDeclarationStatement(
         NIdentifier* ident,
@@ -1161,7 +1176,29 @@ class PrettyPrintVisitor : public Visitor {
         // TODO: print struct type
         std::cout << "NStructType(";
         std::cout << "name=" << node->name << ",";
-        std::cout << "type=" << node->name->type << ")";
+        std::cout << "fields=[";
+        if (node->fields == nullptr) {
+            std::cout << "nullptr";
+        } else {
+            std::cout << "\n";
+            for (auto field : *node->fields)
+            {
+                field->visit(this);
+            }
+        }
+        std::cout << "], methods=[";
+        if (node->methods == nullptr)
+        {
+            std::cout << "nullptr";
+        } else {
+            std::cout << "\n";
+            for (auto method: *node->methods) {
+                method->visit(this);
+            }
+        }
+        std::cout << "]";
+
+        std::cout << "]);\n";
     }
     virtual void cleanup() {}
 
@@ -1320,6 +1357,11 @@ class TypeChecker : public SymtabVisitor {
                 std::cout << "TypeError: type and expression not specified, cannot be deduced(no expression)";
                 throw SemanticError("Type of '" + node->ident->name + "' cannot be deduced, expression and type not specified", node->position);
             } else {
+                NStructType *struct_type = dynamic_cast<NStructType *>(node->ident->type);
+                if (struct_type) {
+                    auto entry = symtab_storage->symtab->lookup_or_throw(struct_type->name->name, node->position.lineno + 1, true);
+                    node->ident->type = entry->type;
+                }
                 std::cout << " type: ";
                 node->ident->type->visit(this->prettyPrinter);
             }
@@ -1386,7 +1428,7 @@ class TypeChecker : public SymtabVisitor {
         std::cout << "Identifier(";
         node->visit(this->prettyPrinter);
         std::cout << ",";
-        SymbolTableEntry* entry = symtab_storage->symtab->lookup_or_throw(node->name, node->position.lineno, true);
+        SymbolTableEntry* entry = symtab_storage->symtab->lookup_or_throw(node->name, node->position.lineno + 1, true);
         if (entry == nullptr) {
             throw SemanticError("TypeError: identifier " + node->name + " not defined", node->position);
         }
@@ -1582,13 +1624,14 @@ class TypeChecker : public SymtabVisitor {
     }
 
     virtual void visitStructCall(NExpressionCall* node) {
+        std::cout << "FIXME: StructCall()" << std::endl;
     }
 
     virtual void visitNExpressionCall(NExpressionCall* node) {
         std::cout << "ExpressionCall(";
         node->visit(this->prettyPrinter);
         if (node->expr == nullptr) {
-            throw SemanticError("Expression is not defined", Position(-1, -1));
+            throw SemanticError("Expression is not defined", node->position);
             // std::cout << "TypeError: expression is not defined";
             // std::cout << ")" << std::endl;
             // return;
@@ -1871,9 +1914,10 @@ class TypeChecker : public SymtabVisitor {
 
     virtual void visitNFunctionDeclaration(NFunctionDeclaration* node) {
         this->isInsideFunction = true;
-        std::cout << "FunctionDeclaration(";
-        node->visit(this->prettyPrinter);
         // create a function type for the function
+        for (auto arg: *node->arguments) {
+            arg->visit(this);
+        }
         auto arglist = NDeclarationStatement::toIdentifierList(node->arguments);
         node->id->type = new NFunctionType(arglist, node->return_type);
         // set the return type of the function for the return statement check
@@ -1882,6 +1926,7 @@ class TypeChecker : public SymtabVisitor {
         } else {
             this->functionReturnType = nullptr;
         }
+        node->visit(this->prettyPrinter);
         symtab_storage->symtab->enter_scope();
         node->block->visit(this);
         symtab_storage->symtab->exit_scope();
@@ -1961,24 +2006,39 @@ class TypeChecker : public SymtabVisitor {
                 }
             } else if (dynamic_cast<NIdentifier*>(node->indexExpr) != nullptr) {
                 auto identifier = dynamic_cast<NIdentifier*>(node->indexExpr);
+                auto struct_ident = dynamic_cast<NIdentifier*>(node->expr);
+                if (struct_ident == nullptr) {
+                    throw SemanticError("Expect identifier for left part of access key", node->position);
+                }
+                auto struct_entry = symtab_storage->symtab->lookup_or_throw(struct_ident->name, struct_ident->position.lineno);
+                auto structType = dynamic_cast<NStructType *>(struct_entry->type);
+                if (structType == nullptr) {
+                    throw SemanticError("Got entry which type is not a struct but " + std::string(typeid(struct_entry->type).name()), node->position);
+                }
                 if (identifier == nullptr) {
                     std::cout << "TypeError: identifier is not correct";
                     std::cout << ")" << std::endl;
                     throw SemanticError("TypeError: identifier is not correct", node->indexExpr->position);
                     return;
                 }
-
                 for (auto field : *structType->fields) {
                     if (field->name == identifier->name) {
                         node->indexExpr->type = field->type;
+                        auto struct_symtab = structType->symtab;
+                        auto prev_symtab = symtab_storage->symtab;
+                        symtab_storage->symtab = struct_symtab;
                         node->indexExpr->visit(this);
+                        symtab_storage->symtab = prev_symtab;
+                        node->type = node->indexExpr->type;
                         std::cout << "Type approved, identifier type: ";
                         identifier->type->visit(this->prettyPrinter);
                         std::cout << ")" << std::endl;
                         return;
                     }
                 }
-            } else {
+                throw SemanticError("Cannot find field " + identifier->name, node->position);
+            }
+            else {
                 std::cout << "TypeError: indexExpr is not a function call or identifier";
                 std::cout << ")" << std::endl;
                 throw SemanticError("TypeError: Struct has no such field", node->indexExpr->position);
@@ -1991,9 +2051,9 @@ class TypeChecker : public SymtabVisitor {
     }
 
     virtual void visitNDoStatement(NDoStatement* node) {
-        symtab_storage->symtab->scope_started();
+        symtab_storage->symtab->enter_scope();
         node->block->visit(this);
-        symtab_storage->symtab->scope_ended();
+        symtab_storage->symtab->exit_scope();
     }
 
     virtual void visitNAssignmentStatement(NAssignmentStatement* node) {
@@ -2051,7 +2111,7 @@ class TypeChecker : public SymtabVisitor {
     virtual void visitNStructDeclaration(NStructDeclaration* node) {
         std::cout << "StructDeclaration(";
         node->visit(this->prettyPrinter);
-        symtab_storage->symtab->scope_started();
+        symtab_storage->symtab->enter_scope();
         for (auto method : node->methods)
         {
             method->visit(this);
@@ -2059,12 +2119,7 @@ class TypeChecker : public SymtabVisitor {
         for (auto field : node->fields) {
             field->visit(this);
         }
-        symtab_storage->symtab->scope_ended();
-        // make a struct type for the struct
-        auto fieldlist = NDeclarationStatement::toIdentifierList(&(node->fields));
-        auto methodlist = NFunctionDeclaration::toIdentifierList(&(node->methods));
-        auto struct_type = new NStructType(new NIdentifier(&node->id->name, node->position), fieldlist, methodlist);
-        node->id->type = struct_type;
+        symtab_storage->symtab->exit_scope();
         std::cout << ")" << std::endl;
     }
 
@@ -2139,18 +2194,29 @@ class SymbolTableFillerVisitor : public SymtabVisitor {
         if (node->return_type == nullptr) {
             node->return_type = new typeList({new NNilType()});
         }
+
+        auto args = node->arguments;
         auto type = new NFunctionType(
             NDeclarationStatement::toIdentifierList(node->arguments),
-            node->return_type);
+            node->return_type
+        );
         symtab_storage->symtab->declare(
             new SymbolTableEntry(node->id->name, type, Position(node->position)),
             true);
 
         symtab_storage->symtab->scope_started();
         for (auto arg : *node->arguments) {
+            // do not perform default visit, since function arguments
+            // may have the same name
+            auto struct_type = dynamic_cast<NStructType *>(arg->ident->type);
+            if (struct_type != nullptr) {
+                auto struct_entry = symtab_storage->symtab->lookup_or_throw(struct_type->name->name, node->position.lineno);
+                arg->ident->type = struct_entry->type;
+            }
             symtab_storage->symtab->declare(
-                new SymbolTableEntry(arg->ident->name, arg->ident->type, Position(node->position)),
-                false);
+            new SymbolTableEntry(arg->ident->name, arg->ident->type, Position(node->position)),
+            false
+            );
         }
 
         node->block->visit(this);
@@ -2205,7 +2271,7 @@ class SymbolTableFillerVisitor : public SymtabVisitor {
     }
 
     virtual void visitNDeclarationStatement(NDeclarationStatement* node) {
-        SymbolTableEntry* entry = new SymbolTableEntry(node->ident->name, nullptr, node->position);
+        SymbolTableEntry* entry = new SymbolTableEntry(node->ident->name, node->ident->type, node->position);
         symtab_storage->symtab->declare(entry, true);
     }
 
@@ -2232,16 +2298,49 @@ class SymbolTableFillerVisitor : public SymtabVisitor {
             method_idents->push_back(method_ident->id);
 
         auto type_entity = new NStructType(new NIdentifier(&node->id->name, node->position), field_idents, method_idents);
-        SymbolTableEntry* entry = new SymbolTableEntry(node->id->name, type_entity, node->position);
+        SymbolTableEntry *entry = new SymbolTableEntry(node->id->name, type_entity, node->position);
         symtab_storage->symtab->declare(entry, true);
 
         symtab_storage->symtab->scope_started();
+        symtab_storage->symtab->corresponding_struct = entry;
+        type_entity->symtab = symtab_storage->symtab;
         for (auto field : node->fields) {
             field->visit(this);
         }
+
+        bool has_constructor = false;
+
         for (auto method : node->methods) {
+            if (method->id->name == "new") {
+                has_constructor = true;
+
+                method->arguments->insert(method->arguments->begin(), new NDeclarationStatement(
+                    new NIdentifier("self", type_entity, method->id->position),
+                    type_entity,
+                    method->id->position
+                ));
+            }
+
             method->visit(this);
         }
+
+        if (!has_constructor) {
+            auto arguments = new std::vector<NDeclarationStatement *>({});
+            auto type = new NFunctionType(
+                NDeclarationStatement::toIdentifierList(arguments),
+                new typeList({type_entity})
+            );
+
+            auto constructor = new NFunctionDeclaration(
+                type->returnTypes,
+                new NIdentifier("new", type, node->position),
+                arguments,
+                new NBlock(StatementList()),
+                node->position);
+            node->methods.push_back(constructor);
+            constructor->visit(this);
+        }
+
         symtab_storage->symtab->scope_ended();
     }
     virtual void visitNExpressionCall(NExpressionCall* node) { return; }
@@ -2254,7 +2353,9 @@ class SymbolTableFillerVisitor : public SymtabVisitor {
     virtual void visitNFunctionType(NFunctionType* node) { return; }
     virtual void visitNStructType(NStructType* node) { return; }
     virtual void visitNAnyType(NAnyType *node) {}
-    virtual void visitNAccessKey(NAccessKey* node) {}
+    virtual void visitNAccessKey(NAccessKey* node) {
+
+    }
     virtual void visitNAssignmentStatement(NAssignmentStatement* node) {}
 };
 
@@ -2477,26 +2578,6 @@ public:
 
 class CodeGenVisitor : public SymtabVisitor {
    private:
-    llvm::Type *getLLVMType(NType *type) {
-        llvm::Type* return_type = builder->getVoidTy();
-
-        if (type == nullptr) {
-            return builder->getVoidTy();
-        }
-        if (typeid(*type) == typeid(NStringType)) {
-            return_type = LLVMTypes::str_type(context);
-        }
-        else if (typeid(*type) == typeid(NNumType)) {
-            return_type = LLVMTypes::num_type(context);
-        } else if (typeid(*type) == typeid(NBoolType)) {
-            return_type = LLVMTypes::bool_type(context);
-        // } else if (typeid(node->return_type) == typeid(NStringType)) {
-            // return_type = LLVMTypes::str_type(context);
-            // TODO: types
-        }
-
-        return return_type;
-    }
 
    public:
     llvm::LLVMContext* context;
@@ -2507,6 +2588,8 @@ class CodeGenVisitor : public SymtabVisitor {
     //  stack of loop blocks, used for break statements
     std::stack<llvm::BasicBlock *> loopBlocks;
     llvm::BasicBlock *block_main;
+    SymbolTableEntry *current_struct = nullptr;
+    bool load_required_flag = true;
 
     CodeGenVisitor() {
         this->name = "Code Generation Visitor";
@@ -2524,7 +2607,6 @@ class CodeGenVisitor : public SymtabVisitor {
         }
         entry->value = print;
         entry_type->llvm_value = print;
-        // Function *print = Function::Create(FunctionType::get(Type::getVoidTy(*context), false), GlobalValue::ExternalLinkage, "printf", module);
 
         this->main = func_main;
         block_main = BasicBlock::Create(*context, "entry", func_main);
@@ -2570,12 +2652,18 @@ class CodeGenVisitor : public SymtabVisitor {
         bool is_function = dynamic_cast<NFunctionType *>(entry->type) != nullptr;
         bool is_struct = dynamic_cast<NStructType *>(entry->type) != nullptr;
 
-        return not is_function and not is_struct;
+        return not is_function and not is_struct and this->load_required_flag;
     }
 
     virtual void visitNIdentifier(NIdentifier* node) {
         auto entry = symtab_storage->symtab->lookup_or_throw(node->name, node->position.lineno + 1);
+        if (entry->value == nullptr) {
+          node->type->visit(this);
+          AllocaInst *alloca = this->builder->CreateAlloca(node->type->llvm_value, 0, node->name);
+          entry->value = alloca;
+        }
         node->llvm_value = entry->value;
+
         if (this->load_required(entry)) {
             node->llvm_value = this->builder->CreateLoad(static_cast<AllocaInst *>(entry->value)->getAllocatedType(), entry->value);
         }
@@ -2661,22 +2749,16 @@ class CodeGenVisitor : public SymtabVisitor {
         llvm::Type* return_type;
         std::vector<Type*> parameter_types;
 
-        if (node->return_type != nullptr) { 
-            return_type = getLLVMType(node->return_type->at(0));
-        } else {
-            return_type = getLLVMType(nullptr);
-        }
-
-        if (node->arguments == nullptr) {
-            parameter_types = std::vector<Type*>(1, builder->getVoidTy());
-        }
-        else {
-            parameter_types = std::vector<Type*>();
-            for(NDeclarationStatement *arg: *node->arguments) {
-                NType* n_type = arg->ident->type;
-                Type* type = getLLVMType(n_type);
-                parameter_types.push_back(type);
+        node->return_type->at(0)->visit(this);
+        return_type = node->return_type->at(0)->llvm_value;
+        parameter_types = std::vector<Type*>();
+        for(NDeclarationStatement *arg: *node->arguments) {
+            arg->ident->type->visit(this);
+            auto llvm_value = arg->ident->type->llvm_value;
+            if (llvm_value->isStructTy()) {
+                llvm_value = llvm_value->getPointerTo();
             }
+            parameter_types.push_back(llvm_value);
         }
 
         FunctionType* functionType = FunctionType::get(return_type, parameter_types, false);
@@ -2685,6 +2767,7 @@ class CodeGenVisitor : public SymtabVisitor {
 
         auto entry = symtab_storage->symtab->lookup_or_throw(node->id->name, node->position.lineno + 1);
         entry->value = function;
+        entry->type->llvm_value = functionType;
 
         function->setCallingConv(llvm::CallingConv::C);
 
@@ -2694,7 +2777,8 @@ class CodeGenVisitor : public SymtabVisitor {
         // Name parameters
         for(auto arg: *node->arguments) {
             function->getArg(i)->setName(arg->ident->name);
-            llvm::Type *argtype = getLLVMType(arg->ident->type);
+            arg->ident->type->visit(this);
+            llvm::Type *argtype = arg->ident->type->llvm_value;
             AllocaInst *alloca = this->builder->CreateAlloca(argtype, 0, arg->ident->name);
             this->builder->CreateStore(function->getArg(i), alloca);
             auto entry = symtab_storage->symtab->lookup_or_throw(arg->ident->name, arg->ident->position.lineno + 1, true);
@@ -2704,6 +2788,7 @@ class CodeGenVisitor : public SymtabVisitor {
         }
 
         node->block->visit(this);
+        symtab_storage->symtab->exit_scope();
 
         this->builder->SetInsertPoint(block_main);
 
@@ -2902,16 +2987,9 @@ class CodeGenVisitor : public SymtabVisitor {
     }
 
     virtual void visitNDeclarationStatement(NDeclarationStatement* node) {
-        node->expression->visit(this);
-        if (node->expression->llvm_value == nullptr) {
-            throw SemanticError("Expression value is null", node->position);
-        }
-        auto entry = symtab_storage->symtab->lookup_or_throw(node->ident->name, node->position.lineno + 1);
-        if (entry->value == nullptr) {
-            AllocaInst *alloca = this->builder->CreateAlloca(node->expression->llvm_value->getType(), 0, node->ident->name);
-            entry->value = alloca;
-        }
-        node->llvm_value = this->builder->CreateStore(node->expression->llvm_value, entry->value);
+        auto assignment = new NAssignmentStatement(node->ident, node->ident->type, node->expression, node->position);
+        this->visitNAssignmentStatement(assignment);
+        node->llvm_value = assignment->llvm_value;
     }
 
     virtual void visitNReturnStatement(NReturnStatement* node) {
@@ -2967,10 +3045,20 @@ class CodeGenVisitor : public SymtabVisitor {
 
     virtual void visitNStructDeclaration(NStructDeclaration* node) {
         symtab_storage->symtab->enter_scope();
+        std::vector<llvm::Type *> field_types = {};
+        int i = 0;
         for (auto field : node->fields) {
-            field->visit(this);
+            field->ident->type->visit(this);
+            field->ident->idx = i;
+            field_types.push_back(field->ident->type->llvm_value);
+            i++;
         }
-        for(auto method : node->methods) {
+        llvm::StructType *struct_def = llvm::StructType::create(*this->context, field_types, node->id->name);
+        auto entry = symtab_storage->symtab->lookup_or_throw(node->id->name, node->position.lineno + 1);
+        entry->type->llvm_value = struct_def;
+        this->current_struct = entry;
+        for (auto method : node->methods)
+        {
             std::cout << "method " << method->id->name << std::endl;
             method->visit(this);
         }
@@ -2984,40 +3072,88 @@ class CodeGenVisitor : public SymtabVisitor {
             args.push_back(expr->llvm_value);
         }
         NFunctionType *function_type = dynamic_cast<NFunctionType *>(node->expr->type);
-        bool is_function = function_type != nullptr;
-        if (!is_function) {
-            throw SemanticError("Cannot generate code for struct call yet", Position(-1, -1));
+        if (function_type != nullptr) {
+            auto raw_func = node->expr->llvm_value;
+            auto func = static_cast<llvm::Function *>(raw_func);
+            node->llvm_value = this->builder->CreateCall(func, args);
+            return;
         }
-        auto raw_func = node->expr->llvm_value;
-        auto func = static_cast<llvm::Function *>(raw_func);
-        node->llvm_value = this->builder->CreateCall(func, args);
+
+        NStructType *struct_type = dynamic_cast<NStructType *>(node->expr->type);
+        if (struct_type != nullptr) {
+            auto entry = struct_type->symtab->lookup_or_throw("new", 100 + 1);
+            llvm::StructType *llvm_struct = static_cast<llvm::StructType *>(struct_type->llvm_value);
+            args.insert(args.begin(), node->expr->llvm_value);
+
+            llvm::Function *func = static_cast<llvm::Function*>(entry->value);
+            this->builder->CreateCall(func, args);
+
+            node->llvm_value = node->expr->llvm_value;
+            return;
+        }
+        throw SemanticError("Cannot generate code for such expression call yet", node->position);
     }
     virtual void visitNType(NType* node) { return; }
-    virtual void visitNStringType(NStringType* node) { return; }
-    virtual void visitNNumType(NNumType* node) { return; }
-    virtual void visitNBoolType(NBoolType* node) { return; }
-    virtual void visitNNilType(NNilType* node) { return; }
+    virtual void visitNStringType(NStringType* node) { 
+        node->llvm_value = LLVMTypes::str_type(context);
+    }
+    virtual void visitNNumType(NNumType *node) {
+        node->llvm_value = LLVMTypes::num_type(context);
+    }
+    virtual void visitNBoolType(NBoolType* node) { 
+        node->llvm_value = LLVMTypes::bool_type(context);
+    }
+    virtual void visitNNilType(NNilType* node) { 
+        node->llvm_value = builder->getVoidTy();
+    }
     virtual void visitNTableType(NTableType* node) { return; }
     virtual void visitNFunctionType(NFunctionType* node) { return; }
-    virtual void visitNStructType(NStructType* node) {
-        try {
-            auto entry = symtab_storage->symtab->lookup_or_throw(node->name->name, node->name->position.lineno);
-
-            if (typeid(entry->type) != typeid(NStructType *)) {
-                std::string type = "unknown";
-                if (entry->type != nullptr) {
-                    type = std::string(*entry->type);
-                }
-                throw new SemanticError("Type " + node->name->name + " is not a struct: " + type, node->name->position);
-            }
-
-        } catch(SemanticError *e) {
-            std::cout << e->what() << std::endl;
-        }
-    }
+    virtual void visitNStructType(NStructType* node) { node->llvm_value = this->current_struct->type->llvm_value; }
     virtual void visitNAnyType(NAnyType *node) {}
-    virtual void visitNAccessKey(NAccessKey* node) {}
-    virtual void visitNAssignmentStatement(NAssignmentStatement* node) {}
+    virtual void visitNAccessKey(NAccessKey* node) {
+        NIdentifier *struct_ident = dynamic_cast<NIdentifier *>(node->expr);
+        NStructType *struct_type = dynamic_cast<NStructType *>(node->expr->type);
+        if (struct_ident != nullptr and struct_type != nullptr) {
+            node->expr->visit(this);
+
+            NIdentifier *ident = dynamic_cast<NIdentifier *>(node->indexExpr);
+            auto prev_symtab = symtab_storage->symtab;
+            symtab_storage->symtab = struct_type->symtab;
+            node->indexExpr->visit(this);
+            symtab_storage->symtab = prev_symtab;
+
+            if (ident == nullptr) {
+                throw SemanticError("Cannot generate code for such access key yet", node->position);
+            }
+            std::cout << "idx " << ident->idx << std::endl;
+            auto struct_llvm = static_cast<llvm::StructType *>(struct_type->llvm_value);
+            auto gep = this->builder->CreateStructGEP(struct_llvm, struct_ident->llvm_value, ident->idx);
+            if (this->load_required_flag) {
+                gep = this->builder->CreateLoad(node->indexExpr->llvm_value->getType(), gep);
+            }
+            node->llvm_value = gep;
+            return;
+        }
+
+        throw SemanticError("Cannot generate code for such access key yet", node->position);
+    }
+    virtual void visitNAssignmentStatement(NAssignmentStatement* node) {
+        bool prev_load_required = this->load_required_flag;
+        this->load_required_flag = false;
+        node->ident->visit(this);
+        this->load_required_flag = prev_load_required;
+
+        if (node->ident->llvm_value == nullptr) {
+            throw SemanticError("Identifier value is null", node->position);
+        }
+
+        node->expression->visit(this);
+        if (node->expression->llvm_value == nullptr) {
+            throw SemanticError("Expression value is null", node->position);
+        }
+
+        this->builder->CreateStore(node->expression->llvm_value, node->ident->llvm_value);
+    }
     virtual void cleanup() {
         std::string err;
         if (verifyModule(*this->module, new raw_string_ostream(err))) {

@@ -1,13 +1,22 @@
-struct Point
+struct A
     x: num
-    y: num
-
-    function dist(p: Point) -> num
-        return (p.x - self.x) + (p.y - self.y)
+    new(x: num)
+        printf("Before assignment: %f %f\n", x, self.x)
+        self.x = x
+        printf("After assignment: %f %f\n", x, self.x)
     end
 end
 
-p1 = Point(1, 1)
+p1 = A(1)
+printf("p1.x = %f\n", p1.x)
+-- struct Point
+--     x: num
+--     y: num
+-- 
+--     function dist(p: Point) -> num
+--         return (p.x - self.x) + (p.y - self.y)
+--     end
+-- end
 -- p2 = Point(3, 3)
 -- 
 -- printf("%f\n", p1.dist(p2))
