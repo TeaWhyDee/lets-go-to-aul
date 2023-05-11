@@ -114,7 +114,7 @@ std::string errortext = std::string();
     ([^\]])*       {ADD_STR}
     .              {ADD_STR}
 }
---.+           {}
+--.*           {}
 
 [ \t]+
 [\"\']              { NEW_STR; str_init=yytext; BEGIN(STRING); }
