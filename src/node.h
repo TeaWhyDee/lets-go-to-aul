@@ -1483,13 +1483,6 @@ class TypeChecker : public SymtabVisitor {
         std::cout << "UnaryOperatorExpression(";
         node->visit(this->prettyPrinter);
         node->rhs->visit(this);
-        if (node->rhs->type != nullptr) {
-            node->type = new NBoolType();
-        } else {
-            std::cout << "TypeError: type mismatch, rhs type is not defined)" << std::endl;
-            throw SemanticError("Unary operator type mismatch", node->position);
-            return;
-        }
 
         // possible operators for num:
         auto num_allowed_ops = std::vector<UnOpType>{UnOpType::MINUS};
@@ -1503,12 +1496,18 @@ class TypeChecker : public SymtabVisitor {
                 throw SemanticError("Unary operator: operator not allowed for type num", node->position);
                 return;
             }
+            else {
+                node->type = new NNumType();
+            }
         } else if (dynamic_cast<NBoolType*>(node->rhs->type) != nullptr) {
             // check if the operator is in the list of possible operators
             if (std::find(bool_allowed_ops.begin(), bool_allowed_ops.end(), node->op) == bool_allowed_ops.end()) {
                 std::cout << "TypeError: operator " << node->op << " is not allowed for type bool" << std::endl;
                 throw SemanticError("Unary operator: operator not allowed for type bool", node->position);
                 return;
+            }
+            else {
+                node->type = new NBoolType();
             }
         } else {
             std::cout << "TypeError: operator " << node->op << " is not allowed for type " << node->rhs->type << std::endl;
