@@ -2632,6 +2632,14 @@ class CodeGenVisitor : public SymtabVisitor {
 
     virtual void visitNUnaryOperatorExpression(NUnaryOperatorExpression* node) {
         node->rhs->visit(this);
+        switch (node->op) {
+            case UnOpType::MINUS:
+                node->llvm_value = this->builder->CreateFNeg(node->rhs->llvm_value);
+                break;
+            case UnOpType::NOT:
+                node->llvm_value = this->builder->CreateNot(node->rhs->llvm_value);
+                break;
+        }
         // Value *OperandV = node->rhs->llvm_value;
         // Function *func = Function::Create(std::string("unary") + std::to_string(node->op));
         // node->llvm_value = this->builder->CreateCall(func, OperandV, "unop");
