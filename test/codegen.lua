@@ -94,3 +94,19 @@ printf("Values of a: %s'\n", a)
 --   end
 -- end
 -- printf("For with break finished\n")
+
+
+-- Below is not working yet (with all code of the above, but works by itself)
+-- check for fibonacci
+-- function fib(n: num) -> num
+--     if n < 2 then
+--         return n
+--     else
+--         return fib(n - 1) + fib(n - 2)
+--     end
+--     return 0
+-- end
+--
+-- result = fib(5)
+--
+-- printf("fib(5) = %.3f, expected(5)\n", result)

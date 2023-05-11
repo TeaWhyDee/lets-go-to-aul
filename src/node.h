@@ -2714,7 +2714,7 @@ class CodeGenVisitor : public SymtabVisitor {
     //     auto entry = symtab_storage->symtab->lookup_or_throw(node->name, node->position.lineno + 1);
     //     node->llvm_value = entry->value;
     //     if (this->load_required(entry)) {
-    //         node->llvm_value = this->builder->CreateLoad(static_cast<AllocaInst *>(entry->value)->getAllocatedType(), entry->value);
+    //         node->llvm_value = this->builder->CreateLoad(static_cast<AllocaInst *>(entry->value)->getAllocatedType(), entry->value, "ident");
     //     }
     // }
 
@@ -2737,11 +2737,11 @@ class CodeGenVisitor : public SymtabVisitor {
         if (this->load_required(entry)) {
             // if (builder->GetInsertBlock() == block_main){
                 node->llvm_value = this->builder->CreateLoad(
-                    entry->type->llvm_value, entry->value);
+                    entry->type->llvm_value, entry->value, "load");
             // }
             // else {
             //     node->llvm_value = this->builder->CreateLoad(
-            //         static_cast<AllocaInst *>(entry->value)->getAllocatedType(), entry->value);
+            //         static_cast<AllocaInst *>(entry->value)->getAllocatedType(), entry->value, "load");
             // }
         } else {
             node->llvm_value = entry->value;
@@ -2753,19 +2753,19 @@ class CodeGenVisitor : public SymtabVisitor {
         node->rhs->visit(this);
         switch (node->op) {
             case BinOpType::ADD:
-                node->llvm_value = this->builder->CreateFAdd(node->lhs->llvm_value, node->rhs->llvm_value);
+                node->llvm_value = this->builder->CreateFAdd(node->lhs->llvm_value, node->rhs->llvm_value, "add");
                 break;
             case BinOpType::SUBSTRACT:
-                node->llvm_value = this->builder->CreateFSub(node->lhs->llvm_value, node->rhs->llvm_value);
+                node->llvm_value = this->builder->CreateFSub(node->lhs->llvm_value, node->rhs->llvm_value, "sub");
                 break;
             case BinOpType::MULTIPLY:
-                node->llvm_value = this->builder->CreateFMul(node->lhs->llvm_value, node->rhs->llvm_value);
+                node->llvm_value = this->builder->CreateFMul(node->lhs->llvm_value, node->rhs->llvm_value, "mul");
                 break;
             case BinOpType::DIVIDE:
-                node->llvm_value = this->builder->CreateSDiv(node->lhs->llvm_value, node->rhs->llvm_value);
+                node->llvm_value = this->builder->CreateSDiv(node->lhs->llvm_value, node->rhs->llvm_value, "div");
                 break;
             case BinOpType::MODULO:
-                node->llvm_value = this->builder->CreateSRem(node->lhs->llvm_value, node->rhs->llvm_value);
+                node->llvm_value = this->builder->CreateSRem(node->lhs->llvm_value, node->rhs->llvm_value, "mod");
                 break;
             case BinOpType::POWER:
                 node->llvm_value = builder->CreateCall(llvm::Intrinsic::getDeclaration(module,
@@ -2773,31 +2773,31 @@ class CodeGenVisitor : public SymtabVisitor {
                                                        node->lhs->llvm_value, node->rhs->llvm_value });
                 break;
             case BinOpType::EQUAL:
-                node->llvm_value = this->builder->CreateFCmpUEQ(node->lhs->llvm_value, node->rhs->llvm_value);
+                node->llvm_value = this->builder->CreateFCmpUEQ(node->lhs->llvm_value, node->rhs->llvm_value, "eq");
                 break;
             case BinOpType::NOT_EQUAL:
-                node->llvm_value = this->builder->CreateFCmpUNE(node->lhs->llvm_value, node->rhs->llvm_value);
+                node->llvm_value = this->builder->CreateFCmpUNE(node->lhs->llvm_value, node->rhs->llvm_value, "neq");
                 break;
             case BinOpType::LESS_THAN:
-                node->llvm_value = this->builder->CreateFCmpULT(node->lhs->llvm_value, node->rhs->llvm_value);
+                node->llvm_value = this->builder->CreateFCmpULT(node->lhs->llvm_value, node->rhs->llvm_value, "lt");
                 break;
             case BinOpType::LESS_THAN_OR_EQUAL:
-                node->llvm_value = this->builder->CreateFCmpULE(node->lhs->llvm_value, node->rhs->llvm_value);
+                node->llvm_value = this->builder->CreateFCmpULE(node->lhs->llvm_value, node->rhs->llvm_value, "le");
                 break;
             case BinOpType::GREATER_THAN:
-                node->llvm_value = this->builder->CreateFCmpUGT(node->lhs->llvm_value, node->rhs->llvm_value);
+                node->llvm_value = this->builder->CreateFCmpUGT(node->lhs->llvm_value, node->rhs->llvm_value, "gt");
                 break;
             case BinOpType::GREATER_THAN_OR_EQUAL:
-                node->llvm_value = this->builder->CreateFCmpUGE(node->lhs->llvm_value, node->rhs->llvm_value);
+                node->llvm_value = this->builder->CreateFCmpUGE(node->lhs->llvm_value, node->rhs->llvm_value, "ge");
                 break;
             case BinOpType::AND:
-                node->llvm_value = this->builder->CreateLogicalAnd(node->lhs->llvm_value, node->rhs->llvm_value);
+                node->llvm_value = this->builder->CreateLogicalAnd(node->lhs->llvm_value, node->rhs->llvm_value, "and");
                 break;
             case BinOpType::OR:
-                node->llvm_value = this->builder->CreateLogicalOr(node->lhs->llvm_value, node->rhs->llvm_value);
+                node->llvm_value = this->builder->CreateLogicalOr(node->lhs->llvm_value, node->rhs->llvm_value, "or");
                 break;
             case BinOpType::FLOOR_DIVIDE:
-                node->llvm_value = this->builder->CreateFDiv(node->lhs->llvm_value, node->rhs->llvm_value);
+                node->llvm_value = this->builder->CreateFDiv(node->lhs->llvm_value, node->rhs->llvm_value, "floor_div");
                 break;
             default:
                 throw SemanticError("Unknown binary operator", node->position);
@@ -2808,10 +2808,10 @@ class CodeGenVisitor : public SymtabVisitor {
         node->rhs->visit(this);
         switch (node->op) {
             case UnOpType::MINUS:
-                node->llvm_value = this->builder->CreateFNeg(node->rhs->llvm_value);
+                node->llvm_value = this->builder->CreateFNeg(node->rhs->llvm_value, "neg");
                 break;
             case UnOpType::NOT:
-                node->llvm_value = this->builder->CreateNot(node->rhs->llvm_value);
+                node->llvm_value = this->builder->CreateNot(node->rhs->llvm_value, "not");
                 break;
         }
     }
@@ -2856,7 +2856,7 @@ class CodeGenVisitor : public SymtabVisitor {
             arg->ident->type->visit(this);
             llvm::Type *argtype = arg->ident->type->llvm_value;
             AllocaInst *alloca = this->builder->CreateAlloca(argtype, 0, arg->ident->name);
-            this->builder->CreateStore(function->getArg(i), alloca);
+            this->builder->CreateStore(function->getArg(i), alloca, false);
             auto entry = symtab_storage->symtab->lookup_or_throw(arg->ident->name, arg->ident->position.lineno + 1, true);
             entry->value = alloca;
             arg->llvm_value = alloca;
@@ -3029,13 +3029,13 @@ class CodeGenVisitor : public SymtabVisitor {
             AllocaInst *alloca = this->builder->CreateAlloca(node->start->llvm_value->getType(), 0, node->id->name);
             entry->value = alloca;
         }
-        llvm::Value* loop_var = this->builder->CreateStore(node->start->llvm_value, entry->value);
+        llvm::Value* loop_var = this->builder->CreateStore(node->start->llvm_value, entry->value, false);
 
         // generate code for the condition block
         this->builder->CreateBr(conditionBlock);
         this->builder->SetInsertPoint(conditionBlock);
         node->id->visit(this);
-        auto cond = this->builder->CreateFCmpULE(node->id->llvm_value, node->end->llvm_value);
+        auto cond = this->builder->CreateFCmpULE(node->id->llvm_value, node->end->llvm_value, "for_cond");
         this->builder->CreateCondBr(cond, forBlock, afterBlock);
 
         // generate code for the for block
@@ -3043,8 +3043,8 @@ class CodeGenVisitor : public SymtabVisitor {
         node->block->visit(this);
         // generate code for the increment
         node->id->visit(this);
-        auto loop_var_inc = this->builder->CreateFAdd(node->id->llvm_value, node->step->llvm_value);
-        llvm::Value* loop_inc_var = this->builder->CreateStore(loop_var_inc, entry->value);
+        auto loop_var_inc = this->builder->CreateFAdd(node->id->llvm_value, node->step->llvm_value, "for_inc");
+        llvm::Value* loop_inc_var = this->builder->CreateStore(loop_var_inc, entry->value, false);
         // branch back to the condition block
         this->builder->CreateBr(conditionBlock);
         // generate code for the exit block
@@ -3070,7 +3070,7 @@ class CodeGenVisitor : public SymtabVisitor {
     //         AllocaInst *alloca = this->builder->CreateAlloca(node->expression->llvm_value->getType(), 0, node->ident->name);
     //         entry->value = alloca;
     //     }
-    //     node->llvm_value = this->builder->CreateStore(node->expression->llvm_value, entry->value);
+    //     node->llvm_value = this->builder->CreateStore(node->expression->llvm_value, entry->value, "crt_store");
     // }
 
     virtual void visitNDeclarationStatement(NDeclarationStatement* node) {
@@ -3162,7 +3162,7 @@ class CodeGenVisitor : public SymtabVisitor {
         if (function_type != nullptr) {
             auto raw_func = node->expr->llvm_value;
             auto func = static_cast<llvm::Function *>(raw_func);
-            node->llvm_value = this->builder->CreateCall(func, args);
+            node->llvm_value = this->builder->CreateCall(func, args, "calltmp");
             return;
         }
 
@@ -3174,7 +3174,7 @@ class CodeGenVisitor : public SymtabVisitor {
             args.insert(args.begin(), node->expr->llvm_value);
 
             llvm::Function *func = static_cast<llvm::Function*>(entry->value);
-            this->builder->CreateCall(func, args);
+            this->builder->CreateCall(func, args, "calltmp");
 
             node->llvm_value = node->expr->llvm_value;
             return;
@@ -3213,7 +3213,7 @@ class CodeGenVisitor : public SymtabVisitor {
             auto struct_llvm = static_cast<llvm::StructType *>(struct_type->llvm_value);
             auto gep = this->builder->CreateStructGEP(struct_llvm, struct_ident->llvm_value, ident->idx);
             if (this->load_required_flag) {
-                gep = this->builder->CreateLoad(node->indexExpr->type->llvm_value, gep);
+                gep = this->builder->CreateLoad(node->indexExpr->type->llvm_value, gep, "loadtmp");
             }
             node->llvm_value = gep;
             return;
@@ -3236,7 +3236,7 @@ class CodeGenVisitor : public SymtabVisitor {
             throw SemanticError("Identifier value is null", node->position);
         }
 
-        this->builder->CreateStore(node->expression->llvm_value, node->ident->llvm_value);
+        this->builder->CreateStore(node->expression->llvm_value, node->ident->llvm_value, "storetmp");
     }
     virtual void cleanup() {
         std::string err;
