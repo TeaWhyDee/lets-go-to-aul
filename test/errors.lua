@@ -9,6 +9,6 @@ a=3
 b1 = '1234
 '
 
-print()
+printf("run!")
 
-s
+s = =
