@@ -2723,7 +2723,7 @@ class CodeGenVisitor : public SymtabVisitor {
         node->type->visit(this);
         entry->type = node->type;
         if (entry->value == nullptr) {
-            if (builder->GetInsertBlock() == block_main){
+            if (this-builder->GetInsertBlock()->getParent().getName() == "main" and this->current_struct == nullptr) {
                 Type *ptype = node->type->llvm_value;
                 GlobalVariable *global_var = new GlobalVariable(*module, ptype, false, GlobalValue::InternalLinkage,
                                                                 getLLVMDefault(entry->type), node->name);
@@ -2847,8 +2847,9 @@ class CodeGenVisitor : public SymtabVisitor {
 
         function->setCallingConv(llvm::CallingConv::C);
 
-        BasicBlock* block = BasicBlock::Create(*context, name, function);
-        this->builder->SetInsertPoint(block);
+        BasicBlock* block_to_return_to = this->builder->GetInsertBlock();
+        BasicBlock* function_block = BasicBlock::Create(*context, name, function);
+        this->builder->SetInsertPoint(function_block);
         int i = 0;
         // Name parameters
         for(auto arg: *node->arguments) {
@@ -2866,7 +2867,7 @@ class CodeGenVisitor : public SymtabVisitor {
         node->block->visit(this);
         symtab_storage->symtab->exit_scope();
 
-        this->builder->SetInsertPoint(block_main);
+        this->builder->SetInsertPoint(block_to_return_to);
     }
 
     virtual void visitNWhileStatement(NWhileStatement* node) {
