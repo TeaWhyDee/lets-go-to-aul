@@ -22,14 +22,13 @@ parser:
 compile-and-run:
 	./parser < $(file)
 
-	clang++ -S -emit-llvm builtin.cpp -o builtin.ll
-
-	llvm-link -o program.ll codegen.ll builtin.ll
-
-	llc -filetype=obj program.ll -o program.o
-	clang++ program.o -o program
-
-	./program
+	# clang++ -S -emit-llvm builtin.cpp -o builtin.ll
+	# llvm-link -o program.ll codegen.ll builtin.ll
+	# llc -filetype=obj program.ll -o program.o
+	# clang++ program.o -o program
+	clang -S -emit-llvm builtin.cpp -o builtin.ll
+	clang++ codegen.ll builtin.ll
+	./a.out
 
 test: flex
 	cat ../test/*.aul | ./parser
