@@ -2596,7 +2596,12 @@ class CodeGenVisitor : public SymtabVisitor {
                 node->llvm_value = this->builder->CreateSRem(node->lhs->llvm_value, node->rhs->llvm_value);
                 break;
             case BinOpType::POWER:
-                //??
+                // node->llvm_value = this->builder->CreateFMul(node->lhs->llvm_value, node->rhs->llvm_value);
+                // llvm::Value* base = node->lhs->llvm_value;
+                // llvm::Value* exponent = node->rhs->llvm_value;
+                node->llvm_value = builder->CreateCall(llvm::Intrinsic::getDeclaration(module,
+                                                       llvm::Intrinsic::pow, {llvm::Type::getDoubleTy(*context)}), {
+                                                       node->lhs->llvm_value, node->rhs->llvm_value });
                 break;
             case BinOpType::EQUAL:
                 node->llvm_value = this->builder->CreateFCmpUEQ(node->lhs->llvm_value, node->rhs->llvm_value);
@@ -2640,9 +2645,6 @@ class CodeGenVisitor : public SymtabVisitor {
                 node->llvm_value = this->builder->CreateNot(node->rhs->llvm_value);
                 break;
         }
-        // Value *OperandV = node->rhs->llvm_value;
-        // Function *func = Function::Create(std::string("unary") + std::to_string(node->op));
-        // node->llvm_value = this->builder->CreateCall(func, OperandV, "unop");
     }
 
     virtual void visitNTableConstructor(NTableConstructor* node) {}
