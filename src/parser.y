@@ -240,6 +240,7 @@ exp : expr OP_PLUS expr  {$$ = new NBinaryOperatorExpression($1, BinOpType::ADD,
     | expr OP_MINUS expr {$$ = new NBinaryOperatorExpression($1, BinOpType::SUBSTRACT, $3, Position(@1.first_line, @1.first_column));}
     | expr OP_STAR expr {$$ = new NBinaryOperatorExpression($1, BinOpType::MULTIPLY, $3, Position(@1.first_line, @1.first_column));}
     | expr OP_SLASHSLASH expr {$$ = new NBinaryOperatorExpression($1, BinOpType::FLOOR_DIVIDE, $3, Position(@1.first_line, @1.first_column));}
+    | expr OP_DOTDOT expr {$$ = new NBinaryOperatorExpression($1, BinOpType::CONCAT, $3, Position(@1.first_line, @1.first_column));}
     | expr OP_SLASH expr {$$ = new NBinaryOperatorExpression($1, BinOpType::DIVIDE, $3, Position(@1.first_line, @1.first_column));}
     | expr OP_PERCENT expr {$$ = new NBinaryOperatorExpression($1, BinOpType::MODULO, $3, Position(@1.first_line, @1.first_column));}
     | expr OP_EQUALEQUAL expr {$$ = new NBinaryOperatorExpression($1, BinOpType::EQUAL, $3, Position(@1.first_line, @1.first_column));}
