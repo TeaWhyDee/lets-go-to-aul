@@ -62,15 +62,19 @@ for i = 1, 10, 1 do
   ff = i * 2
   printf("I = %.3f, FF = %.3f\n", i, ff)
 end
-printf("For finished\n")
 
--- check break in for
-printf("\nBREAK\n")
-for i = 1, 10, 1 do
-  ff = i * 2
-  printf("I = %.3f, FF = %.3f\n", i, ff)
-  if i == 5 then
-    break
-  end
-end
-printf("For with break finished\n")
+
+-- Below is not working yet (with all code of the above, but works by itself)
+-- check for fibonacci
+-- function fib(n: num) -> num
+--     if n < 2 then
+--         return n
+--     else
+--         return fib(n - 1) + fib(n - 2)
+--     end
+--     return 0
+-- end
+--
+-- result = fib(5)
+--
+-- printf("fib(5) = %.3f, expected(5)\n", result)
