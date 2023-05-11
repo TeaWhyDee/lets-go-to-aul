@@ -2663,7 +2663,6 @@ class CodeGenVisitor : public SymtabVisitor {
           entry->value = alloca;
         }
         node->llvm_value = entry->value;
-
         if (this->load_required(entry)) {
             node->llvm_value = this->builder->CreateLoad(static_cast<AllocaInst *>(entry->value)->getAllocatedType(), entry->value);
         }
@@ -2791,8 +2790,6 @@ class CodeGenVisitor : public SymtabVisitor {
         symtab_storage->symtab->exit_scope();
 
         this->builder->SetInsertPoint(block_main);
-
-        symtab_storage->symtab->exit_scope();
     }
 
     virtual void visitNWhileStatement(NWhileStatement* node) {
@@ -3044,7 +3041,6 @@ class CodeGenVisitor : public SymtabVisitor {
     virtual void visitNExpression(NExpression* node) {}
 
     virtual void visitNStructDeclaration(NStructDeclaration* node) {
-        symtab_storage->symtab->enter_scope();
         std::vector<llvm::Type *> field_types = {};
         int i = 0;
         for (auto field : node->fields) {
@@ -3059,10 +3055,11 @@ class CodeGenVisitor : public SymtabVisitor {
         this->current_struct = entry;
         for (auto method : node->methods)
         {
+            symtab_storage->symtab->enter_scope();
             std::cout << "method " << method->id->name << std::endl;
             method->visit(this);
+            symtab_storage->symtab->exit_scope();
         }
-        symtab_storage->symtab->exit_scope();
     }
     virtual void visitNExpressionCall(NExpressionCall* node) {
         node->expr->visit(this);
@@ -3083,6 +3080,7 @@ class CodeGenVisitor : public SymtabVisitor {
         if (struct_type != nullptr) {
             auto entry = struct_type->symtab->lookup_or_throw("new", 100 + 1);
             llvm::StructType *llvm_struct = static_cast<llvm::StructType *>(struct_type->llvm_value);
+            node->expr->llvm_value = this->builder->CreateAlloca(llvm_struct, 0, struct_type->name->name);
             args.insert(args.begin(), node->expr->llvm_value);
 
             llvm::Function *func = static_cast<llvm::Function*>(entry->value);
@@ -3117,19 +3115,15 @@ class CodeGenVisitor : public SymtabVisitor {
             node->expr->visit(this);
 
             NIdentifier *ident = dynamic_cast<NIdentifier *>(node->indexExpr);
-            auto prev_symtab = symtab_storage->symtab;
-            symtab_storage->symtab = struct_type->symtab;
-            node->indexExpr->visit(this);
-            symtab_storage->symtab = prev_symtab;
-
             if (ident == nullptr) {
                 throw SemanticError("Cannot generate code for such access key yet", node->position);
             }
             std::cout << "idx " << ident->idx << std::endl;
+            node->indexExpr->type->visit(this);
             auto struct_llvm = static_cast<llvm::StructType *>(struct_type->llvm_value);
             auto gep = this->builder->CreateStructGEP(struct_llvm, struct_ident->llvm_value, ident->idx);
             if (this->load_required_flag) {
-                gep = this->builder->CreateLoad(node->indexExpr->llvm_value->getType(), gep);
+                gep = this->builder->CreateLoad(node->indexExpr->type->llvm_value, gep);
             }
             node->llvm_value = gep;
             return;
@@ -3138,18 +3132,18 @@ class CodeGenVisitor : public SymtabVisitor {
         throw SemanticError("Cannot generate code for such access key yet", node->position);
     }
     virtual void visitNAssignmentStatement(NAssignmentStatement* node) {
+        node->expression->visit(this);
+
+        if (node->expression->llvm_value == nullptr) {
+            throw SemanticError("Expression value is null", node->position);
+        }
+
         bool prev_load_required = this->load_required_flag;
         this->load_required_flag = false;
         node->ident->visit(this);
         this->load_required_flag = prev_load_required;
-
         if (node->ident->llvm_value == nullptr) {
             throw SemanticError("Identifier value is null", node->position);
-        }
-
-        node->expression->visit(this);
-        if (node->expression->llvm_value == nullptr) {
-            throw SemanticError("Expression value is null", node->position);
         }
 
         this->builder->CreateStore(node->expression->llvm_value, node->ident->llvm_value);
