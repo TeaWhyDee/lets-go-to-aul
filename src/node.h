@@ -210,7 +210,6 @@ class SemanticError : public std::exception {
 
     SemanticError(const char* message, Position position) : position(position) {
         this->message = std::string(message);
-        this->position = position;
     }
 
     virtual const char* what() const throw() {
@@ -336,12 +335,19 @@ class Node {
 class NStatement : public Node {
 public:
     llvm::Value* llvm_value = nullptr;
+    Position position = Position(0, 0);
+
+    NStatement(Position position) : position(position) {}
+    NStatement() : position(Position(0, 0)) {}
 };
 
 class NExpression : public NStatement {
    public:
     NType* type = nullptr;
     virtual void visit(Visitor* v) { v->visitNExpression(this); }
+
+    NExpression(Position position) { this->position = position; }
+    NExpression() {}
 };
 
 class NBlock : public Node {
@@ -366,10 +372,9 @@ class NBlock : public Node {
 class NIdentifier : public NExpression {
    public:
     std::string name;
-    Position position;
-    NIdentifier(const std::string* name, Position position) : name(*name), position(position) {}
-    NIdentifier(const std::string name, NType *type) : name(name), position(Position(0, 0)) { this->type = type; }
-    NIdentifier(NType* type) : name(""), position(Position(0, 0)) { this->type = type; }
+    NIdentifier(const std::string* name, Position position) : name(*name) { this->position = position; }
+    NIdentifier(const std::string name, NType *type) : name(name) { this->type = type; }
+    NIdentifier(NType* type) : name("") { this->type = type; }
 
     static IdentifierList* fromTypeList(typeList* types) {
         IdentifierList* list = new IdentifierList();
@@ -518,7 +523,8 @@ class NStructType : public NType {
 class NNum : public NExpression {
    public:
     double value;
-    NNum(long double value) : value(value) { this->type = new NNumType(); }
+    NNum(long double value, Position position) : value(value) { this->type = new NNumType(); this->position = position; }
+    NNum(long double value) : value(value) {}
 
     virtual void visit(Visitor* v) { v->visitNNum(this); }
 };
@@ -541,7 +547,7 @@ class NBool : public NExpression {
 class NString : public NExpression {
    public:
     std::string& value;
-    NString(std::string& value) : value(value) { this->type = new NStringType(); }
+    NString(std::string& value, Position position) : value(value){ this->type = new NStringType(); this->position = position; }
 
     virtual void visit(Visitor* v) { v->visitNString(this); }
 };
@@ -563,7 +569,7 @@ class NUnaryOperatorExpression : public NExpression {
     UnOpType op;
     NExpression* rhs;
     Position position;
-    NUnaryOperatorExpression(UnOpType op, NExpression* rhs, Position position) : op(op), rhs(rhs), position(position) {}
+    NUnaryOperatorExpression(UnOpType op, NExpression* rhs, Position position) : op(op), rhs(rhs), position(position) { }
 
     virtual void visit(Visitor* v) { v->visitNUnaryOperatorExpression(this); }
 };
@@ -573,7 +579,9 @@ class NTableConstructor : public NExpression {
     // Two different ways to create a table
     std::vector<keyvalPair*> keyvalPairList;  // Either one of these
     ExpressionList expressionList;            // or both are nullptr!!
+    NTableConstructor(Position position) { this->position = position; }
     NTableConstructor() {}
+
 
     virtual void visit(Visitor* v) { v->visitNTableConstructor(this); }
 };
@@ -581,6 +589,7 @@ class NTableConstructor : public NExpression {
 class NBreakStatement : public NStatement {
    public:
     NBreakStatement() {}
+    NBreakStatement(Position position) { this->position = position; }
 
     virtual void visit(Visitor* v) { v->visitNBreakStatement(this); }
 };
@@ -589,8 +598,8 @@ class NWhileStatement : public NStatement {
    public:
     NExpression* condition;
     NBlock* block;
-    NWhileStatement(NExpression* condition, NBlock* block)
-        : condition(condition), block(block) {}
+    NWhileStatement(NExpression* condition, NBlock* block, Position position)
+        : condition(condition), block(block) { this->position = position; }
 
     virtual void visit(Visitor* v) { v->visitNWhileStatement(this); }
 };
@@ -599,8 +608,8 @@ class NRepeatUntilStatement : public NStatement {
    public:
     NExpression* condition;
     NBlock* block;
-    NRepeatUntilStatement(NExpression* condition, NBlock* block)
-        : condition(condition), block(block) {}
+    NRepeatUntilStatement(NExpression* condition, NBlock* block, Position position)
+        : condition(condition), block(block) { this->position = position; }
 
     virtual void visit(Visitor* v) { v->visitNRepeatUntilStatement(this); }
 };
@@ -608,7 +617,7 @@ class NRepeatUntilStatement : public NStatement {
 class NDoStatement : public NStatement {
    public:
     NBlock* block;
-    NDoStatement(NBlock* block) : block(block) {}
+    NDoStatement(NBlock* block, Position position) : block(block) { this->position = position; }
 
     virtual void visit(Visitor* v) { v->visitNDoStatement(this); }
 };
@@ -618,8 +627,8 @@ class NIfStatement : public NStatement {
     std::vector<conditionBlock*> conditionBlockList;
     NBlock* elseBlock;
     NIfStatement(std::vector<conditionBlock*> conditionBlockList,
-                 NBlock* elseBlock)
-        : conditionBlockList(conditionBlockList), elseBlock(elseBlock) {}
+                 NBlock* elseBlock, Position position)
+        : conditionBlockList(conditionBlockList), elseBlock(elseBlock) { this->position = position; }
 
     virtual void visit(Visitor* v) { v->visitNIfStatement(this); }
 };
@@ -632,8 +641,8 @@ class NNumericForStatement : public NStatement {
     NExpression* step;
     NBlock* block;
     NNumericForStatement(NIdentifier* id, NExpression* start, NExpression* end,
-                         NExpression* step, NBlock* block)
-        : id(id), start(start), end(end), step(step), block(block) {}
+                         NExpression* step, NBlock* block, Position position)
+        : id(id), start(start), end(end), step(step), block(block) { this->position = position; }
 
     virtual void visit(Visitor* v) { v->visitNNumericForStatement(this); }
 };
@@ -644,8 +653,8 @@ class NGenericForStatement : public NStatement {
     NExpression* expression;
     NBlock* block;
     NGenericForStatement(IdentifierList identifiers, NExpression* expression,
-                         NBlock* block)
-        : identifiers(identifiers), expression(expression), block(block) {}
+                         NBlock* block, Position position)
+        : identifiers(identifiers), expression(expression), block(block) { this->position = position; }
 
     virtual void visit(Visitor* v) { v->visitNGenericForStatement(this); }
 };
@@ -653,7 +662,7 @@ class NGenericForStatement : public NStatement {
 class NReturnStatement : public NStatement {
    public:
     NExpression* expression;
-    NReturnStatement(NExpression* expression) : expression(expression) {}
+    NReturnStatement(NExpression* expression, Position position) : expression(expression) { this->position = position; }
 
     virtual void visit(Visitor* v) { v->visitNReturnStatement(this); }
 };
@@ -663,10 +672,12 @@ class NAssignmentStatement : public NStatement {
     NExpression* ident;
     NType* type;
     NExpression* expression;
-    NAssignmentStatement(NExpression* ident, NExpression* expression)
-        : ident(ident), type(nullptr), expression(expression) { ident->type = type; }
 
-    NAssignmentStatement(NExpression* ident, NType* type, NExpression* expression) : ident(ident), type(type), expression(expression) { ident->type = type; }
+    NAssignmentStatement(NExpression* ident, NExpression* expression, Position position)
+        : ident(ident), type(nullptr), expression(expression) { ident->type = type; this->position = position; }
+
+    NAssignmentStatement(NExpression* ident, NType* type, NExpression* expression, Position position) 
+        : ident(ident), type(type), expression(expression) { ident->type = type; this->position = position; }
 
     virtual void visit(Visitor* v) { v->visitNAssignmentStatement(this); }
 };
@@ -675,22 +686,17 @@ class NDeclarationStatement : public NStatement {
    public:
     NIdentifier* ident;
     NExpression* expression;
-    Position position;
     NDeclarationStatement(NIdentifier* ident, NExpression* expression, Position position)
-        : ident(ident), expression(expression), position(position) {}
-
-    NDeclarationStatement(NIdentifier* ident, NType* type)
-        : ident(ident), expression(nullptr), position(Position(0, 0)) {
-        this->ident->type = type;
-    }
+        : ident(ident), expression(expression) { this->position = position; }
 
     NDeclarationStatement(
         NIdentifier* ident,
         NType* type,
         NExpression* expression,
-        Position position) : ident(ident), expression(expression), position(position) {
-        this->ident->type = type;
-    }
+        Position position) : ident(ident), expression(expression) {
+            this->ident->type = type;
+            this->position = position;
+        }
 
     static IdentifierList* toIdentifierList(std::vector<NDeclarationStatement*>* declarations) {
         if (declarations == nullptr) {
@@ -714,6 +720,8 @@ class NAccessKey : public NExpression {
 
     NAccessKey(NExpression* expr, NExpression* indexexpr)
         : expr(expr), indexExpr(indexexpr) {}
+    NAccessKey(NExpression* expr, NExpression* indexexpr, Position position)
+        : expr(expr), indexExpr(indexexpr) { this->position = position; }
 
     virtual void visit(Visitor* v) { v->visitNAccessKey(this); }
 };
@@ -724,8 +732,8 @@ class NExpressionCall : public NExpression {
 
     ExpressionList exprlist;
 
-    NExpressionCall(NExpression* expr, ExpressionList exprlist)
-        : expr(expr), exprlist(exprlist) {}
+    NExpressionCall(NExpression* expr, ExpressionList exprlist, Position position)
+        : expr(expr), exprlist(exprlist) { this->position = position; }
 
     virtual void visit(Visitor* v) { v->visitNExpressionCall(this); }
 };
@@ -736,7 +744,6 @@ class NFunctionDeclaration : public NStatement {
     NIdentifier* id;
     std::vector<NDeclarationStatement*>* arguments;
     NBlock* block;
-    Position position;
     NType *type;
 
     NFunctionDeclaration(
@@ -748,8 +755,7 @@ class NFunctionDeclaration : public NStatement {
         : return_type(return_type),
           id(id),
           arguments(arguments),
-          block(block),
-          position(position) {}
+          block(block) { this->position = position; }
 
     static IdentifierList* toIdentifierList(std::vector<NFunctionDeclaration*>* declarations) {
         if (declarations == nullptr) {
@@ -778,12 +784,11 @@ class StructBody {
 class NStructDeclaration : public NStatement {
    public:
     NIdentifier* id;
-    Position position;
     std::vector<NDeclarationStatement*> fields;
     std::vector<NFunctionDeclaration*> methods;
 
     NStructDeclaration(NIdentifier* id, Position position, StructBody* body)
-        : id(id), position(position), fields(body->fields), methods(body->methods) {}
+        : id(id), fields(body->fields), methods(body->methods) { this->position = position; }
 
     virtual void visit(Visitor* v) { v->visitNStructDeclaration(this); }
 };
@@ -1549,7 +1554,7 @@ class TypeChecker : public SymtabVisitor {
                         functionType->arguments->at(i)->visit(this->prettyPrinter);
                         std::cout << " but got type: UNKNOWN";
                         std::cout << ")" << std::endl;
-                        throw SemanticError("TypeError for function args", Position(0, 0));
+                        throw SemanticError("TypeError for function args", node->position);
                     }
                     if (not compareTypes(functionType->arguments->at(i)->type, node->exprlist.at(i)->type)) {
                         std::cout << "TypeError: argument type is not correct ";
@@ -1558,7 +1563,7 @@ class TypeChecker : public SymtabVisitor {
                         std::cout << " but got type: ";
                         node->exprlist.at(i)->type->visit(this->prettyPrinter);
                         std::cout << ")" << std::endl;
-                        throw SemanticError("TypeError for function args", Position(0, 0));
+                        throw SemanticError("TypeError for function args", node->position);
                     }
                 }
             }
@@ -1614,7 +1619,7 @@ class TypeChecker : public SymtabVisitor {
             this->visitStructCall(node);
             node->type = dynamic_cast<NStructType*>(node->expr->type);
         } else {
-            throw SemanticError("Expression is not callable", Position(-1, -1));
+            throw SemanticError("Expression is not callable", node->position);
         }
         std::cout << "type=";
         if (node->type != nullptr) {
@@ -1627,7 +1632,7 @@ class TypeChecker : public SymtabVisitor {
     void checkConditionalExpression(NExpression* expression) {
         // check if type of expression->type pointer is pointer to class NBoolType
         if (expression->type == nullptr) {
-            throw SemanticError("TypeError: expression type not known (cannot be approved)", Position(-1, -1));
+            throw SemanticError("TypeError: expression type not known (cannot be approved)", expression->position);
         }
 
         if (dynamic_cast<NBoolType*>(expression->type) != nullptr) {
@@ -1637,7 +1642,7 @@ class TypeChecker : public SymtabVisitor {
         std::cout << "TypeError: wrong type (condition is ";
         expression->type->visit(this->prettyPrinter);
         std::cout << " but should be bool)";
-        throw SemanticError("TypeError: conditional expression", Position(-1, -1));
+        throw SemanticError("TypeError: conditional expression", expression->position);
     }
 
     void checkConditionalBlockList(std::vector<conditionBlock*> conditionBlockList) {
@@ -1698,7 +1703,7 @@ class TypeChecker : public SymtabVisitor {
         if (node->start == nullptr || node->end == nullptr) {
             std::cout << "TypeError: start or end is not defined";
             std::cout << ")" << std::endl;
-            throw SemanticError("TypeError: start or end is not defined for numeric for", Position(-1, -1));
+            throw SemanticError("TypeError: start or end is not defined for numeric for", node->position);
             return;
         }
 
@@ -1716,7 +1721,7 @@ class TypeChecker : public SymtabVisitor {
             not compareTypes(node->step->type, new NNumType())) {
             std::cout << "TypeError: start, end or step is not a number";
             std::cout << ")" << std::endl;
-            throw SemanticError("TypeError: start, end or step is not a number", Position(-1, -1));
+            throw SemanticError("TypeError: start, end or step is not a number", node->position);
             return;
         }
         symtab_storage->symtab->enter_scope();
@@ -1734,7 +1739,7 @@ class TypeChecker : public SymtabVisitor {
         if (node->identifiers.size() != 2) {
             std::cout << "TypeError: there should be 2 identifiers";
             std::cout << ")" << std::endl;
-            throw SemanticError("TypeError: there should be 2 identifiers", Position(-1, -1));
+            throw SemanticError("TypeError: there should be 2 identifiers", node->position);
             return;
         }
 
@@ -1743,7 +1748,7 @@ class TypeChecker : public SymtabVisitor {
         if (dynamic_cast<NTableType*>(node->expression->type) == nullptr) {
             std::cout << "TypeError: expression is not a table";
             std::cout << ")" << std::endl;
-            throw SemanticError("TypeError: expression is not a table", Position(-1, -1));
+            throw SemanticError("TypeError: expression is not a table", node->expression->position);
             return;
         }
 
@@ -1760,14 +1765,14 @@ class TypeChecker : public SymtabVisitor {
         if (not this->isInsideFunction) {
             std::cout << "TypeError: return statement is not in a function";
             std::cout << ")" << std::endl;
-            throw SemanticError("TypeError: return statement is outside of a function", Position(-1, -1));
+            throw SemanticError("TypeError: return statement is outside of a function", node->position);
             return;
         }
         node->expression->visit(this);
         if (not compareTypes(this->functionReturnType, node->expression->type)) {
             std::cout << "TypeError: return type is not correct";
             std::cout << ")" << std::endl;
-            throw SemanticError("TypeError: return type is not correct", Position(-1, -1));
+            throw SemanticError("TypeError: return type is not correct", node->expression->position);
             return;
         }
         std::cout << "Type approved, return type: ";
@@ -1780,7 +1785,7 @@ class TypeChecker : public SymtabVisitor {
         if (this->isInsideLoop <= 0) {
             std::cout << "TypeError: break statement is not in a loop";
             std::cout << ")" << std::endl;
-            throw SemanticError("TypeError: break statement is outside of a loop", Position(-1, -1));
+            throw SemanticError("TypeError: break statement is outside of a loop", node->position);
             return;
         }
         std::cout << ")" << std::endl;
@@ -1796,7 +1801,7 @@ class TypeChecker : public SymtabVisitor {
             if (first_element->first == nullptr or first_element->second == nullptr) {
                 std::cout << "TypeError: key or value is not defined";
                 std::cout << ")" << std::endl;
-                throw SemanticError("TypeError: key or value is not defined", Position(-1, -1));
+                throw SemanticError("TypeError: key or value is not defined", node->position);
                 return;
             }
             first_element->first->visit(this);
@@ -1804,7 +1809,7 @@ class TypeChecker : public SymtabVisitor {
             if (first_element->first->type == nullptr or first_element->second->type == nullptr) {
                 std::cout << "TypeError: key or value type is not known";
                 std::cout << ")" << std::endl;
-                throw SemanticError("TypeError: key or value type is not known", Position(-1, -1));
+                throw SemanticError("TypeError: key or value type is not known", first_element->first->position);
                 return;
             }
 
@@ -1814,7 +1819,7 @@ class TypeChecker : public SymtabVisitor {
                 not compareTypes(first_element->first->type, new NBoolType())) {
                 std::cout << "TypeError: key is not a number or string or bool";
                 std::cout << ")" << std::endl;
-                throw SemanticError("TypeError: key is not a number or string or bool", Position(-1, -1));
+                throw SemanticError("TypeError: key is not a number or string or bool", first_element->first->position);
                 return;
             }
 
@@ -1825,13 +1830,13 @@ class TypeChecker : public SymtabVisitor {
                 if (not compareTypes(keyvalPair->first->type, first_element->first->type)) {
                     std::cout << "TypeError: key type is not the same";
                     std::cout << ")" << std::endl;
-                    throw SemanticError("TypeError: key type is not the same", Position(-1, -1));
+                    throw SemanticError("TypeError: key type is not the same", keyvalPair->first->position);
                     return;
                 }
                 if (not compareTypes(keyvalPair->second->type, first_element->second->type)) {
                     std::cout << "TypeError: value type is not the same";
                     std::cout << ")" << std::endl;
-                    throw SemanticError("TypeError: value type is not the same", Position(-1, -1));
+                    throw SemanticError("TypeError: value type is not the same", keyvalPair->second->position);
                     return;
                 }
             }
@@ -1843,7 +1848,7 @@ class TypeChecker : public SymtabVisitor {
             if (first_element->type == nullptr) {
                 std::cout << "TypeError: type of the first element is not known";
                 std::cout << ")" << std::endl;
-                throw SemanticError("TypeError: type of the first element is not known", Position(-1, -1));
+                throw SemanticError("TypeError: type of the first element is not known", first_element->position);
                 return;
             }
 
@@ -1853,7 +1858,7 @@ class TypeChecker : public SymtabVisitor {
                 if (not compareTypes(expression->type, first_element->type)) {
                     std::cout << "TypeError: type of the element is not the same";
                     std::cout << ")" << std::endl;
-                    throw SemanticError("TypeError: type of the element is not the same", Position(-1, -1));
+                    throw SemanticError("TypeError: type of the element is not the same", expression->position);
                     return;
                 }
             }
@@ -1891,7 +1896,7 @@ class TypeChecker : public SymtabVisitor {
         if (node->expr->type == nullptr) {
             std::cout << "TypeError: expression type not known (cannot be approved)";
             std::cout << ")" << std::endl;
-            throw SemanticError("TypeError: expression type not known", Position(-1, -1));
+            throw SemanticError("TypeError: expression type not known", node->expr->position);
             return;
         }
         // check if the type of expr is a table
@@ -1902,7 +1907,7 @@ class TypeChecker : public SymtabVisitor {
             if (not compareTypes(tableType->keyType, node->indexExpr->type)) {
                 std::cout << "TypeError: key type is not correct";
                 std::cout << ")" << std::endl;
-                throw SemanticError("TypeError: key type is not correct", Position(-1, -1));
+                throw SemanticError("TypeError: key type is not correct", node->indexExpr->position);
                 return;
             } else {
                 std::cout << "Type approved, key type: ";
@@ -1920,7 +1925,7 @@ class TypeChecker : public SymtabVisitor {
                 if (functionCall == nullptr) {
                     std::cout << "TypeError: function call is not correct";
                     std::cout << ")" << std::endl;
-                    throw SemanticError("TypeError: function call is not correct", Position(-1, -1));
+                    throw SemanticError("TypeError: function call is not correct", node->indexExpr->position);
                     return;
                 }
                 // expression if a name of a function -> check if the function is in a struct
@@ -1929,7 +1934,7 @@ class TypeChecker : public SymtabVisitor {
                 if (functionIdent == nullptr) {
                     std::cout << "TypeError: function has no name";
                     std::cout << ")" << std::endl;
-                    throw SemanticError("TypeError: function has no name", Position(-1, -1));
+                    throw SemanticError("TypeError: function has no name", functionCall->expr->position);
                     return;
                 }
                 // iterate over methods of the structType fields structType->field is a vector of NIdentifier
@@ -1944,7 +1949,7 @@ class TypeChecker : public SymtabVisitor {
                         if (not compareTypes(functionCall->type, methodType->returnTypes->at(0))) {
                             std::cout << "TypeError: return type is not correct, type check failed";
                             std::cout << ")" << std::endl;
-                            throw SemanticError("TypeError: there is no such method in the struct", Position(-1, -1));
+                            throw SemanticError("TypeError: there is no such method in the struct", functionCall->position);
                             return;
                         } else {
                             std::cout << "Type approved, return type: ";
@@ -1959,7 +1964,7 @@ class TypeChecker : public SymtabVisitor {
                 if (identifier == nullptr) {
                     std::cout << "TypeError: identifier is not correct";
                     std::cout << ")" << std::endl;
-                    throw SemanticError("TypeError: identifier is not correct", Position(-1, -1));
+                    throw SemanticError("TypeError: identifier is not correct", node->indexExpr->position);
                     return;
                 }
 
@@ -1976,13 +1981,13 @@ class TypeChecker : public SymtabVisitor {
             } else {
                 std::cout << "TypeError: indexExpr is not a function call or identifier";
                 std::cout << ")" << std::endl;
-                throw SemanticError("TypeError: Struct has no such field", Position(-1, -1));
+                throw SemanticError("TypeError: Struct has no such field", node->indexExpr->position);
                 return;
             }
         }
         std::cout << "TypeError: expr is not a table or struct";
         std::cout << ")" << std::endl;
-        throw SemanticError("TypeError: Expression is not correct", Position(-1, -1));
+        throw SemanticError("TypeError: Expression is not correct", node->expr->position);
     }
 
     virtual void visitNDoStatement(NDoStatement* node) {
@@ -2002,7 +2007,7 @@ class TypeChecker : public SymtabVisitor {
         if (node->expression == nullptr) {
             std::cout << "TypeError: rhs is not defined";
             std::cout << ")" << std::endl;
-            throw SemanticError("TypeError: rhs is not defined", Position(-1, -1));
+            throw SemanticError("TypeError: rhs is not defined", node->expression->position);
             return;
         }
 
@@ -2021,12 +2026,12 @@ class TypeChecker : public SymtabVisitor {
                 }
                 std::cout << ", but should be ";
                 node->ident->type->visit(this->prettyPrinter);
-                throw SemanticError("TypeError: type mismatch", Position(-1, -1));
+                throw SemanticError("TypeError: type mismatch", node->expression->position);
             }
         } else if (node->ident->type == nullptr) {
             // both types are not defined
             std::cout << "TypeError: both types are not defined";
-            throw SemanticError("TypeError: both types are not defined", Position(-1, -1));
+            throw SemanticError("TypeError: both types are not defined", node->ident->position);
         } else {
             std::cout << "Type approved, type: ";
             node->ident->type->visit(this->prettyPrinter);
