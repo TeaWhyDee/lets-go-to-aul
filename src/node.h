@@ -2571,10 +2571,68 @@ public:
     static llvm::Type *bool_type(LLVMContext *ctx) {
         return llvm::IntegerType::getInt1Ty(*ctx);
     }
+
+    static llvm::Constant *str_type_default(LLVMContext *ctx, llvm::Module* module) {
+        std::string str = "";
+        auto charType = llvm::IntegerType::get(*ctx, 8);
+
+        std::vector<llvm::Constant *> chars(str.length());
+        for(unsigned int i = 0; i < str.size(); i++) {
+          chars[i] = llvm::ConstantInt::get(charType, str[i]);
+        }
+
+        chars.push_back(llvm::ConstantInt::get(charType, 0));
+
+        auto stringType = llvm::ArrayType::get(charType, chars.size());
+
+        auto globalDeclaration = (llvm::GlobalVariable*) module->getOrInsertGlobal("." + str, stringType);
+        globalDeclaration->setInitializer(llvm::ConstantArray::get(stringType, chars));
+        globalDeclaration->setConstant(true);
+        globalDeclaration->setLinkage(llvm::GlobalValue::LinkageTypes::PrivateLinkage);
+        globalDeclaration->setUnnamedAddr (llvm::GlobalValue::UnnamedAddr::Global);
+
+        return llvm::ConstantExpr::getBitCast(globalDeclaration, charType->getPointerTo());
+    }
+    static llvm::Constant *num_type_default(LLVMContext *ctx) {
+        return ConstantFP::get(num_type(ctx), 0);
+    }
+    static llvm::Constant *bool_type_default(LLVMContext *ctx) {
+        llvm::Type* boolType = llvm::Type::getInt1Ty(*ctx);
+        return llvm::ConstantInt::getTrue(boolType);
+    }
 };
 
 class CodeGenVisitor : public SymtabVisitor {
    private:
+    // llvm::Type *getLLVMType(NType *type) {
+    //     llvm::Type* return_type = builder->getVoidTy();
+    //
+    //     if (type == nullptr) {
+    //         return builder->getVoidTy();
+    //     }
+    //     if (typeid(*type) == typeid(NStringType)) {
+    //         return_type = LLVMTypes::str_type(context);
+    //     }
+    //     else if (typeid(*type) == typeid(NNumType)) {
+    //         return_type = LLVMTypes::num_type(context);
+    //     } else if (typeid(*type) == typeid(NBoolType)) {
+    //         return_type = LLVMTypes::bool_type(context);
+    //     }
+    //
+    //     return return_type;
+    // }
+
+    llvm::Constant *getLLVMDefault(NType *type) {
+        if (typeid(*type) == typeid(NStringType)) {
+            return LLVMTypes::str_type_default(context, module);
+        } else if (typeid(*type) == typeid(NNumType)) {
+            return LLVMTypes::num_type_default(context);
+        } else if (typeid(*type) == typeid(NBoolType)) {
+            return LLVMTypes::bool_type_default(context);
+        } else {
+            return LLVMTypes::bool_type_default(context);
+        }
+    }
 
    public:
     llvm::LLVMContext* context;
@@ -2652,16 +2710,41 @@ class CodeGenVisitor : public SymtabVisitor {
         return not is_function and not is_struct and this->load_required_flag;
     }
 
+    // virtual void visitNIdentifier(NIdentifier* node) {
+    //     auto entry = symtab_storage->symtab->lookup_or_throw(node->name, node->position.lineno + 1);
+    //     node->llvm_value = entry->value;
+    //     if (this->load_required(entry)) {
+    //         node->llvm_value = this->builder->CreateLoad(static_cast<AllocaInst *>(entry->value)->getAllocatedType(), entry->value, "ident");
+    //     }
+    // }
+
     virtual void visitNIdentifier(NIdentifier* node) {
         auto entry = symtab_storage->symtab->lookup_or_throw(node->name, node->position.lineno + 1);
+        node->type->visit(this);
+        entry->type = node->type;
         if (entry->value == nullptr) {
-          node->type->visit(this);
-          AllocaInst *alloca = this->builder->CreateAlloca(node->type->llvm_value, 0, node->name);
-          entry->value = alloca;
+            if (builder->GetInsertBlock() == block_main){
+                Type *ptype = node->type->llvm_value;
+                GlobalVariable *global_var = new GlobalVariable(*module, ptype, false, GlobalValue::InternalLinkage,
+                                                                getLLVMDefault(entry->type), node->name);
+                entry->value = global_var;
+            } else {
+                AllocaInst *alloca = this->builder->CreateAlloca(node->type->llvm_value, 0, node->name);
+                entry->value = alloca;
+            }
         }
         node->llvm_value = entry->value;
         if (this->load_required(entry)) {
-            node->llvm_value = this->builder->CreateLoad(static_cast<AllocaInst *>(entry->value)->getAllocatedType(), entry->value, "load");
+            // if (builder->GetInsertBlock() == block_main){
+                node->llvm_value = this->builder->CreateLoad(
+                    entry->type->llvm_value, entry->value, "load");
+            // }
+            // else {
+            //     node->llvm_value = this->builder->CreateLoad(
+            //         static_cast<AllocaInst *>(entry->value)->getAllocatedType(), entry->value, "load");
+            // }
+        } else {
+            node->llvm_value = entry->value;
         }
     }
 
@@ -2685,9 +2768,6 @@ class CodeGenVisitor : public SymtabVisitor {
                 node->llvm_value = this->builder->CreateSRem(node->lhs->llvm_value, node->rhs->llvm_value, "mod");
                 break;
             case BinOpType::POWER:
-                // node->llvm_value = this->builder->CreateFMul(node->lhs->llvm_value, node->rhs->llvm_value);
-                // llvm::Value* base = node->lhs->llvm_value;
-                // llvm::Value* exponent = node->rhs->llvm_value;
                 node->llvm_value = builder->CreateCall(llvm::Intrinsic::getDeclaration(module,
                                                        llvm::Intrinsic::pow, {llvm::Type::getDoubleTy(*context)}), {
                                                        node->lhs->llvm_value, node->rhs->llvm_value });
@@ -2980,6 +3060,19 @@ class CodeGenVisitor : public SymtabVisitor {
         symtab_storage->symtab->exit_scope();
     }
 
+    // virtual void visitNDeclarationStatement(NDeclarationStatement* node) {
+    //     node->expression->visit(this);
+    //     if (node->expression->llvm_value == nullptr) {
+    //         throw SemanticError("Expression value is null", node->position);
+    //     }
+    //     auto entry = symtab_storage->symtab->lookup_or_throw(node->ident->name, node->position.lineno + 1);
+    //     if (entry->value == nullptr) {
+    //         AllocaInst *alloca = this->builder->CreateAlloca(node->expression->llvm_value->getType(), 0, node->ident->name);
+    //         entry->value = alloca;
+    //     }
+    //     node->llvm_value = this->builder->CreateStore(node->expression->llvm_value, entry->value, "crt_store");
+    // }
+
     virtual void visitNDeclarationStatement(NDeclarationStatement* node) {
         auto assignment = new NAssignmentStatement(node->ident, node->ident->type, node->expression, node->position);
         this->visitNAssignmentStatement(assignment);
@@ -3081,7 +3174,7 @@ class CodeGenVisitor : public SymtabVisitor {
             args.insert(args.begin(), node->expr->llvm_value);
 
             llvm::Function *func = static_cast<llvm::Function*>(entry->value);
-            this->builder->CreateCall(func, args);
+            this->builder->CreateCall(func, args, "calltmp");
 
             node->llvm_value = node->expr->llvm_value;
             return;

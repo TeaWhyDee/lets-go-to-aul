@@ -5,12 +5,12 @@ function f(b: num) -> num
     return b
 end
 
-function g(b: str) -> str
-    printf("b = %s\n", b)
-    return b
-end
-
-c = g(a)
-printf("outside: %s\n", c)
-
+-- function g(b: str) -> str
+    -- printf("b = %s\n", b)
+    -- return b
+-- end
+-- 
+-- c = g(a)
+-- printf("outside: %s\n", c)
+-- 
 -- a = 2
