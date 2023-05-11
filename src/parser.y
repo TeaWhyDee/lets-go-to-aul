@@ -299,7 +299,7 @@ typelist : type_ident { $$ = new std::vector<NType *>(); $$->push_back($1); }
 
 function_type: KW_FUNCTION OP_LBRACE typelist OP_RBRACE OP_ARROW typelist { $$ = new NFunctionType(NIdentifier::fromTypeList($3), $6); }
     | KW_FUNCTION OP_LBRACE typelist OP_RBRACE { $$ = new NFunctionType(NIdentifier::fromTypeList($3), {}); }
-    | KW_FUNCTION OP_LBRACE OP_RBRACE OP_ARROW typelist { $$ = new NFunctionType(nullptr, $5); }
+    | KW_FUNCTION OP_LBRACE OP_RBRACE OP_ARROW typelist { $$ = new NFunctionType({}, $5); }
     | KW_FUNCTION OP_LBRACE OP_RBRACE { $$ = new NFunctionType({}, {}); }
     ;
 

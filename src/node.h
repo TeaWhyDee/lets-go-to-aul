@@ -382,12 +382,12 @@ class NIdentifier : public NExpression {
     }
     NIdentifier(NType* type) : name("") { this->type = type; }
 
-    static IdentifierList* fromTypeList(typeList* types) {
-        IdentifierList* list = new IdentifierList();
+    static IdentifierList fromTypeList(typeList* types) {
+        IdentifierList result;
         for (auto type : *types) {
-            list->push_back(new NIdentifier(type));
+            result.push_back(new NIdentifier(type));
         }
-        return list;
+        return result;
     }
 
     virtual void visit(Visitor* v) { v->visitNIdentifier(this); }
@@ -485,11 +485,11 @@ class NTableType : public NType {
 class NFunctionType : public NType {
 public:
     llvm::Function* llvm_value;
-    IdentifierList* arguments;
+    IdentifierList arguments;
     typeList* returnTypes;
     bool varargs;
 
-    NFunctionType(IdentifierList* arguments, typeList* returnTypes) : arguments(arguments), returnTypes(returnTypes) {}
+    NFunctionType(IdentifierList arguments, typeList* returnTypes) : arguments(arguments), returnTypes(returnTypes) {}
 
     virtual void visit(Visitor* v) {
         v->visitNFunctionType(this);
@@ -497,7 +497,7 @@ public:
 
     virtual operator std::string() const {
         std::string result = "function(";
-        for (auto arg : *arguments) {
+        for (auto arg : arguments) {
             result += std::string(*arg->type) + ", ";
         }
         result += ") -> (";
@@ -685,7 +685,7 @@ class NAssignmentStatement : public NStatement {
     NAssignmentStatement(NExpression* ident, NExpression* expression, Position position)
         : ident(ident), type(nullptr), expression(expression) { ident->type = type; this->position = position; }
 
-    NAssignmentStatement(NExpression* ident, NType* type, NExpression* expression, Position position) 
+    NAssignmentStatement(NExpression* ident, NType* type, NExpression* expression, Position position)
         : ident(ident), type(type), expression(expression) { ident->type = type; this->position = position; }
 
     virtual void visit(Visitor* v) { v->visitNAssignmentStatement(this); }
@@ -713,13 +713,10 @@ class NDeclarationStatement : public NStatement {
             this->position = position;
         }
 
-    static IdentifierList* toIdentifierList(std::vector<NDeclarationStatement*>* declarations) {
-        if (declarations == nullptr) {
-            return nullptr;
-        }
-        IdentifierList* list = new IdentifierList();
-        for (auto declaration : *declarations) {
-            list->push_back(declaration->ident);
+    static IdentifierList toIdentifierList(std::vector<NDeclarationStatement*>* declarations) {
+        IdentifierList list;
+        for (auto decl : *declarations) {
+            list.push_back(decl->ident);
         }
         return list;
     }
@@ -1285,18 +1282,18 @@ class TypeChecker : public SymtabVisitor {
             }
         }
         // Compare the argument types
-        if (t1->arguments == nullptr || t2->arguments == nullptr) {
+        if (t1->arguments.empty() || t2->arguments.empty()) {
             // If one of them is null, then they are not the same
-            if (t1->arguments != t2->arguments) {
+            if (t1->arguments.size() != t2->arguments.size()) {
                 return false;
             }
         } else {
             // If both of them are not null, then compare the types
-            if (t1->arguments->size() != t2->arguments->size()) {
+            if (t1->arguments.size() != t2->arguments.size()) {
                 return false;
             } else {
-                for (int i = 0; i < t1->arguments->size(); ++i) {
-                    if (!compareTypes(t1->arguments->at(i)->type, t2->arguments->at(i)->type)) {
+                for (int i = 0; i < t1->arguments.size(); ++i) {
+                    if (!compareTypes(t1->arguments[i]->type, t2->arguments[i]->type)) {
                         return false;
                     }
                 }
@@ -1574,34 +1571,34 @@ class TypeChecker : public SymtabVisitor {
             }
         }
         // check argument types
-        else if (functionType->arguments == nullptr || node->exprlist.empty()) {
+        else if (functionType->arguments.empty() || node->exprlist.empty()) {
             // check if both is empty
-            if (functionType->arguments != nullptr || not node->exprlist.empty()) {
+            if (functionType->arguments.size() != node->exprlist.size()) {
                 std::cout << "TypeError: number of arguments is not correct";
                 std::cout << ")" << std::endl;
                 return;
             }
         } else {
             // If the number of arguments is not 0, check the number of arguments and the types
-            if (functionType->arguments->size() != node->exprlist.size()) {
+            if (functionType->arguments.size() != node->exprlist.size()) {
                 std::cout << "TypeError: number of arguments is not correct";
                 std::cout << ")" << std::endl;
                 return;
             } else {
-                for (int i = 0; i < functionType->arguments->size(); i++) {
+                for (int i = 0; i < functionType->arguments.size(); i++) {
                     node->exprlist.at(i)->visit(this);  // set type of the expression
                     if (node->exprlist.at(i)->type == nullptr) {
                         std::cout << "TypeError: argument type is not correct ";
                         std::cout << "at position " << i << ", expected type: ";
-                        functionType->arguments->at(i)->visit(this->prettyPrinter);
+                        functionType->arguments[i]->visit(this->prettyPrinter);
                         std::cout << " but got type: UNKNOWN";
                         std::cout << ")" << std::endl;
                         throw SemanticError("TypeError for function args", node->position);
                     }
-                    if (not compareTypes(functionType->arguments->at(i)->type, node->exprlist.at(i)->type)) {
+                    if (not compareTypes(functionType->arguments[i]->type, node->exprlist.at(i)->type)) {
                         std::cout << "TypeError: argument type is not correct ";
                         std::cout << "at position " << i << " expected type: ";
-                        functionType->arguments->at(i)->type->visit(this->prettyPrinter);
+                        functionType->arguments[i]->type->visit(this->prettyPrinter);
                         std::cout << " but got type: ";
                         node->exprlist.at(i)->type->visit(this->prettyPrinter);
                         std::cout << ")" << std::endl;
@@ -2155,7 +2152,7 @@ class SymbolTableFillerVisitor : public SymtabVisitor {
     SymbolTableFillerVisitor() {
         this->name = "Symbol Table Filler";
         auto type = new NFunctionType(
-            new IdentifierList({new NIdentifier("a", new NStringType()),
+            IdentifierList({new NIdentifier("a", new NStringType()),
                                 new NIdentifier("param", new NNumType())}),
             new typeList({new NNilType()})
         );
