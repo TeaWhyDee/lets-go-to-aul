@@ -2719,11 +2719,12 @@ class CodeGenVisitor : public SymtabVisitor {
     // }
 
     virtual void visitNIdentifier(NIdentifier* node) {
+        auto func = this->builder->GetInsertBlock()->getParent();
         auto entry = symtab_storage->symtab->lookup_or_throw(node->name, node->position.lineno + 1);
         node->type->visit(this);
         entry->type = node->type;
         if (entry->value == nullptr) {
-            if (this-builder->GetInsertBlock()->getParent().getName() == "main" and this->current_struct == nullptr) {
+            if (func->getName() == "main" and this->current_struct == nullptr) {
                 Type *ptype = node->type->llvm_value;
                 GlobalVariable *global_var = new GlobalVariable(*module, ptype, false, GlobalValue::InternalLinkage,
                                                                 getLLVMDefault(entry->type), node->name);
@@ -3109,8 +3110,6 @@ class CodeGenVisitor : public SymtabVisitor {
             node->returnExpr->visit(this);
             return_expr_llvm = node->returnExpr->llvm_value;
         }
-        std::cout << "return_expr_llvm: " << return_expr_llvm << std::endl;
-        std::cout << "last_stmt_node: " << last_stmt_node << std::endl;
         if (return_expr_llvm != nullptr && dynamic_cast<NReturnStatement*>(last_stmt_node) != nullptr) {
             this->builder->CreateRet(return_expr_llvm);
         } else {
@@ -3155,15 +3154,24 @@ class CodeGenVisitor : public SymtabVisitor {
     virtual void visitNExpressionCall(NExpressionCall* node) {
         node->expr->visit(this);
         std::vector<llvm::Value *> args;
+        bool return_type_is_void = false;
         for (auto expr : node->exprlist) {
             expr->visit(this);
             args.push_back(expr->llvm_value);
         }
         NFunctionType *function_type = dynamic_cast<NFunctionType *>(node->expr->type);
         if (function_type != nullptr) {
+            if (function_type->returnTypes->size() == 1 && dynamic_cast<NNilType*>(function_type->returnTypes->at(0)) != nullptr) {
+                return_type_is_void = true;
+            }
+
             auto raw_func = node->expr->llvm_value;
             auto func = static_cast<llvm::Function *>(raw_func);
-            node->llvm_value = this->builder->CreateCall(func, args, "calltmp");
+            if (not return_type_is_void) {
+                node->llvm_value = this->builder->CreateCall(func, args, "calltmp");
+            } else {
+                node->llvm_value = this->builder->CreateCall(func, args);
+            }
             return;
         }
 
@@ -3175,7 +3183,11 @@ class CodeGenVisitor : public SymtabVisitor {
             args.insert(args.begin(), node->expr->llvm_value);
 
             llvm::Function *func = static_cast<llvm::Function*>(entry->value);
-            this->builder->CreateCall(func, args, "calltmp");
+            if (not return_type_is_void) {
+                this->builder->CreateCall(func, args, "calltmp");
+            } else {
+                this->builder->CreateCall(func, args);
+            }
 
             node->llvm_value = node->expr->llvm_value;
             return;
