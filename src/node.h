@@ -2858,7 +2858,7 @@ class CodeGenVisitor : public SymtabVisitor {
             arg->ident->type->visit(this);
             llvm::Type *argtype = arg->ident->type->llvm_value;
             AllocaInst *alloca = this->builder->CreateAlloca(argtype, 0, arg->ident->name);
-            this->builder->CreateStore(function->getArg(i), alloca, false);
+            this->builder->CreateStore(function->getArg(i), alloca);
             auto entry = symtab_storage->symtab->lookup_or_throw(arg->ident->name, arg->ident->position.lineno + 1, true);
             entry->value = alloca;
             arg->llvm_value = alloca;
@@ -3031,7 +3031,7 @@ class CodeGenVisitor : public SymtabVisitor {
             AllocaInst *alloca = this->builder->CreateAlloca(node->start->llvm_value->getType(), 0, node->id->name);
             entry->value = alloca;
         }
-        llvm::Value* loop_var = this->builder->CreateStore(node->start->llvm_value, entry->value, false);
+        llvm::Value* loop_var = this->builder->CreateStore(node->start->llvm_value, entry->value);
 
         // generate code for the condition block
         this->builder->CreateBr(conditionBlock);
@@ -3046,7 +3046,7 @@ class CodeGenVisitor : public SymtabVisitor {
         // generate code for the increment
         node->id->visit(this);
         auto loop_var_inc = this->builder->CreateFAdd(node->id->llvm_value, node->step->llvm_value, "for_inc");
-        llvm::Value* loop_inc_var = this->builder->CreateStore(loop_var_inc, entry->value, false);
+        llvm::Value* loop_inc_var = this->builder->CreateStore(loop_var_inc, entry->value);
         // branch back to the condition block
         this->builder->CreateBr(conditionBlock);
         // generate code for the exit block
@@ -3113,10 +3113,11 @@ class CodeGenVisitor : public SymtabVisitor {
         if (return_expr_llvm != nullptr && dynamic_cast<NReturnStatement*>(last_stmt_node) != nullptr) {
             this->builder->CreateRet(return_expr_llvm);
         } else {
-            if (node->returnExpr != nullptr && func->getName() == "main") {
-                this->builder->CreateRetVoid();
-            }
-            if (node->returnExpr == nullptr && func->getReturnType()->isVoidTy()) {
+            if (func->getName() == "main") {
+                if (node->returnExpr != nullptr) {
+                    this->builder->CreateRetVoid();
+                }
+            } else if (node->returnExpr == nullptr && func->getReturnType()->isVoidTy()) {
                 this->builder->CreateRetVoid();
             }
         }
@@ -3154,20 +3155,24 @@ class CodeGenVisitor : public SymtabVisitor {
     virtual void visitNExpressionCall(NExpressionCall* node) {
         node->expr->visit(this);
         std::vector<llvm::Value *> args;
-        bool return_type_is_void = false;
+        bool return_type_is_not_void = false;
         for (auto expr : node->exprlist) {
             expr->visit(this);
             args.push_back(expr->llvm_value);
         }
         NFunctionType *function_type = dynamic_cast<NFunctionType *>(node->expr->type);
         if (function_type != nullptr) {
-            if (function_type->returnTypes->size() == 1 && dynamic_cast<NNilType*>(function_type->returnTypes->at(0)) != nullptr) {
-                return_type_is_void = true;
+            auto ident = dynamic_cast<NIdentifier *>(node->expr);
+
+            if (function_type->returnTypes->size() == 1
+            and dynamic_cast<NNilType*>(function_type->returnTypes->at(0)) == nullptr or (
+            ident != nullptr and ident->name == "printf")) {
+                return_type_is_not_void = true;
             }
 
             auto raw_func = node->expr->llvm_value;
             auto func = static_cast<llvm::Function *>(raw_func);
-            if (not return_type_is_void) {
+            if (return_type_is_not_void) {
                 node->llvm_value = this->builder->CreateCall(func, args, "calltmp");
             } else {
                 node->llvm_value = this->builder->CreateCall(func, args);
@@ -3183,7 +3188,7 @@ class CodeGenVisitor : public SymtabVisitor {
             args.insert(args.begin(), node->expr->llvm_value);
 
             llvm::Function *func = static_cast<llvm::Function*>(entry->value);
-            if (not return_type_is_void) {
+            if (return_type_is_not_void) {
                 this->builder->CreateCall(func, args, "calltmp");
             } else {
                 this->builder->CreateCall(func, args);
