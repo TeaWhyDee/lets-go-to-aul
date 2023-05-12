@@ -93,12 +93,10 @@ assert(a == 4, "a should be 4")
 -- --check for fibonacci
 printf("\n\n------------------FIBONACCI------------------\n")
 function fib(n: num) -> num
-    if n < 2 then
-        return n
-    else
+    if n > 1 then
         return fib(n - 1) + fib(n - 2)
     end
-    return 0
+    return n
 end
 
 result = fib(5)
