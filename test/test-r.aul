@@ -1,0 +1,38 @@
+struct Point
+  _x: num
+  _y: num
+
+  new(x: num, y: num)
+    self._x = x
+    self._y = y
+  end
+
+  function get_x() -> num
+    return self._x
+  end
+
+  function get_y() -> num
+    return self._y
+  end
+end
+
+struct Line
+  _point_a: Point
+  _point_b: Point
+  _length: num
+  static lines_amount: num = 0 -- create a static variable
+
+  new(point_a: Point, point_b: Point) -- this is the shortest way to describe a constructor
+    Line.lines_amount += 1 -- count anount of lines 
+    self._point_a = pointA
+    self._point_b = pointB
+    self._length = math.sqrt((point_a.get_x()-point_b.get_x())^2 + (point_a.get_y()-point_b.get_y())^2)
+  end
+
+  function get_length() -> num
+    return self._length
+  end
+end
+
+print(Line(Point.new(1, 1), Point(5, 5)).get_length()) -- prints 4 * sqrt(2)
+print(Line.lines_amount) -- prints 1

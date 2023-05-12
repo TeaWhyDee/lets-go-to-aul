@@ -4,23 +4,25 @@
 Aul is a modified subset of the Lua 5.4 programming language. It is a statically typed language.
 
 ## Summary
-**Removed features:**  
+**Removed features**  
 - Dynamic features of Lua.
 - Table based classes.  
 - Global variables.
 - Operations with nil.
 
-The following features are not necessary for the proof-of-concept version that we are making.
+**The following features are not necessary for the proof-of-concept version that we are making**
+- Variables unpacking
 - Multi-threading
 - Coroutines
 - Goto-labels
 
-**Additions:**
-- Types (Type inference). [#typing](#typing)
-- Structs (struct, static, self keywords).  [#structs](#structs)
+**Additions**
+- Types (type inference) [#typing](#typing)
+- Structs (struct, static, new, and self keywords) [#structs](#structs)
 
-**Modifications:**
-- Function return values unpacking. [#functions](#functions)
+**Modifications**
+- Functions return one value, no packing or unpacking [#functions](#functions)
+- Strongly typed tables
 
 
 ## Typing
@@ -41,42 +43,55 @@ introduce structs.
     Structs replace Lua's table based class implementation.
     Structs allow the user to create custom types.
 
-Variables of any type can be specified as constant using the `const` keyword,
-replacing Lua's `<const>` attribute.
-Types of variables can be specified explicitly or inferred from the context.
-The type of a variable cannot be modified during runtime.
-Variables cannot be used before initialization.
+Variables of any type can be specified as constant using the `const` keyword,replacing Lua's `<const>` attribute.
 ```lua
-var1: num           -- uninitialized variable
-const var2 = 2      -- type inferred as num, value can't be changed
-var3: table[int, str] = {}
-var4 = var1 + 2     -- ERROR, attempt to use unitialized variable.
+const a = 2  -- type inferred as num
+a = 10       -- error
 ```
 
-As a result of these decisions:
+Types of variables can be specified explicitly or inferred from the context.
+```lua
+a = 10          -- type inferred as num
+b = "str"       -- type inferred as str
+c = {1, 2}      -- type inferred as table[num]
+d: num = "str"  -- error, the type annotation does not match with the expression type
+e = a + b       -- error, cannot find `__add(a: num, b: str)`
+```
+
+The type of a variable cannot be modified during runtime.
+```lua
+a = 10     -- type inferred as num
+a = "str"  -- error, the type of a is num, so cannot assign `str` to `num`
+```
+
+Variables cannot be used before initialization.
+```lua
+a: num     -- variable declaration 
+b = a + 1  -- error, attempt to use an unitialized variable
+```
+
+**As a result of these decisions**
 - There is no automatic type coercion/conversion in the language.
 - There are no **classes**, since they are represented by tables with values of
-    different types, instead we intruduce [#structs](#structs)
+    different types, instead we intruduce [#structs](#structs).
 
 ## Functions
 - Function parameter and return types must be specified.
-- Functions can be changed during runtime (unless constant), but their signature has to stay the same.
-- Functions can return multiple values, which can be unpacked into variables. 
-  All values the a function returns are always unpacked,
-  whereas in Lua sometimes some values are dropped.
+- Functions can be changed during runtime (except constant).
 - When calling a function, all parameters must be specified.
+
 ```lua
-t: table[num, str]
-
-f = function(n: num) -> num, string
-    return 123, "string"
+function f(n: num) -> str
+  return "string"
 end
 
-f = function(n2: num) -> num, string  -- functions can be changed during runtime
-    return n2, nil
+f(19)  -- returns `"string"`
+
+function f() -> num  -- functions can be changed during runtime
+    return 0
 end
 
-num_var, str_var = f(1)  -- types inferred and values unpacked
+f(19)  -- error, f awaits no arguments
 ```
 
 ## Structs
@@ -87,30 +102,45 @@ We introduce structs as a replacement of this mechanism.
 
 Structs allows the user to intruduce composite types, 
 define methods and constructors on those types.
-All functions defined in structs are constant.
+All functions defined in structs are **constant**.
 Functions defined in a struct can refer to the instance
 with the `self` keyword.
+Structs constrictor has a specific name `new`.
 ```lua
 struct S 
-    var: num = 0
-    function method() -> num
-        return self.num
-    end
+  var: num 
+  new() var = 0 end
+  function get_var() -> num
+    return self.var
+  end
 end
 ```
+
 Static methods and members can be defined using the `static` keyword.
 ```lua
-    static amount_instances = 0
-    static function new(x: num) -> S
-        self.num = x
-        amount_instances = amount_instances + 1
-    end
+...
+static static amount_instances = 0
+new()
+  self.var = 0
+  S.amount_instances += 1
+end
+...
 ```
 
 ## Scopes
 Global variables were removed from the specification, all variables are now
 local to their scope. As a result of this decision, attempting to access an
 unintialized variables results in an error.
+```lua
+x = 0
+
+function f(x: num)
+  x = 1  -- modifies the local x passed as an arngument
+end
+
+f(x)
+printf(x)  -- still 0
+```
 
 ## Example Program
 ```lua
@@ -118,7 +148,7 @@ struct Point
   _x: num
   _y: num
 
-  static function new(x: num, y: num) -> Point
+  new(x: num, y: num)
     self._x = x
     self._y = y
   end
@@ -138,7 +168,7 @@ struct Line
   _length: num
   static lines_amount: num = 0 -- create a static variable
 
-  new(point_a: Point, point_b: Point) -- this is the shortest way to describe a constructor
+  new(point_a: Point, point_b: Point)
     Line.lines_amount += 1 -- count anount of lines 
     self._point_a = pointA
     self._point_b = pointB
