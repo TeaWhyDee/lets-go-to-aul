@@ -2146,10 +2146,7 @@ class SymbolTableFillerVisitor : public SymtabVisitor {
                                 new NIdentifier("param", new NNumType())}),
             new typeList({new NNilType()})
         );
-        auto entry = new SymbolTableEntry(
-            "printf",
-            type,
-            Position(0, 0));
+        auto entry = new SymbolTableEntry( "printf", type, Position(0, 0));
         symtab_storage->symtab->declare(entry);
         type->varargs = true;
     }

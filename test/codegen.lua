@@ -21,6 +21,69 @@ assert(a == -5.32, "a should be -5.32")
 assert(b == 4, "b should be 4")
 assert(c == 10, "c should be 10")
 assert(d > 1.679 and d < 1.681, "d should be 1.68")
+-- first_message = "Hello, world!"
+-- printf("%s\n", first_message)
+--
+-- function assert(condition: bool, message: str)
+--     if not condition then
+--         printf("!!!!!! Assertion failed: %s\n", message)
+--     end
+-- end
+--
+-- a = 1
+-- assert(a == 5, "a should be 1")
+-- assert(a == 2, "This should fail, since a is not 2, but 1")
+
+-- struct Point
+--     x: num
+--     y: num
+--
+--     new(x: num, y: num)
+--         self.x = x
+--         self.y = y
+--     end
+--
+--     function dist(p: Point) -> num
+--         return ((p.x - self.x) ^ 2 + (p.y - self.y) ^ 2) ^ 0.5
+--     end
+-- end
+-- p1 = Point(5, 5)
+-- p2 = Point(10, 10)
+-- printf("Euclidian: %f\n", p1.dist(p2))
+
+
+c = 5
+d = d * 2
+
+function max(a: num, b: num) -> num
+    if a > b then
+        return a
+    else
+        return b
+    end
+end
+
+max(c, d)
+
+-- function manhattan(p1: Point, p2: Point) -> num
+--     return max(p1.x - p2.x, p2.x - p1.x) + max(p1.y - p2.y, p2.y - p1.y)
+-- end
+
+-- printf("Manhattan: %f\n", manhattan(p1, p2))
+-- 
+-- 
+-- -- -- Check variable declaration
+-- printf("\n\n------------------VARIABLE DECLARATION------------------\n")
+-- b = 16^0.5
+-- a = -5.32
+-- c = 10
+-- e = "1323"
+-- d = (a - 3) + c
+-- printf("Example of printing values of a,b,c,d,e: %.2f, %.2f, %.2f, %f, '%s'\n", a, b, c, d, e)
+-- assert(a == -5.32, "a should be -5.32")
+-- assert(b == 4, "b should be 4")
+-- assert(c == 10, "c should be 10")
+-- assert(d > 1.679 and d < 1.681, "d should be 1.68")
 
 
 -- Check a while block
