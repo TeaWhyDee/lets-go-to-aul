@@ -24,8 +24,6 @@
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Verifier.h"
 
-// #include <llvm/IR/Value.h>
-
 class CodeGenContext;
 class NStatement;
 class NExpression;
@@ -330,7 +328,6 @@ class Node {
    public:
     virtual ~Node() {}
     virtual void visit(Visitor* v) = 0;
-    // virtual llvm::Value *codegen() = 0;
 };
 
 class NStatement : public Node {
@@ -364,10 +361,6 @@ class NBlock : public Node {
     NBlock(StatementList statements) : statements(statements), returnExpr(nullptr) {}
 
     virtual void visit(Visitor* v) { v->visitNBlock(this); }
-
-    // virtual llvm::Value *codegen() {
-    //     return nullptr;
-    // }
 };
 
 class NIdentifier : public NExpression {
@@ -1629,9 +1622,6 @@ class TypeChecker : public SymtabVisitor {
         node->visit(this->prettyPrinter);
         if (node->expr == nullptr) {
             throw SemanticError("Expression is not defined", node->position);
-            // std::cout << "TypeError: expression is not defined";
-            // std::cout << ")" << std::endl;
-            // return;
         }
 
         node->expr->visit(this);
@@ -2710,14 +2700,6 @@ class CodeGenVisitor : public SymtabVisitor {
         return not is_function and not is_struct and this->load_required_flag;
     }
 
-    // virtual void visitNIdentifier(NIdentifier* node) {
-    //     auto entry = symtab_storage->symtab->lookup_or_throw(node->name, node->position.lineno + 1);
-    //     node->llvm_value = entry->value;
-    //     if (this->load_required(entry)) {
-    //         node->llvm_value = this->builder->CreateLoad(static_cast<AllocaInst *>(entry->value)->getAllocatedType(), entry->value, "ident");
-    //     }
-    // }
-
     virtual void visitNIdentifier(NIdentifier* node) {
         auto func = this->builder->GetInsertBlock()->getParent();
         auto entry = symtab_storage->symtab->lookup_or_throw(node->name, node->position.lineno + 1);
@@ -2736,14 +2718,7 @@ class CodeGenVisitor : public SymtabVisitor {
         }
         node->llvm_value = entry->value;
         if (this->load_required(entry)) {
-            // if (builder->GetInsertBlock() == block_main){
-                node->llvm_value = this->builder->CreateLoad(
-                    entry->type->llvm_value, entry->value, "load");
-            // }
-            // else {
-            //     node->llvm_value = this->builder->CreateLoad(
-            //         static_cast<AllocaInst *>(entry->value)->getAllocatedType(), entry->value, "load");
-            // }
+            node->llvm_value = this->builder->CreateLoad( entry->type->llvm_value, entry->value, "load");
         } else {
             node->llvm_value = entry->value;
         }
@@ -3061,19 +3036,6 @@ class CodeGenVisitor : public SymtabVisitor {
         node->block->visit(this);
         symtab_storage->symtab->exit_scope();
     }
-
-    // virtual void visitNDeclarationStatement(NDeclarationStatement* node) {
-    //     node->expression->visit(this);
-    //     if (node->expression->llvm_value == nullptr) {
-    //         throw SemanticError("Expression value is null", node->position);
-    //     }
-    //     auto entry = symtab_storage->symtab->lookup_or_throw(node->ident->name, node->position.lineno + 1);
-    //     if (entry->value == nullptr) {
-    //         AllocaInst *alloca = this->builder->CreateAlloca(node->expression->llvm_value->getType(), 0, node->ident->name);
-    //         entry->value = alloca;
-    //     }
-    //     node->llvm_value = this->builder->CreateStore(node->expression->llvm_value, entry->value, "crt_store");
-    // }
 
     virtual void visitNDeclarationStatement(NDeclarationStatement* node) {
         auto assignment = new NAssignmentStatement(node->ident, node->ident->type, node->expression, node->position);

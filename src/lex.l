@@ -143,7 +143,6 @@ std::string errortext = std::string();
 const        {return KW_CONST ;}
 new          {return KW_NEW ;}
 self         {return KW_SELF ;}
-static       {return KW_STATIC ;}
 struct       {return KW_STRUCT ;}
 num          {return KW_NUM ;}
 str          {return KW_STR ;}

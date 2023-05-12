@@ -16,19 +16,12 @@
             errortext = "";
         }
 
-        /* TODO: print column? */
         std::cout << "Error on line " << yylineno << ": "<< linebuf <<\
                 "\n\t '" << yytext << "': " << print << "\n\n";
     }
-
-    /* void yyerror (YYLTYPE *locp, char const *s) { */
-    /*     printf("YYERROR: %s\n", s); */
-    /* } */
 %}
 
 
-/* %define parse.error verbose */
-/* %define parse.trace */
 %define locations
 %printer { fprintf (yyo, "%s ", yylval.string->c_str()); } <token>
 
@@ -71,7 +64,7 @@
 %token <token> OP_LBRACE OP_RBRACE OP_LCURLY_BRACE OP_LSQUARE_BRACE
 %token <token> OP_RSQUARE_BRACE OP_RCURLY_BRACE
 %token <token> OP_SEMICOLON OP_COLON OP_COMMA OP_DOTDOT OP_DOT
-%token <token> KW_CONST KW_SELF KW_STATIC KW_STRUCT KW_NUM KW_NEW
+%token <token> KW_CONST KW_SELF KW_STRUCT KW_NUM KW_NEW
 %token <token> KW_STR KW_BOOL KW_TABLE KW_NIL
 %token <token> KW_AND KW_BREAK KW_DO KW_ELSE KW_ELSEIF KW_END
 %token <token> KW_FALSE KW_FOR KW_FUNCTION KW_IF KW_IN KW_LOCAL
@@ -198,11 +191,9 @@ expr : term
 
 access_member : access_member OP_LSQUARE_BRACE expr OP_RSQUARE_BRACE { $$ = new NAccessKey($1, $3, Position(@1.first_line, @1.first_column)); }
               | access_member OP_DOT ident { $$ = new NAccessKey($1, $3, Position(@1.first_line, @1.first_column)); }
-              /* | access_member OP_DOT function_call { $$ = new NExpressionCall($1, $3, Position(@1.first_line, @1.first_column)); } */
               | access_member OP_LBRACE OP_RBRACE {$$ = new NExpressionCall($1, std::vector<NExpression *>(), Position(@1.first_line, @1.first_column));}
               | access_member OP_LBRACE expr_list OP_RBRACE {$$ = new NExpressionCall($1, *$3, Position(@1.first_line, @1.first_column));}
               | KW_SELF { std::string* str = new std::string("self");
-            //   hotfix for position, should be fixed later
                             $$ = new NIdentifier(str, Position(@access_member.first_line, @access_member.first_column)); }
               | ident
               | function_call
