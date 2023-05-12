@@ -75,6 +75,21 @@ end
 printf("A after = %.3f\n", a)
 assert(a == 32, "a should be 32")
 
+
+-- check while with break
+printf("\n\n------------------WHILE WITH BREAK------------------\n")
+a = 10
+while a > 0 do
+  a = a - 1.5
+  printf("A = %.3f\n", a)
+  if a < 5 then
+    break
+  end
+end
+printf("A after = %.3f\n", a)
+assert(a == 4, "a should be 4")
+
+
 -- --check for fibonacci
 printf("\n\n------------------FIBONACCI------------------\n")
 function fib(n: num) -> num
