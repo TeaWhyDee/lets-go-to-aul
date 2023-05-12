@@ -22,6 +22,9 @@ Aul is a modified subset of the Lua 5.4 programming language. It is a statically
 - Functions return one value, no packing or unpacking [#functions](#functions)
 - Strongly typed tables
 
+**Features left out due to lack of time**
+- Tables
+
 
 ## Typing
 We take existing Lua types and make them static and
@@ -41,17 +44,10 @@ introduce structs.
     Structs replace Lua's table based class implementation.
     Structs allow the user to create custom types.
 
-Variables of any type can be specified as constant using the `const` keyword,replacing Lua's `<const>` attribute.
-```lua
-const a = 2  -- type inferred as num
-a = 10       -- error
-```
-
 Types of variables can be specified explicitly or inferred from the context.
 ```lua
 a = 10          -- type inferred as num
 b = "str"       -- type inferred as str
-c = {1, 2}      -- type inferred as table[num]
 d: num = "str"  -- error, the type annotation does not match with the expression type
 e = a + b       -- error, cannot find `__add(a: num, b: str)`
 ```
@@ -114,17 +110,6 @@ struct S
 end
 ```
 
-Static methods and members can be defined using the `static` keyword.
-```lua
-...
-static static amount_instances = 0
-new()
-  self.var = 0
-  S.amount_instances += 1
-end
-...
-```
-
 ## Scopes
 Global variables were removed from the specification, all variables are now
 local to their scope. As a result of this decision, attempting to access an
@@ -164,10 +149,8 @@ struct Line
   _point_a: Point
   _point_b: Point
   _length: num
-  static lines_amount: num = 0 -- create a static variable
 
   new(point_a: Point, point_b: Point)
-    Line.lines_amount += 1 -- count anount of lines 
     self._point_a = pointA
     self._point_b = pointB
     self._length = math.sqrt((point_a.get_x()-point_b.get_x())^2 + (point_a.get_y()-point_b.get_y())^2)
@@ -179,5 +162,4 @@ struct Line
 end
 
 print(Line(Point.new(1, 1), Point(5, 5)).get_length()) -- prints 4 * sqrt(2)
-print(Line.lines_amount) -- prints 1
 ```
