@@ -3113,10 +3113,11 @@ class CodeGenVisitor : public SymtabVisitor {
         if (return_expr_llvm != nullptr && dynamic_cast<NReturnStatement*>(last_stmt_node) != nullptr) {
             this->builder->CreateRet(return_expr_llvm);
         } else {
-            if (node->returnExpr != nullptr && func->getName() == "main") {
-                this->builder->CreateRetVoid();
-            }
-            if (node->returnExpr == nullptr && func->getReturnType()->isVoidTy()) {
+            if (func->getName() == "main") {
+                if (node->returnExpr != nullptr) {
+                    this->builder->CreateRetVoid();
+                }
+            } else if (node->returnExpr == nullptr && func->getReturnType()->isVoidTy()) {
                 this->builder->CreateRetVoid();
             }
         }
