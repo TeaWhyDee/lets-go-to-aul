@@ -16,7 +16,7 @@ Aul is a modified subset of the Lua 5.4 programming language. It is a statically
 
 **Additions**
 - Types (type inference) [#typing](#typing)
-- Structs (struct, static, new, and self keywords) [#structs](#structs)
+- Structs (struct, new, and self keywords) [#structs](#structs)
 
 **Modifications**
 - Functions return one value, no packing or unpacking [#functions](#functions)
