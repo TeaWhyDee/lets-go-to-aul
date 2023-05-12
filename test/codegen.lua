@@ -102,3 +102,8 @@ end
 result = fib(5)
 printf("fib(5) = %.3f\n", result)
 assert(result == 5, "fib(5) should be 5")
+
+printf("fib(10) = %.3f\n", fib(10))
+printf("fib(10) - 30 = %.3f\n", fib(10) - 30))
+assert(fib(10) == 55, "fib(10) should be 55")
+assert(fib(10) - 30 == 25, "fib(10) - 30 should be 25")
