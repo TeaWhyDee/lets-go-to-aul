@@ -17,21 +17,12 @@ int main(int argc, char** argv) {
         new DeclaredBeforeUseCheckerVisitor(),
         new TypeChecker(pretty_print_visitor),
     };
-    try {
-        for (auto visitor : visitors) {
-            std::cout << "\n\n------------------" << visitor->name << "------------------" << std::endl;
-            programBlock->visit(visitor);
-            std::cout << std::endl;
-            visitor->cleanup();
-        }
-    } catch (SemanticError* e) {
-        std::cout << "Semantic error: " << e->what() << std::endl;
-        std::exit(1);
-    } catch (SemanticError e) {
-        std::cout << "Semantic error: " << e.what() << std::endl;
-        std::exit(1);
+    for (auto visitor : visitors) {
+        std::cout << "\n\n------------------" << visitor->name << "------------------" << std::endl;
+        programBlock->visit(visitor);
+        std::cout << std::endl;
+        visitor->cleanup();
     }
-
 
     auto visitor = new CodeGenVisitor();
     programBlock->returnExpr = new NNil();

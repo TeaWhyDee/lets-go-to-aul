@@ -5,7 +5,7 @@ file ?= ../test/codegen.lua
 all: clean lex.cpp bison parser compile-and-run
 
 clean:
-	$(RM) -rf lex.cpp bison parser.cpp parser.hpp lex.hpp parser
+	$(RM) -rf lex.cpp bison parser.cpp parser.hpp lex.hpp parser a.out
 
 lex.cpp: lex.l
 	flex -o $@ lex.l
