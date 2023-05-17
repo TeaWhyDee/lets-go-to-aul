@@ -94,6 +94,7 @@ typedef enum {
     NOT_EQUAL = 12,
     AND = 13,
     OR = 14,
+    CONCAT = 15,
 } BinOpType;
 
 typedef enum {
@@ -903,6 +904,9 @@ class PrettyPrintVisitor : public Visitor {
             case BinOpType::FLOOR_DIVIDE:
                 std::cout << "//";
                 break;
+            case BinOpType::CONCAT:
+                std::cout << "..";
+                break;
             default:
                 std::cout << "unknown";
                 break;
@@ -1468,7 +1472,7 @@ class TypeChecker : public SymtabVisitor {
                                                       BinOpType::GREATER_THAN, BinOpType::GREATER_THAN_OR_EQUAL};
         // possible operators for string:
         // ==, ~=, <, <=, >, >=, +
-        auto str_allowed_ops = std::vector<BinOpType>{BinOpType::EQUAL,
+        auto str_allowed_ops = std::vector<BinOpType>{BinOpType::EQUAL, BinOpType::CONCAT,
                                                       BinOpType::NOT_EQUAL, BinOpType::LESS_THAN, BinOpType::LESS_THAN_OR_EQUAL,
                                                       BinOpType::GREATER_THAN, BinOpType::GREATER_THAN_OR_EQUAL, BinOpType::ADD};
         // possible operators for bool:
@@ -2775,6 +2779,19 @@ class CodeGenVisitor : public SymtabVisitor {
                 break;
             case BinOpType::EQUAL:
                 node->llvm_value = this->builder->CreateFCmpUEQ(node->lhs->llvm_value, node->rhs->llvm_value, "eq");
+                break;
+            case BinOpType::CONCAT:
+                node->llvm_value = this->builder->CreateFCmpUEQ(node->lhs->llvm_value, node->rhs->llvm_value);
+                // llvm::Value* str1 = concat_func->args().begin();
+                // llvm::Value* str2 = std::next(concat_func->args().begin());
+                //
+                // llvm::Value* len1 = builder.CreateCall(objectsize_func, {str1, builder.getInt1(false)});
+                // llvm::Value* len2 = builder.CreateCall(objectsize_func, {str2, builder.getInt1(false)});
+                // llvm::Value* len_total = builder.CreateAdd(len1, len2);
+                // llvm::Value* buf = builder.CreateCall(malloc_func, {len_total});
+                //
+                // llvm::Value* str1_copied = builder.CreateCall(memcpy_func, {buf, str1, len1, builder.getInt1(false)});
+                // llvm::Value* str2_copied = builder.CreateCall(memcpy_func, {str1_copied, str2, len2, builder.getInt1(false)});
                 break;
             case BinOpType::NOT_EQUAL:
                 node->llvm_value = this->builder->CreateFCmpUNE(node->lhs->llvm_value, node->rhs->llvm_value, "neq");
